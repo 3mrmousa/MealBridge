@@ -1,0 +1,120 @@
+@startuml MealBridge_ERD
+
+' Manual Color Theme to prevent rendering errors
+skinparam ArrowColor #2C3E50
+skinparam Class {
+  BackgroundColor #ECF0F1
+  BorderColor #2980B9
+  FontColor #2C3E50
+  HeaderBackgroundColor #3498DB
+  HeaderFontColor White
+}
+
+' Formatting options for ERD
+hide circle
+skinparam linetype ortho
+skinparam class {
+    BackgroundColor White
+    ArrowColor #2C3E50
+    BorderColor #2C3E50
+}
+
+' ==========================================
+' ENTITIES (Tables)
+' ==========================================
+
+entity "users (User)" as users {
+  *id : UUID <<PK>>
+  --
+  *name : String
+  *email : String <<UNIQUE>>
+  *password_hash : String
+  *phone : String <<UNIQUE>>
+  *role : Enum(Role)
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "donor_profiles (DonorProfile)" as donor_profiles {
+  *id : UUID <<PK>>
+  --
+  *userId : UUID <<FK, UNIQUE>>
+  *organization_name : String
+  *organization_type : String
+  *address : String
+  verification_status : Boolean
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "recipient_profiles (RecipientProfile)" as recipient_profiles {
+  *id : UUID <<PK>>
+  --
+  *userId : UUID <<FK, UNIQUE>>
+  *organization_name : String
+  *organization_type : String
+  *address : String
+  verification_status : Boolean
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "volunteer_profiles (VolunteerProfile)" as volunteer_profiles {
+  *id : UUID <<PK>>
+  --
+  *userId : UUID <<FK, UNIQUE>>
+  *address : String
+  availability_status : Boolean
+  verification_status : Boolean
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "donations (Donation)" as donations {
+  *id : UUID <<PK>>
+  --
+  *donorId : UUID <<FK>>
+  *title : String
+  *description : String
+  *foodType : String
+  *totalQuantity : Int
+  *unit : String
+  *address : String
+  *availableFrom : DateTime
+  *availableUntil : DateTime
+  isFullyClaimed : Boolean
+  status : Enum(DonationStatus)
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+entity "donation_claims (DonationClaim)" as donation_claims {
+  *id : UUID <<PK>>
+  --
+  *donationId : UUID <<FK>>
+  *recipientId : UUID <<FK>>
+  *quantityIntended : Int
+  status : Enum(ClaimStatus)
+  createdAt : DateTime
+  updatedAt : DateTime
+}
+
+' ==========================================
+' RELATIONSHIPS
+' ==========================================
+
+' A User has exactly one specific profile type
+users ||--o| donor_profiles : "1 to 1"
+users ||--o| recipient_profiles : "1 to 1"
+users ||--o| volunteer_profiles : "1 to 1"
+
+' A Donor can create many donations
+donor_profiles ||--o{ donations : "1 to Many"
+
+' A Donation can have multiple claims (e.g., partial claims)
+donations ||--o{ donation_claims : "1 to Many"
+
+' A Recipient can claim multiple donations
+recipient_profiles ||--o{ donation_claims : "1 to Many"
+
+@enduml

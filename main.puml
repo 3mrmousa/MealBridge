@@ -1,0 +1,75 @@
+@startuml MealBridge
+
+skinparam ArrowColor #2C3E50
+skinparam Actor {
+  BackgroundColor #3498DB
+  BorderColor #2980B9
+  FontColor #2C3E50
+}
+skinparam Usecase {
+  BackgroundColor #ECF0F1
+  BorderColor #BDC3C7
+  FontColor #2C3E50
+}
+skinparam Rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #7F8C8D
+  FontColor #2C3E50
+}
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor Donor as D
+actor Recipient as R
+actor Volunteer as V
+actor Admin as A
+
+rectangle "MealBridge System" {
+    ' Exclusive User Actions
+    usecase "Manage Donations" as UC_Donations
+    usecase "Request Food" as UC_Request
+    usecase "Manage Delivery" as UC_Delivery
+    
+    ' Shared User Actions
+    usecase "Manage Profile" as UC_Profile
+    usecase "Get Notifications" as UC_Notify
+    usecase "Report Issues" as UC_IssueReports
+    usecase "Chat" as UC_Chat
+
+    ' Admin Exclusive Actions
+    usecase "View Activity Logs" as UC_Logs
+    usecase "View System Reports" as UC_SystemReports
+    usecase "Manage Users" as UC_Users
+    usecase "Manage System Settings" as UC_Settings
+}
+
+' Donor
+D --> UC_Donations
+D --> UC_Profile
+D --> UC_Notify
+D --> UC_IssueReports
+D --> UC_Chat
+
+' Recipient
+R --> UC_Request
+R --> UC_Profile
+R --> UC_Notify
+R --> UC_IssueReports
+R --> UC_Chat
+
+' Volunteer
+V --> UC_Delivery
+V --> UC_Profile
+V --> UC_Notify
+V --> UC_IssueReports
+V --> UC_Chat
+
+' Admin Relationships
+UC_Chat <-- A : (Read-Only)
+UC_Logs <-- A
+UC_SystemReports <-- A
+UC_Users <-- A
+UC_Settings <-- A
+
+@enduml

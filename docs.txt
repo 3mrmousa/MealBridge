@@ -1,0 +1,55 @@
+MealBridge: Project Requirements Document
+1. Project Overview
+Idea:
+The primary role of MealBridge is to manage and reduce the food waste that occurs in restaurants and hotels. The platform achieves this by seamlessly connecting food donors with verified recipients and volunteer drivers to ensure surplus food reaches those in need.
+2. Functional Requirements
+Create Donations: Donors must be able to list available surplus food, including details such as food type, total quantity, and pickup times.
+Request Food: Recipients must be able to view available donations and submit claims for either the full amount or partial quantities of a donation.
+Deliver Donations: The system must allow volunteer drivers to view pending delivery requests, accept delivery tasks, and update the status of the delivery in real-time.
+Chat System: Users (Donors, Recipients, and Volunteers) must be able to communicate with each other directly regarding specific donation logistics.
+Notifications: The system must send automated alerts to users for events such as new nearby donations, accepted claims, or delivery status updates.
+3. Non-Functional Requirements
+Performance & Speed
+Response Time: Standard API requests must be processed in under 500 milliseconds to ensure a smooth user experience.
+Real-time Latency: The chat and notification systems (powered by WebSockets) must deliver messages with less than 1 second of latency.
+Security & Privacy
+Data Encryption: Sensitive user data, such as passwords, must be securely hashed and encrypted before being stored in the database.
+Authorization: The system must enforce Role-Based Access Control (RBAC) to ensure users can only perform actions permitted by their specific role (Donor, Recipient, Volunteer, Admin).
+Data Privacy: Personal contact information and exact locations must remain private until a donation claim or delivery is officially accepted.
+Scalability
+High Concurrency: The application architecture must be capable of handling sudden spikes in traffic and concurrent active users without crashing.
+Database Optimization: Database tables must be properly indexed to ensure search queries (e.g., finding nearby donations) remain fast as the platform grows.
+Usability & Accessibility
+Mobile-First Design: The user interface must be fully responsive and optimized for mobile devices, as volunteers and restaurant staff will primarily use phones.
+Intuitive UI: The donation creation workflow must be highly streamlined, taking less than 3 steps to complete, ensuring busy restaurant staff can use it frictionlessly.
+Reliability & Availability
+Error Handling: The system must gracefully handle transaction errors (e.g., simultaneous claims on the same donation) by cleanly resolving conflicts and alerting the user, rather than causing a system failure.
+4. Users and Roles
+Admin
+Can view all users of any role.
+Can put any account under review or block/delete them. Banned emails and phone numbers are saved to prevent re-registration.
+Can view all website activity (donations, requests, system logs).
+Can access and read chats between users (read-only; cannot send or edit messages) to resolve disputes.
+Can update global site settings.
+Can view all system reports and analytics.
+Donor
+Can create, edit, or delete a donation only if no volunteer or recipient has entered the process yet.
+Emergency Cancel: Can cancel an active donation if food spoils, which automatically alerts the Admin and connected users.
+Can view the status of all their donations.
+Can chat with the connected recipient or volunteer (once a request is issued).
+Can edit their own profile information.
+Can report issues (regarding a recipient, volunteer, or system error) directly to the Admin.
+Recipient
+Can request an existing donation.
+Can edit or cancel a request only if no volunteer has accepted it and it is not currently being processed.
+Can view the status of all their requests.
+Can chat with the connected donor or volunteer (once they issue a request).
+Can edit their own profile information.
+Can report issues (regarding a donor, volunteer, or system error) directly to the Admin.
+Volunteer
+Can update their working status (Available, In Progress, or Not Available).
+Can view delivery requests issued by recipients and choose to accept or deny them.
+When accepting a request, two new chats are created in their inbox: one with the Donor (for pickup) and one with the Recipient (for drop-off).
+Can edit their own profile information.
+Can report issues (e.g., Donor no-show, Recipient unavailable, or system error) directly to the Admin.
+Can only have one process at time

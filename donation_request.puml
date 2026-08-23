@@ -1,0 +1,51 @@
+@startuml Donation_Request
+
+skinparam ArrowColor #2C3E50
+skinparam Actor {
+  BackgroundColor #3498DB
+  BorderColor #2980B9
+  FontColor #2C3E50
+}
+skinparam Usecase {
+  BackgroundColor #ECF0F1
+  BorderColor #BDC3C7
+  FontColor #2C3E50
+}
+skinparam Rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #7F8C8D
+  FontColor #2C3E50
+}
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor Donor as D
+actor Recipient as R
+
+
+rectangle "Donation & Request" {
+    usecase "Create Donations" as UC_CreateDonations
+    usecase "Edit Donations" as UC_EditDonations
+    usecase "Cancel Donations" as UC_CancelDonations
+    usecase "View Donation Status" as UC_ViewDonationStatus
+
+    usecase "Request Food" as UC_Request
+    usecase "Manage Request" as UC_ManageRequest
+    usecase "Cancel Request" as UC_CancelRequest
+    usecase "View Request Status" as UC_ViewRequestStatus
+}
+
+' Donor
+D --> UC_CreateDonations
+D --> UC_EditDonations
+D --> UC_CancelDonations
+D --> UC_ViewDonationStatus
+
+' Recipient
+R --> UC_Request
+R --> UC_ManageRequest
+R --> UC_CancelRequest
+R --> UC_ViewRequestStatus
+
+@enduml

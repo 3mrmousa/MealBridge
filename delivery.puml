@@ -1,0 +1,41 @@
+@startuml Delivery
+
+skinparam ArrowColor #2C3E50
+skinparam Actor {
+  BackgroundColor #3498DB
+  BorderColor #2980B9
+  FontColor #2C3E50
+}
+skinparam Usecase {
+  BackgroundColor #ECF0F1
+  BorderColor #BDC3C7
+  FontColor #2C3E50
+}
+skinparam Rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #7F8C8D
+  FontColor #2C3E50
+}
+
+left to right direction
+skinparam packageStyle rectangle
+
+actor Volunteer as V
+
+
+rectangle "Delivery" {
+    usecase "View Delivery Requests" as UC_ViewRequests
+    usecase "Accept Delivery" as UC_AcceptDelivery
+    usecase "Deny Delivery" as UC_DenyDelivery
+    usecase "Update Delivery Status" as UC_UpdateStatus
+    usecase "Manage Availability" as UC_ManageAvailability
+}
+
+' Volunteer Relationships
+V --> UC_ViewRequests : (Issued by Recipient)
+V --> UC_AcceptDelivery
+V --> UC_DenyDelivery
+V --> UC_UpdateStatus
+V --> UC_ManageAvailability
+
+@enduml

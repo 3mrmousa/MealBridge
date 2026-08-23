@@ -1,0 +1,56 @@
+enum DonationStatus {
+    AVAILABLE
+    COMPLETED
+    CANCELLED
+}
+
+enum ClaimStatus {
+    RESERVED
+    PICKEDUP
+    COMPLETED
+    CANCELLED
+}
+
+model Donation {
+    id      String @id @default(uuid()) @db.Uuid
+    donorId String @db.Uuid
+
+    title         String
+    description   String
+    foodType      String
+    totalQuantity Int
+    unit          String
+
+    address        String
+    availableFrom  DateTime
+    availableUntil DateTime
+
+    isFullyClaimed Boolean        @default(false)
+    status         DonationStatus @default(AVAILABLE)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    donor DonorProfile @relation("DonorDonations", fields: [donorId], references: [id], onDelete: Cascade)
+
+    claims DonationClaim[]
+
+    @@map("donations")
+}
+
+model DonationClaim {
+    id          String @id @default(uuid()) @db.Uuid
+    donationId  String @db.Uuid
+    recipientId String @db.Uuid
+
+    quantityIntended Int
+    status           ClaimStatus @default(RESERVED)
+
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    donation  Donation         @relation(fields: [donationId], references: [id], onDelete: Cascade)
+    recipient RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id], onDelete: Cascade)
+
+    @@map("donation_claims")
+}

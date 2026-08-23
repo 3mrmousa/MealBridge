@@ -1,0 +1,69 @@
+enum Role {
+  DONOR
+  RECIPIENT
+  VOLUNTEER
+  ADMIN
+}
+
+model User {
+  id            String   @id @default(uuid()) @db.Uuid
+  name          String
+  email         String   @unique
+  password_hash String
+  phone         String   @unique
+  role          Role
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  donorProfile     DonorProfile?
+  recipientProfile RecipientProfile?
+  volunteerProfile VolunteerProfile?
+
+  @@map("users")
+}
+
+model DonorProfile {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @db.Uuid
+  organization_name   String
+  organization_type   String
+  address             String
+  verification_status Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  donations Donation[] @relation("DonorDonations")
+
+  @@map("donor_profiles")
+}
+
+model RecipientProfile {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @db.Uuid
+  organization_name   String
+  organization_type   String
+  address             String
+  verification_status Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  claims DonationClaim[] @relation("RecipientClaims")
+
+  @@map("recipient_profiles")
+}
+
+model VolunteerProfile {
+  id                  String   @id @default(uuid()) @db.Uuid
+  userId              String   @unique @db.Uuid
+  address             String
+  availability_status Boolean  @default(false)
+  verification_status Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("volunteer_profiles")
+}
