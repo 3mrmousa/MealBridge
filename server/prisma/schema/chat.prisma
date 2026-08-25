@@ -1,0 +1,41 @@
+model Conversation {
+    id               String           @id @default(uuid()) @map("id") @db.Uuid
+    donationClaimId  String           @unique @map("donation_claim_id") @db.Uuid
+    conversationType ConversationType @map("conversation_type")
+    createdAt        DateTime         @default(now()) @map("created_at")
+    updatedAt        DateTime         @updatedAt @map("updated_at")
+
+    donationClaim DonationClaim             @relation("DonationClaimConversations", fields: [donationClaimId], references: [id])
+    participants  ConversationParticipant[] @relation("ConversationParticipants")
+    messages      Message[]                 @relation("ConversationMessages")
+
+    @@map("conversation")
+}
+
+model ConversationParticipant {
+    conversationId String @map("conversation_id") @db.Uuid
+    userId         String @map("user_id") @db.Uuid
+
+    joinedAt   DateTime  @default(now()) @map("joined_at")
+    lastReadAt DateTime? @map("last_read_at")
+
+    conversation Conversation @relation("ConversationParticipants", fields: [conversationId], references: [id], onDelete: Cascade)
+    user         User         @relation("ConversationAsParticipants", fields: [userId], references: [id], onDelete: Cascade)
+
+    @@id([conversationId, userId])
+    @@map("conversation_participant")
+}
+
+model Message {
+    id        String   @id @default(uuid()) @map("id") @db.Uuid
+    conversationId String   @map("conversation_id") @db.Uuid
+    senderId   String   @map("sender_id") @db.Uuid
+    content   String   @map("content")
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
+
+    conversation Conversation @relation("ConversationMessages", fields: [conversationId], references: [id], onDelete: Cascade)
+    sender         User         @relation("ConversationAsSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+    @@map("message")
+}

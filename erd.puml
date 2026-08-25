@@ -1,120 +1,497 @@
 @startuml MealBridge_ERD
 
-' Manual Color Theme to prevent rendering errors
-skinparam ArrowColor #2C3E50
-skinparam Class {
-  BackgroundColor #ECF0F1
-  BorderColor #2980B9
-  FontColor #2C3E50
-  HeaderBackgroundColor #3498DB
-  HeaderFontColor White
-}
+hide methods
+hide stereotypes
 
-' Formatting options for ERD
-hide circle
+skinparam BackgroundColor #0d1117
+skinparam DefaultFontColor #c9d1d9
+skinparam ArrowColor #8b949e
 skinparam linetype ortho
+
 skinparam class {
-    BackgroundColor White
-    ArrowColor #2C3E50
-    BorderColor #2C3E50
+    BackgroundColor #161b22
+    BorderColor #30363d
+    FontColor #c9d1d9
+    HeaderBackgroundColor #21262d
 }
 
-' ==========================================
-' ENTITIES (Tables)
-' ==========================================
-
-entity "users (User)" as users {
-  *id : UUID <<PK>>
-  --
-  *name : String
-  *email : String <<UNIQUE>>
-  *password_hash : String
-  *phone : String <<UNIQUE>>
-  *role : Enum(Role)
-  createdAt : DateTime
-  updatedAt : DateTime
+skinparam entity {
+    BackgroundColor #161b22
+    BorderColor #30363d
+    FontColor #c9d1d9
 }
 
-entity "donor_profiles (DonorProfile)" as donor_profiles {
-  *id : UUID <<PK>>
-  --
-  *userId : UUID <<FK, UNIQUE>>
-  *organization_name : String
-  *organization_type : String
-  *address : String
-  verification_status : Boolean
-  createdAt : DateTime
-  updatedAt : DateTime
+skinparam enum {
+    BackgroundColor #161b22
+    BorderColor #30363d
+    FontColor #c9d1d9
 }
 
-entity "recipient_profiles (RecipientProfile)" as recipient_profiles {
-  *id : UUID <<PK>>
-  --
-  *userId : UUID <<FK, UNIQUE>>
-  *organization_name : String
-  *organization_type : String
-  *address : String
-  verification_status : Boolean
-  createdAt : DateTime
-  updatedAt : DateTime
+title MealBridge - Entity Relationship Diagram
+
+
+' =========================================================
+' ENUMS
+' =========================================================
+
+enum Role {
+    DONOR
+    RECIPIENT
+    VOLUNTEER
+    ADMIN
+    MANAGER
 }
 
-entity "volunteer_profiles (VolunteerProfile)" as volunteer_profiles {
-  *id : UUID <<PK>>
-  --
-  *userId : UUID <<FK, UNIQUE>>
-  *address : String
-  availability_status : Boolean
-  verification_status : Boolean
-  createdAt : DateTime
-  updatedAt : DateTime
+enum VolunteerType {
+    INDIVIDUAL
+    ORGANIZATION
 }
 
-entity "donations (Donation)" as donations {
-  *id : UUID <<PK>>
-  --
-  *donorId : UUID <<FK>>
-  *title : String
-  *description : String
-  *foodType : String
-  *totalQuantity : Int
-  *unit : String
-  *address : String
-  *availableFrom : DateTime
-  *availableUntil : DateTime
-  isFullyClaimed : Boolean
-  status : Enum(DonationStatus)
-  createdAt : DateTime
-  updatedAt : DateTime
+enum TransportType {
+    CAR
+    PUBLIC_TRANSPORT
+    VAN
+    BICYCLE
+    MOTORCYCLE
+    WALKING
+    OTHER
 }
 
-entity "donation_claims (DonationClaim)" as donation_claims {
-  *id : UUID <<PK>>
-  --
-  *donationId : UUID <<FK>>
-  *recipientId : UUID <<FK>>
-  *quantityIntended : Int
-  status : Enum(ClaimStatus)
-  createdAt : DateTime
-  updatedAt : DateTime
+enum DonorOrganizationType {
+    RESTAURANT
+    CAFE
+    HOTEL
+    CATERING
+    GOVERNMENT
+    OTHER
 }
 
-' ==========================================
-' RELATIONSHIPS
-' ==========================================
+enum RecipientOrganizationType {
+    SHELTER
+    COMMUNITY_CENTER
+    CHARITY
+    GOVERNMENT
+    OTHER
+}
 
-' A User has exactly one specific profile type
-users ||--o| donor_profiles : "1 to 1"
-users ||--o| recipient_profiles : "1 to 1"
-users ||--o| volunteer_profiles : "1 to 1"
+enum DonationStatus {
+    AVAILABLE
+    RESERVED
+    COMPLETED
+    CANCELLED
+    EXPIRED
+}
 
-' A Donor can create many donations
-donor_profiles ||--o{ donations : "1 to Many"
 
-' A Donation can have multiple claims (e.g., partial claims)
-donations ||--o{ donation_claims : "1 to Many"
+enum DonationRequestStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
+}
 
-' A Recipient can claim multiple donations
-recipient_profiles ||--o{ donation_claims : "1 to Many"
+
+enum ClaimStatus {
+    ACTIVE
+    COMPLETED
+    CANCELLED
+}
+
+' Set on DonationClaim. Defaults to SELF; flips to VOLUNTEER only
+' while a volunteer is actively assigned via an ACCEPTED PickupRequest.
+enum PickupMethod {
+    SELF
+    VOLUNTEER
+}
+
+enum PickupRequestStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
+    COMPLETED
+    EXPIRED
+}
+
+enum ConversationType {
+    DONOR_RECIPIENT
+    RECIPIENT_VOLUNTEER
+}
+
+enum ReportStatus {
+    PENDING
+    REVIEWED
+    RESOLVED
+    REJECTED
+}
+
+
+' =========================================================
+' USERS
+' =========================================================
+
+entity User {
+    * id : UUID <<PK>>
+    --
+    name : String
+    email : String <<UNIQUE>>
+    isEmailVerified : Boolean default(false)
+    passwordHash : String
+    phone : String <<UNIQUE>>
+    role : Role
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' OPTIONAL ROLE PROFILES
+' =========================================================
+
+entity DonorProfile {
+    * id : UUID <<PK>>
+    --
+    userId : UUID <<FK, UNIQUE>>
+    profilePicture : String <<NULLABLE>>
+    organizationName : String <<NULLABLE>>
+    organizationType : DonorOrganizationType <<NULLABLE>>
+    address : String
+    verificationStatus : Boolean
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+entity RecipientProfile {
+    * id : UUID <<PK>>
+    --
+    userId : UUID <<FK, UNIQUE>>
+    profilePicture : String <<NULLABLE>>
+    organizationName : String <<NULLABLE>>
+    organizationType : RecipientOrganizationType <<NULLABLE>>
+    address : String
+    verificationStatus : Boolean
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+entity VolunteerProfile {
+    * id : UUID <<PK>>
+    --
+    userId : UUID <<FK, UNIQUE>>
+    profilePicture : String <<NULLABLE>>
+    address : String
+    type : VolunteerType
+    transportType : TransportType
+    availabilityStatus : Boolean
+    verificationStatus : Boolean
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' DONATION
+' availableFrom/availableUntil = the pickup window/opening hours
+' for this donation (independent of createdAt - when it was posted
+' isn't the same as when it can be picked up). expirationDate =
+' food-safety limit, used to compute DonationClaim.pickupDeadline.
+' =========================================================
+
+entity Donation {
+    * id : UUID <<PK>>
+    --
+    donorId : UUID <<FK>>
+    title : String
+    description : String
+    images : String[]
+    foodType : String
+    quantity : Int
+    unit : String
+    address : String
+    availableFrom : DateTime
+    availableUntil : DateTime
+    expirationDate : DateTime
+    status : DonationStatus
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' STAGE 1 - RECIPIENT REQUESTS A DONATION ("pick request")
+' =========================================================
+
+entity DonationRequest {
+    * id : UUID <<PK>>
+    --
+    donationId : UUID <<FK>>
+    recipientId : UUID <<FK>>
+    quantityRequested : Int
+    message : String <<NULLABLE>>
+    status : DonationRequestStatus
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' STAGE 2 - REQUEST GOT ACCEPTED -> CLAIM CREATED
+' Triggers: Conversation(type=DONOR_RECIPIENT)
+' pickupDeadline = createdAt + (donation.expirationDate - createdAt) / 3
+' Computed once at creation and stored for a background job to scan.
+' =========================================================
+
+entity DonationClaim {
+    * id : UUID <<PK>>
+    --
+    donationRequestId : UUID <<FK, UNIQUE>>
+    donationId : UUID <<FK>>
+    recipientId : UUID <<FK>>
+    quantityClaimed : Int
+    pickupDeadline : DateTime
+    pickupMethod : PickupMethod default(SELF)
+    status : ClaimStatus
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' STAGE 3 - RECIPIENT OPENS A PICKUP REQUEST (open to any volunteer)
+' recipientId is NEVER nullable - if this row exists, a recipient
+' created it (optionality of "no pickup request" is handled by the
+' row not existing, per DonationClaim ||--o| PickupRequest).
+' volunteerId starts NULL - any available VolunteerProfile may
+' accept it (sets volunteerId + status=ACCEPTED, pickupMethod->VOLUNTEER).
+' If that volunteer backs out, the SAME row reopens (volunteerId->NULL,
+' status->PENDING) rather than creating a new row.
+' Acceptance triggers: Conversation(type=RECIPIENT_VOLUNTEER)
+' =========================================================
+
+entity PickupRequest {
+    * id : UUID <<PK>>
+    --
+    donationClaimId : UUID <<FK, UNIQUE>>
+    recipientId : UUID <<FK>>
+    volunteerId : UUID <<FK, NULLABLE>>
+    pickupAddress : String
+    deliveryAddress : String
+    message : String <<NULLABLE>>
+    requestedAt : DateTime
+    acceptedAt : DateTime <<NULLABLE>>
+    completedAt : DateTime <<NULLABLE>>
+    status : PickupRequestStatus
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' CHAT
+' =========================================================
+
+entity Conversation {
+    * id : UUID <<PK>>
+    --
+    donationClaimId : UUID <<FK>>
+    conversationType : ConversationType
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+entity ConversationParticipant {
+    * conversationId : UUID <<PK, FK>>
+    * userId : UUID <<PK, FK>>
+    --
+    joinedAt : DateTime
+    lastReadAt : DateTime <<NULLABLE>>
+}
+
+entity Message {
+    * id : UUID <<PK>>
+    --
+    conversationId : UUID <<FK>>
+    senderId : UUID <<FK>>
+    content : String
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' NOTIFICATIONS
+' sourceReportId lets an admin notify the ORIGINAL REPORTER
+' (Report.reporterId) once a report has been reviewed.
+' =========================================================
+
+entity Notification {
+    * id : UUID <<PK>>
+    --
+    userId : UUID <<FK>>
+    sourceReportId : UUID <<FK, NULLABLE>>
+    title : String
+    message : String
+    isRead : Boolean
+    createdAt : DateTime
+}
+
+
+' =========================================================
+' REPORTS
+' Visible/actionable by ADMIN only. Admin can update status /
+' reviewedById / reviewedAt, but the report content itself
+' (title, description, reporterId, reportedUserId) is read-only.
+' =========================================================
+
+entity Report {
+    * id : UUID <<PK>>
+    --
+    reporterId : UUID <<FK>>
+    reportedUserId : UUID <<FK, NULLABLE>>
+    title : String
+    description : String
+    status : ReportStatus
+    reviewedById : UUID <<FK, NULLABLE>>
+    reviewedAt : DateTime <<NULLABLE>>
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' SITE SETTINGS
+' =========================================================
+
+entity SiteSetting {
+    * id : UUID <<PK>>
+    --
+    title : String <<NULLABLE>>
+    description : String <<NULLABLE>>
+    logoUrl : String <<NULLABLE>>
+    faviconUrl : String <<NULLABLE>>
+    contactEmail : String <<NULLABLE>>
+    contactPhone : String <<NULLABLE>>
+    address : String <<NULLABLE>>
+    updatedById : UUID <<FK, NULLABLE>>
+    updatedAt : DateTime
+}
+
+
+' =========================================================
+' USER -> PROFILE
+' =========================================================
+
+User ||--o| DonorProfile
+User ||--o| RecipientProfile
+User ||--o| VolunteerProfile
+
+
+' =========================================================
+' DONATION
+' =========================================================
+
+DonorProfile ||--o{ Donation
+
+
+' =========================================================
+' STAGE 1: DONATION REQUEST ("pick request")
+' =========================================================
+
+Donation ||--o{ DonationRequest
+
+RecipientProfile ||--o{ DonationRequest
+
+
+' =========================================================
+' STAGE 2: DONATION CLAIM (request accepted)
+' =========================================================
+
+DonationRequest ||--o| DonationClaim
+
+Donation ||--o{ DonationClaim
+
+RecipientProfile ||--o{ DonationClaim
+
+
+' =========================================================
+' STAGE 3: PICKUP REQUEST (volunteer delivery)
+' =========================================================
+
+DonationClaim ||--o| PickupRequest
+
+RecipientProfile ||--o{ PickupRequest
+
+VolunteerProfile ||--o{ PickupRequest
+
+
+' =========================================================
+' CONVERSATIONS
+' Conversation always anchors to DonationClaim (never nullable).
+'   DONOR_RECIPIENT      - exactly one, created when the claim is made
+'   RECIPIENT_VOLUNTEER  - created each time a volunteer accepts;
+'                          a claim can end up with more than one over
+'                          time if the pickup request gets reopened
+'                          and a different volunteer later accepts
+' The recipient is the hub - donor and volunteer never chat directly.
+' =========================================================
+
+DonationClaim ||--o{ Conversation
+
+Conversation ||--o{ ConversationParticipant
+
+User ||--o{ ConversationParticipant
+
+Conversation ||--o{ Message
+
+User ||--o{ Message
+
+
+' =========================================================
+' NOTIFICATIONS
+' =========================================================
+
+User ||--o{ Notification : receives
+
+Report ||--o{ Notification : triggers (to reporter)
+
+
+' =========================================================
+' REPORTS
+' =========================================================
+
+User ||--o{ Report : creates
+
+User ||--o{ Report : reported
+
+User ||--o{ Report : reviews
+
+
+' =========================================================
+' SITE SETTINGS
+' =========================================================
+
+User ||--o{ SiteSetting : updates
+
+
+' =========================================================
+' VISUAL LAYOUT
+' =========================================================
+
+' Users
+DonorProfile -[hidden]right- RecipientProfile
+RecipientProfile -[hidden]right- VolunteerProfile
+
+' Donation workflow
+Donation -[hidden]down- DonationRequest
+DonationRequest -[hidden]down- DonationClaim
+DonationClaim -[hidden]down- PickupRequest
+
+' Chat
+Conversation -[hidden]right- ConversationParticipant
+ConversationParticipant -[hidden]right- Message
+
+' Admin
+Notification -[hidden]right- Report
+Report -[hidden]right- SiteSetting
 
 @enduml

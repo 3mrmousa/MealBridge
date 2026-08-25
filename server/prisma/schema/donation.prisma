@@ -1,56 +1,89 @@
-enum DonationStatus {
-    AVAILABLE
-    COMPLETED
-    CANCELLED
-}
-
-enum ClaimStatus {
-    RESERVED
-    PICKEDUP
-    COMPLETED
-    CANCELLED
-}
-
 model Donation {
-    id      String @id @default(uuid()) @db.Uuid
-    donorId String @db.Uuid
+    id      String @id @default(uuid()) @map("id") @db.Uuid
+    donorId String @map("donor_id") @db.Uuid
 
-    title         String
-    description   String
-    foodType      String
-    totalQuantity Int
-    unit          String
+    title       String   @map("title")
+    description String   @map("description")
+    images      String[] @map("images")
+    foodType    String   @map("food_type")
 
-    address        String
-    availableFrom  DateTime
-    availableUntil DateTime
+    quantity Int    @map("quantity")
+    unit     String @map("unit")
+    address  String @map("address")
 
-    isFullyClaimed Boolean        @default(false)
-    status         DonationStatus @default(AVAILABLE)
+    availableFrom  DateTime       @map("available_from")
+    availableUntil DateTime       @map("available_until")
+    expirationDate DateTime       @map("expiration_date")
+    status         DonationStatus @map("status")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
 
-    donor DonorProfile @relation("DonorDonations", fields: [donorId], references: [id], onDelete: Cascade)
+    donor            DonorProfile      @relation("DonorDonations", fields: [donorId], references: [id])
+    donationRequests DonationRequest[]
+    donationClaims   DonationClaim[]
 
-    claims DonationClaim[]
+    @@map("donation")
+}
 
-    @@map("donations")
+model DonationRequest {
+    id                String                @id @default(uuid()) @map("id") @db.Uuid
+    donationId        String                @map("donation_id") @db.Uuid
+    recipientId       String                @map("recipient_id") @db.Uuid
+    quantityRequested Int                   @map("quantity_requested")
+    message           String?               @map("message")
+    status            DonationRequestStatus @map("status")
+    createdAt         DateTime              @default(now()) @map("created_at")
+    updatedAt         DateTime              @updatedAt @map("updated_at")
+
+    donation      Donation         @relation(fields: [donationId], references: [id])
+    recipient     RecipientProfile @relation("RecipientRequests", fields: [recipientId], references: [id])
+    donationClaim DonationClaim?
+
+    @@map("donation_request")
 }
 
 model DonationClaim {
-    id          String @id @default(uuid()) @db.Uuid
-    donationId  String @db.Uuid
-    recipientId String @db.Uuid
+    id                String      @id @default(uuid()) @map("id") @db.Uuid
+    donationRequestId String      @unique @map("donation_request_id") @db.Uuid
+    donationId        String      @map("donation_id") @db.Uuid
+    recipientId       String      @map("recipient_id") @db.Uuid
+    quantityClaimed   Int         @map("quantity_claimed")
+    status            ClaimStatus @map("status")
 
-    quantityIntended Int
-    status           ClaimStatus @default(RESERVED)
+    pickupDeadline DateTime     @map("pickup_deadline")
+    pickupMethod   PickupMethod @default(SELF) @map("pickup_method")
 
-    createdAt DateTime @default(now())
-    updatedAt DateTime @updatedAt
+    createdAt DateTime @default(now()) @map("created_at")
+    updatedAt DateTime @updatedAt @map("updated_at")
 
-    donation  Donation         @relation(fields: [donationId], references: [id], onDelete: Cascade)
-    recipient RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id], onDelete: Cascade)
+    donationRequest DonationRequest  @relation(fields: [donationRequestId], references: [id])
+    donation        Donation         @relation(fields: [donationId], references: [id])
+    recipient       RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id])
+    pickupRequest   PickupRequest?
+    conversation    Conversation?    @relation("DonationClaimConversations")
 
-    @@map("donation_claims")
+    @@map("donation_claim")
+}
+
+model PickupRequest {
+    id              String              @id @default(uuid()) @map("id") @db.Uuid
+    donationClaimId String              @unique @map("donation_claim_id") @db.Uuid
+    recipientId     String              @map("recipient_id") @db.Uuid
+    volunteerId     String?             @map("volunteer_id") @db.Uuid
+    pickupAddress   String              @map("pickup_address")
+    deliveryAddress String?             @map("delivery_address")
+    message         String?             @map("message")
+    requestedAt     DateTime            @map("requested_at")
+    acceptedAt      DateTime?           @map("accepted_at")
+    completedAt     DateTime?           @map("completed_at")
+    status          PickupRequestStatus @map("status")
+    createdAt       DateTime            @default(now()) @map("created_at")
+    updatedAt       DateTime            @updatedAt @map("updated_at")
+
+    donationClaim DonationClaim     @relation(fields: [donationClaimId], references: [id])
+    recipient     RecipientProfile  @relation("RecipientPickups", fields: [recipientId], references: [id])
+    volunteer     VolunteerProfile? @relation("VolunteerPickup", fields: [volunteerId], references: [id])
+
+    @@map("pickup_request")
 }

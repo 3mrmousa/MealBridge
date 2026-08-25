@@ -1,36 +1,42 @@
-enum Role {
-  DONOR
-  RECIPIENT
-  VOLUNTEER
-  ADMIN
-}
-
 model User {
-  id            String   @id @default(uuid()) @db.Uuid
-  name          String
-  email         String   @unique
-  password_hash String
-  phone         String   @unique
-  role          Role
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id              String   @id @default(uuid()) @map("id") @db.Uuid
+  name            String   @map("name")
+  email           String   @unique @map("email")
+  isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  passwordHash    String   @map("password_hash")
+  phone           String   @unique @map("phone")
+  role            Role     @map("role")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
 
   donorProfile     DonorProfile?
   recipientProfile RecipientProfile?
   volunteerProfile VolunteerProfile?
 
+  siteSettings SiteSetting[] @relation("UpdatedSiteSetting")
+
+  notifications Notification[] @relation("UserNotifications")
+
+  conversationsAsParticipant ConversationParticipant[] @relation("ConversationAsParticipants")
+  conversationsAsSender      Message[]                 @relation("ConversationAsSender")
+
+  reporterReports Report[] @relation("ReporterReports")
+  reportedReports Report[] @relation("ReportedReports")
+  reviewedReports Report[] @relation("ReviewedReports")
+
   @@map("users")
 }
 
 model DonorProfile {
-  id                  String   @id @default(uuid()) @db.Uuid
-  userId              String   @unique @db.Uuid
-  organization_name   String
-  organization_type   String
-  address             String
-  verification_status Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String                 @id @default(uuid()) @map("id") @db.Uuid
+  userId             String                 @unique @map("user_id") @db.Uuid
+  profilePicture     String?                @map("profile_picture")
+  organizationName   String?                @map("organization_name")
+  organizationType   DonorOrganizationType? @map("organization_type")
+  address            String                 @map("address")
+  verificationStatus Boolean                @default(false) @map("verification_status")
+  createdAt          DateTime               @default(now()) @map("created_at")
+  updatedAt          DateTime               @updatedAt @map("updated_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   donations Donation[] @relation("DonorDonations")
@@ -39,31 +45,38 @@ model DonorProfile {
 }
 
 model RecipientProfile {
-  id                  String   @id @default(uuid()) @db.Uuid
-  userId              String   @unique @db.Uuid
-  organization_name   String
-  organization_type   String
-  address             String
-  verification_status Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String                     @id @default(uuid()) @map("id") @db.Uuid
+  userId             String                     @unique @map("user_id") @db.Uuid
+  profilePicture     String?                    @map("profile_picture")
+  organizationName   String?                    @map("organization_name")
+  organizationType   RecipientOrganizationType? @map("organization_type")
+  address            String                     @map("address")
+  verificationStatus Boolean                    @default(false) @map("verification_status")
+  createdAt          DateTime                   @default(now()) @map("created_at")
+  updatedAt          DateTime                   @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  claims DonationClaim[] @relation("RecipientClaims")
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requests DonationRequest[] @relation("RecipientRequests")
+  claims   DonationClaim[]   @relation("RecipientClaims")
+  pickups  PickupRequest[]   @relation("RecipientPickups")
 
   @@map("recipient_profiles")
 }
 
 model VolunteerProfile {
-  id                  String   @id @default(uuid()) @db.Uuid
-  userId              String   @unique @db.Uuid
-  address             String
-  availability_status Boolean  @default(false)
-  verification_status Boolean  @default(false)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String        @id @default(uuid()) @map("id") @db.Uuid
+  userId             String        @unique @map("user_id") @db.Uuid
+  profilePicture     String?       @map("profile_picture")
+  address            String        @map("address")
+  type               VolunteerType @map("type")
+  transportType      TransportType @map("transport_type")
+  availabilityStatus Boolean       @default(false) @map("availability_status")
+  verificationStatus Boolean       @default(false) @map("verification_status")
+  createdAt          DateTime      @default(now()) @map("created_at")
+  updatedAt          DateTime      @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  pickupRequests PickupRequest[] @relation("VolunteerPickup")
 
   @@map("volunteer_profiles")
 }

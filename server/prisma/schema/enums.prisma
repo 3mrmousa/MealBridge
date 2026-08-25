@@ -1,0 +1,118 @@
+// Users Enums
+
+enum Role {
+    DONOR
+    RECIPIENT
+    VOLUNTEER
+    ADMIN
+    MANAGER
+
+    @@map("role")
+}
+
+enum VolunteerType {
+    INDIVIDUAL
+    ORGANIZATION
+
+    @@map("volunteer_type")
+}
+
+enum TransportType {
+    CAR
+    PUBLIC_TRANSPORT
+    VAN
+    BICYCLE
+    MOTORCYCLE
+    WALKING
+    OTHER
+
+    @@map("transport_type")
+}
+
+enum DonorOrganizationType {
+    RESTAURANT
+    CAFE
+    HOTEL
+    CATERING
+    GOVERNMENT
+    OTHER
+
+    @@map("donor_organization_type")
+}
+
+enum RecipientOrganizationType {
+    SHELTER
+    COMMUNITY_CENTER
+    CHARITY
+    GOVERNMENT
+    OTHER
+
+    @@map("recipient_organization_type")
+}
+
+// Donation Enums
+
+enum DonationStatus {
+    AVAILABLE
+    RESERVED
+    COMPLETED
+    CANCELLED
+    EXPIRED
+
+    @@map("donation_status")
+}
+
+enum DonationRequestStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
+
+    @@map("donation_request_status")
+}
+
+enum ClaimStatus {
+    ACTIVE
+    COMPLETED
+    CANCELLED
+
+    @@map("claim_status")
+}
+
+// Pickup Enums
+
+enum PickupMethod {
+    SELF
+    VOLUNTEER
+
+    @@map("pickup_method")
+}
+
+enum PickupRequestStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
+    CANCELLED
+    COMPLETED
+    EXPIRED
+
+    @@map("pickup_request_status")
+}
+
+// Last added
+
+enum ConversationType {
+    DONOR_RECIPIENT
+    RECIPIENT_VOLUNTEER
+
+    @@map("conversation_type")
+}
+
+enum ReportStatus {
+    PENDING
+    REVIEWED
+    RESOLVED
+    REJECTED
+
+    @@map("report_status")
+}
