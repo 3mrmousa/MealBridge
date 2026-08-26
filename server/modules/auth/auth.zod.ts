@@ -23,7 +23,6 @@ export const registerValidateSchema = z.object({
   }),
 });
 
-// Login Schema
 export const loginSchema = z.object({
   body: z.object({
     email: z.email({ message: "Invalid email address" }),
@@ -31,7 +30,39 @@ export const loginSchema = z.object({
   }),
 });
 
-// Export inferred types
-export type RegisterRequestInput = z.infer<typeof registerRequestSchema>["body"];
-export type RegisterValidateInput = z.infer<typeof registerValidateSchema>["body"];
+export const passwordForgotRequestSchema = z.object({
+  body: z.object({
+    email: z.email({ message: "Invalid email address" }),
+  }),
+});
+
+export const passwordForgotValidateSchema = z.object({
+  body: z.object({
+    email: z.email({ message: "Invalid email address" }),
+    otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+  }),
+});
+
+export const passwordResetSchema = z.object({
+  body: z.object({
+    email: z.email({ message: "Invalid email address" }),
+    newPassword: z
+      .string()
+      .min(8, { message: "Password must be at least 8 characters" }),
+  }),
+});
+
+export type RegisterRequestInput = z.infer<
+  typeof registerRequestSchema
+>["body"];
+export type RegisterValidateInput = z.infer<
+  typeof registerValidateSchema
+>["body"];
 export type LoginInput = z.infer<typeof loginSchema>["body"];
+export type PasswordForgotRequestInput = z.infer<
+  typeof passwordForgotRequestSchema
+>["body"];
+export type PasswordForgotValidateInput = z.infer<
+  typeof passwordForgotValidateSchema
+>["body"];
+export type PasswordResetInput = z.infer<typeof passwordResetSchema>["body"];

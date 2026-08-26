@@ -8,3 +8,10 @@ export type OtpSessionDataRegisterRequest = {
     role: string;
   };
 }
+
+export type OtpSessionDataPasswordForgotRequest = {
+  hashedOtp: string;
+  user: {
+    email: string;
+  };
+}

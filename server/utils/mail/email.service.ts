@@ -60,3 +60,38 @@ export const sendRegisterRequestOtpMail = async (
     );
   }
 };
+
+export const sendForgotPasswordOtpMail = async (
+  email: string,
+  otp: string,
+) => {
+  const html = baseEmailLayout(
+    "Verify your email",
+    `
+      <p style="margin-top: 0;">Hello,</p>
+      <p>Thank you for registering with MealBridge. Please enter the following OTP to complete your registration:</p>
+      <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #a855f7;">
+          ${otp}
+        </span>
+      </div>
+      <p>This OTP will expire in <strong>10 minutes</strong>.</p>
+      <p style="margin-bottom: 0;">If you didn't request this, you can safely ignore this email.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "MealBridge - Forgot password",
+        html,
+    })
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send OTP email",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
