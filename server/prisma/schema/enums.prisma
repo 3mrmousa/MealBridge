@@ -1,118 +1,118 @@
 // Users Enums
 
 enum Role {
-    DONOR
-    RECIPIENT
-    VOLUNTEER
-    ADMIN
-    MANAGER
+  DONOR
+  RECIPIENT
+  VOLUNTEER
+  ADMIN
+  MANAGER
 
-    @@map("role")
+  @@map("role")
 }
 
 enum VolunteerType {
-    INDIVIDUAL
-    ORGANIZATION
+  INDIVIDUAL
+  ORGANIZATION
 
-    @@map("volunteer_type")
+  @@map("volunteer_type")
 }
 
 enum TransportType {
-    CAR
-    PUBLIC_TRANSPORT
-    VAN
-    BICYCLE
-    MOTORCYCLE
-    WALKING
-    OTHER
+  CAR
+  PUBLIC_TRANSPORT
+  VAN
+  BICYCLE
+  MOTORCYCLE
+  WALKING
+  OTHER
 
-    @@map("transport_type")
+  @@map("transport_type")
 }
 
 enum DonorOrganizationType {
-    RESTAURANT
-    CAFE
-    HOTEL
-    CATERING
-    GOVERNMENT
-    OTHER
+  RESTAURANT
+  CAFE
+  HOTEL
+  CATERING
+  GOVERNMENT
+  OTHER
 
-    @@map("donor_organization_type")
+  @@map("donor_organization_type")
 }
 
 enum RecipientOrganizationType {
-    SHELTER
-    COMMUNITY_CENTER
-    CHARITY
-    GOVERNMENT
-    OTHER
+  SHELTER
+  COMMUNITY_CENTER
+  CHARITY
+  GOVERNMENT
+  OTHER
 
-    @@map("recipient_organization_type")
+  @@map("recipient_organization_type")
 }
 
 // Donation Enums
 
 enum DonationStatus {
-    AVAILABLE
-    RESERVED
-    COMPLETED
-    CANCELLED
-    EXPIRED
+  AVAILABLE
+  RESERVED
+  COMPLETED
+  CANCELLED
+  EXPIRED
 
-    @@map("donation_status")
+  @@map("donation_status")
 }
 
 enum DonationRequestStatus {
-    PENDING
-    ACCEPTED
-    REJECTED
-    CANCELLED
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
 
-    @@map("donation_request_status")
+  @@map("donation_request_status")
 }
 
 enum ClaimStatus {
-    ACTIVE
-    COMPLETED
-    CANCELLED
+  ACTIVE
+  COMPLETED
+  CANCELLED
 
-    @@map("claim_status")
+  @@map("claim_status")
 }
 
 // Pickup Enums
 
 enum PickupMethod {
-    SELF
-    VOLUNTEER
+  SELF
+  VOLUNTEER
 
-    @@map("pickup_method")
+  @@map("pickup_method")
 }
 
 enum PickupRequestStatus {
-    PENDING
-    ACCEPTED
-    REJECTED
-    CANCELLED
-    COMPLETED
-    EXPIRED
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+  COMPLETED
+  EXPIRED
 
-    @@map("pickup_request_status")
+  @@map("pickup_request_status")
 }
 
 // Last added
 
 enum ConversationType {
-    DONOR_RECIPIENT
-    RECIPIENT_VOLUNTEER
+  DONOR_RECIPIENT
+  RECIPIENT_VOLUNTEER
 
-    @@map("conversation_type")
+  @@map("conversation_type")
 }
 
 enum ReportStatus {
-    PENDING
-    REVIEWED
-    RESOLVED
-    REJECTED
+  PENDING
+  REVIEWED
+  RESOLVED
+  REJECTED
 
-    @@map("report_status")
+  @@map("report_status")
 }

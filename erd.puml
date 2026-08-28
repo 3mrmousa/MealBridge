@@ -152,11 +152,11 @@ entity DonorProfile {
     * id : UUID <<PK>>
     --
     userId : UUID <<FK, UNIQUE>>
-    profilePicture : String <<NULLABLE>>
+    profilePicture : JSON <<NULLABLE>>
     organizationName : String <<NULLABLE>>
     organizationType : DonorOrganizationType <<NULLABLE>>
     address : String
-    verificationDocument : String <<NULLABLE>>
+    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime
@@ -166,11 +166,11 @@ entity RecipientProfile {
     * id : UUID <<PK>>
     --
     userId : UUID <<FK, UNIQUE>>
-    profilePicture : String <<NULLABLE>>
+    profilePicture : JSON <<NULLABLE>>
     organizationName : String <<NULLABLE>>
     organizationType : RecipientOrganizationType <<NULLABLE>>
     address : String
-    verificationDocument : String <<NULLABLE>>
+    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime
@@ -180,12 +180,12 @@ entity VolunteerProfile {
     * id : UUID <<PK>>
     --
     userId : UUID <<FK, UNIQUE>>
-    profilePicture : String <<NULLABLE>>
+    profilePicture : JSON <<NULLABLE>>
     address : String
     type : VolunteerType
     transportType : TransportType
     availabilityStatus : Boolean
-    verificationDocument : String <<NULLABLE>>
+    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime
@@ -498,3 +498,5 @@ Notification -[hidden]right- Report
 Report -[hidden]right- SiteSetting
 
 @enduml
+
+

@@ -28,16 +28,16 @@ model User {
 }
 
 model DonorProfile {
-  id                   String                 @id @default(uuid()) @map("id") @db.Uuid
-  userId               String                 @unique @map("user_id") @db.Uuid
-  profilePicture       String?                @map("profile_picture")
-  organizationName     String?                @map("organization_name")
-  organizationType     DonorOrganizationType? @map("organization_type")
-  address              String                 @map("address")
-  verificationDocument String?                @map("verification_document")
-  verificationStatus   Boolean                @default(false) @map("verification_status")
-  createdAt            DateTime               @default(now()) @map("created_at")
-  updatedAt            DateTime               @updatedAt @map("updated_at")
+  id                    String                 @id @default(uuid()) @map("id") @db.Uuid
+  userId                String                 @unique @map("user_id") @db.Uuid
+  profilePicture        Json?                  @map("profile_picture")
+  organizationName      String?                @map("organization_name")
+  organizationType      DonorOrganizationType? @map("organization_type")
+  address               String                 @map("address")
+  verificationDocuments Json[]                 @map("verification_documents")
+  verificationStatus    Boolean                @default(false) @map("verification_status")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
 
   user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   donations Donation[] @relation("DonorDonations")
@@ -46,16 +46,16 @@ model DonorProfile {
 }
 
 model RecipientProfile {
-  id                   String                     @id @default(uuid()) @map("id") @db.Uuid
-  userId               String                     @unique @map("user_id") @db.Uuid
-  profilePicture       String?                    @map("profile_picture")
-  organizationName     String?                    @map("organization_name")
-  organizationType     RecipientOrganizationType? @map("organization_type")
-  address              String                     @map("address")
-  verificationDocument String?                    @map("verification_document")
-  verificationStatus   Boolean                    @default(false) @map("verification_status")
-  createdAt            DateTime                   @default(now()) @map("created_at")
-  updatedAt            DateTime                   @updatedAt @map("updated_at")
+  id                    String                     @id @default(uuid()) @map("id") @db.Uuid
+  userId                String                     @unique @map("user_id") @db.Uuid
+  profilePicture        Json?                      @map("profile_picture")
+  organizationName      String?                    @map("organization_name")
+  organizationType      RecipientOrganizationType? @map("organization_type")
+  address               String                     @map("address")
+  verificationDocuments Json[]                     @map("verification_documents")
+  verificationStatus    Boolean                    @default(false) @map("verification_status")
+  createdAt             DateTime                   @default(now()) @map("created_at")
+  updatedAt             DateTime                   @updatedAt @map("updated_at")
 
   user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
   requests DonationRequest[] @relation("RecipientRequests")
@@ -66,17 +66,17 @@ model RecipientProfile {
 }
 
 model VolunteerProfile {
-  id                   String        @id @default(uuid()) @map("id") @db.Uuid
-  userId               String        @unique @map("user_id") @db.Uuid
-  profilePicture       String?       @map("profile_picture")
-  address              String        @map("address")
-  type                 VolunteerType @map("type")
-  transportType        TransportType @map("transport_type")
-  availabilityStatus   Boolean       @default(false) @map("availability_status")
-  verificationDocument String?       @map("verification_document")
-  verificationStatus   Boolean       @default(false) @map("verification_status")
-  createdAt            DateTime      @default(now()) @map("created_at")
-  updatedAt            DateTime      @updatedAt @map("updated_at")
+  id                    String        @id @default(uuid()) @map("id") @db.Uuid
+  userId                String        @unique @map("user_id") @db.Uuid
+  profilePicture        Json?         @map("profile_picture")
+  address               String        @map("address")
+  type                  VolunteerType @map("type")
+  transportType         TransportType @map("transport_type")
+  availabilityStatus    Boolean       @default(false) @map("availability_status")
+  verificationDocuments Json[]        @map("verification_documents")
+  verificationStatus    Boolean       @default(false) @map("verification_status")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  updatedAt             DateTime      @updatedAt @map("updated_at")
 
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   pickupRequests PickupRequest[] @relation("VolunteerPickup")

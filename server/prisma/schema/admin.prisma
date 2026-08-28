@@ -1,51 +1,51 @@
 model SiteSetting {
-    id           String   @id @default(uuid()) @map("id") @db.Uuid
-    title        String?  @map("title")
-    description  String?  @map("description")
-    logoUrl      String?  @map("logo_url")
-    faviconUrl   String?  @map("favicon_url")
-    contactEmail String?  @map("contact_email")
-    contactPhone String?  @map("contact_phone")
-    address      String?  @map("address")
-    updatedById  String   @map("updated_by") @db.Uuid
-    updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid()) @map("id") @db.Uuid
+  title        String?  @map("title")
+  description  String?  @map("description")
+  logoUrl      String?  @map("logo_url")
+  faviconUrl   String?  @map("favicon_url")
+  contactEmail String?  @map("contact_email")
+  contactPhone String?  @map("contact_phone")
+  address      String?  @map("address")
+  updatedById  String   @map("updated_by") @db.Uuid
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
-    updatedBy User @relation("UpdatedSiteSetting", fields: [updatedById], references: [id])
+  updatedBy User @relation("UpdatedSiteSetting", fields: [updatedById], references: [id])
 
-    @@map("site_setting")
+  @@map("site_setting")
 }
 
 model Report {
-    id             String       @id @default(uuid()) @map("id") @db.Uuid
-    reporterId     String       @map("reporter_id") @db.Uuid
-    reportedUserId String?      @map("reported_user_id") @db.Uuid
-    title          String       @map("title")
-    description    String       @map("description")
-    status         ReportStatus @default(PENDING) @map("status")
-    reviewedById   String?      @map("reviewed_by") @db.Uuid
-    reviewedAt     DateTime?    @map("reviewed_at")
-    createdAt      DateTime     @default(now()) @map("created_at")
-    updatedAt      DateTime     @updatedAt @map("updated_at")
+  id             String       @id @default(uuid()) @map("id") @db.Uuid
+  reporterId     String       @map("reporter_id") @db.Uuid
+  reportedUserId String?      @map("reported_user_id") @db.Uuid
+  title          String       @map("title")
+  description    String       @map("description")
+  status         ReportStatus @default(PENDING) @map("status")
+  reviewedById   String?      @map("reviewed_by") @db.Uuid
+  reviewedAt     DateTime?    @map("reviewed_at")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
 
-    reporter     User  @relation("ReporterReports", fields: [reporterId], references: [id])
-    reportedUser User? @relation("ReportedReports", fields: [reportedUserId], references: [id])
-    reviewedBy   User? @relation("ReviewedReports", fields: [reviewedById], references: [id])
+  reporter     User  @relation("ReporterReports", fields: [reporterId], references: [id])
+  reportedUser User? @relation("ReportedReports", fields: [reportedUserId], references: [id])
+  reviewedBy   User? @relation("ReviewedReports", fields: [reviewedById], references: [id])
 
-    notification Notification[] @relation("SourceReports")
+  notification Notification[] @relation("SourceReports")
 
-    @@map("report")
+  @@map("report")
 }
 
 model Notification {
-    id             String  @id @default(ulid()) @map("id") @db.Uuid
-    userId         String  @map("user_id") @db.Uuid
-    sourceReportId String? @map("source_report_id") @db.Uuid
+  id             String  @id @default(ulid()) @map("id") @db.Uuid
+  userId         String  @map("user_id") @db.Uuid
+  sourceReportId String? @map("source_report_id") @db.Uuid
 
-    title     String   @map("title")
-    message   String   @map("message")
-    isRead    Boolean  @default(false) @map("is_read")
-    createdAt DateTime @default(now()) @map("created_at")
+  title     String   @map("title")
+  message   String   @map("message")
+  isRead    Boolean  @default(false) @map("is_read")
+  createdAt DateTime @default(now()) @map("created_at")
 
-    user User @relation("UserNotifications",fields: [userId], references: [id])
-    sourceReport Report? @relation("SourceReports",fields: [sourceReportId], references: [id])
+  user         User    @relation("UserNotifications", fields: [userId], references: [id])
+  sourceReport Report? @relation("SourceReports", fields: [sourceReportId], references: [id])
 }

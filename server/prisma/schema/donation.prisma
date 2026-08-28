@@ -1,89 +1,89 @@
 model Donation {
-    id      String @id @default(uuid()) @map("id") @db.Uuid
-    donorId String @map("donor_id") @db.Uuid
+  id      String @id @default(uuid()) @map("id") @db.Uuid
+  donorId String @map("donor_id") @db.Uuid
 
-    title       String   @map("title")
-    description String   @map("description")
-    images      String[] @map("images")
-    foodType    String   @map("food_type")
+  title       String   @map("title")
+  description String   @map("description")
+  images      String[] @map("images")
+  foodType    String   @map("food_type")
 
-    quantity Int    @map("quantity")
-    unit     String @map("unit")
-    address  String @map("address")
+  quantity Int    @map("quantity")
+  unit     String @map("unit")
+  address  String @map("address")
 
-    availableFrom  DateTime       @map("available_from")
-    availableUntil DateTime       @map("available_until")
-    expirationDate DateTime       @map("expiration_date")
-    status         DonationStatus @map("status")
+  availableFrom  DateTime       @map("available_from")
+  availableUntil DateTime       @map("available_until")
+  expirationDate DateTime       @map("expiration_date")
+  status         DonationStatus @map("status")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    donor            DonorProfile      @relation("DonorDonations", fields: [donorId], references: [id])
-    donationRequests DonationRequest[]
-    donationClaims   DonationClaim[]
+  donor            DonorProfile      @relation("DonorDonations", fields: [donorId], references: [id])
+  donationRequests DonationRequest[]
+  donationClaims   DonationClaim[]
 
-    @@map("donation")
+  @@map("donation")
 }
 
 model DonationRequest {
-    id                String                @id @default(uuid()) @map("id") @db.Uuid
-    donationId        String                @map("donation_id") @db.Uuid
-    recipientId       String                @map("recipient_id") @db.Uuid
-    quantityRequested Int                   @map("quantity_requested")
-    message           String?               @map("message")
-    status            DonationRequestStatus @map("status")
-    createdAt         DateTime              @default(now()) @map("created_at")
-    updatedAt         DateTime              @updatedAt @map("updated_at")
+  id                String                @id @default(uuid()) @map("id") @db.Uuid
+  donationId        String                @map("donation_id") @db.Uuid
+  recipientId       String                @map("recipient_id") @db.Uuid
+  quantityRequested Int                   @map("quantity_requested")
+  message           String?               @map("message")
+  status            DonationRequestStatus @map("status")
+  createdAt         DateTime              @default(now()) @map("created_at")
+  updatedAt         DateTime              @updatedAt @map("updated_at")
 
-    donation      Donation         @relation(fields: [donationId], references: [id])
-    recipient     RecipientProfile @relation("RecipientRequests", fields: [recipientId], references: [id])
-    donationClaim DonationClaim?
+  donation      Donation         @relation(fields: [donationId], references: [id])
+  recipient     RecipientProfile @relation("RecipientRequests", fields: [recipientId], references: [id])
+  donationClaim DonationClaim?
 
-    @@map("donation_request")
+  @@map("donation_request")
 }
 
 model DonationClaim {
-    id                String      @id @default(uuid()) @map("id") @db.Uuid
-    donationRequestId String      @unique @map("donation_request_id") @db.Uuid
-    donationId        String      @map("donation_id") @db.Uuid
-    recipientId       String      @map("recipient_id") @db.Uuid
-    quantityClaimed   Int         @map("quantity_claimed")
-    status            ClaimStatus @map("status")
+  id                String      @id @default(uuid()) @map("id") @db.Uuid
+  donationRequestId String      @unique @map("donation_request_id") @db.Uuid
+  donationId        String      @map("donation_id") @db.Uuid
+  recipientId       String      @map("recipient_id") @db.Uuid
+  quantityClaimed   Int         @map("quantity_claimed")
+  status            ClaimStatus @map("status")
 
-    pickupDeadline DateTime     @map("pickup_deadline")
-    pickupMethod   PickupMethod @default(SELF) @map("pickup_method")
+  pickupDeadline DateTime     @map("pickup_deadline")
+  pickupMethod   PickupMethod @default(SELF) @map("pickup_method")
 
-    createdAt DateTime @default(now()) @map("created_at")
-    updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-    donationRequest DonationRequest  @relation(fields: [donationRequestId], references: [id])
-    donation        Donation         @relation(fields: [donationId], references: [id])
-    recipient       RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id])
-    pickupRequest   PickupRequest?
-    conversation    Conversation?    @relation("DonationClaimConversations")
+  donationRequest DonationRequest  @relation(fields: [donationRequestId], references: [id])
+  donation        Donation         @relation(fields: [donationId], references: [id])
+  recipient       RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id])
+  pickupRequest   PickupRequest?
+  conversation    Conversation?    @relation("DonationClaimConversations")
 
-    @@map("donation_claim")
+  @@map("donation_claim")
 }
 
 model PickupRequest {
-    id              String              @id @default(uuid()) @map("id") @db.Uuid
-    donationClaimId String              @unique @map("donation_claim_id") @db.Uuid
-    recipientId     String              @map("recipient_id") @db.Uuid
-    volunteerId     String?             @map("volunteer_id") @db.Uuid
-    pickupAddress   String              @map("pickup_address")
-    deliveryAddress String?             @map("delivery_address")
-    message         String?             @map("message")
-    requestedAt     DateTime            @map("requested_at")
-    acceptedAt      DateTime?           @map("accepted_at")
-    completedAt     DateTime?           @map("completed_at")
-    status          PickupRequestStatus @map("status")
-    createdAt       DateTime            @default(now()) @map("created_at")
-    updatedAt       DateTime            @updatedAt @map("updated_at")
+  id              String              @id @default(uuid()) @map("id") @db.Uuid
+  donationClaimId String              @unique @map("donation_claim_id") @db.Uuid
+  recipientId     String              @map("recipient_id") @db.Uuid
+  volunteerId     String?             @map("volunteer_id") @db.Uuid
+  pickupAddress   String              @map("pickup_address")
+  deliveryAddress String?             @map("delivery_address")
+  message         String?             @map("message")
+  requestedAt     DateTime            @map("requested_at")
+  acceptedAt      DateTime?           @map("accepted_at")
+  completedAt     DateTime?           @map("completed_at")
+  status          PickupRequestStatus @map("status")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
-    donationClaim DonationClaim     @relation(fields: [donationClaimId], references: [id])
-    recipient     RecipientProfile  @relation("RecipientPickups", fields: [recipientId], references: [id])
-    volunteer     VolunteerProfile? @relation("VolunteerPickup", fields: [volunteerId], references: [id])
+  donationClaim DonationClaim     @relation(fields: [donationClaimId], references: [id])
+  recipient     RecipientProfile  @relation("RecipientPickups", fields: [recipientId], references: [id])
+  volunteer     VolunteerProfile? @relation("VolunteerPickup", fields: [volunteerId], references: [id])
 
-    @@map("pickup_request")
+  @@map("pickup_request")
 }

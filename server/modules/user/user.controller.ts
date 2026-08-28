@@ -7,11 +7,14 @@ import {
   updateDonorProfileService,
   updateRecipientProfileService,
   updateVolunteerProfileService,
+  updateProfilePictureService,
+  updateVerificationDocumentService,
 } from "./user.service.js";
 import {
   updateDonorProfileSchema,
   updateRecipientProfileSchema,
   updateVolunteerProfileSchema,
+  type DeleteImageInput,
 } from "./user.zod.js";
 
 export const getUserProfile = asyncHandler(
@@ -102,6 +105,117 @@ export const updateProfile = asyncHandler(
     res.status(200).json({
       success: "success",
       message: "Profile Updated.",
+    });
+  },
+);
+
+export const updateProfilePicture = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const file = req.file;
+
+    if (!userId || !role) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    if (!file) {
+      throw new AppError("Please upload an image", 400);
+    }
+
+    const imageUrl = await updateProfilePictureService(
+      userId,
+      role,
+      file.buffer,
+    );
+
+    res.status(200).json({
+      success: "success",
+      message: "Profile Picture Updated.",
+      data: {
+        profilePicture: imageUrl,
+      },
+    });
+  },
+);
+
+export const deleteProfilePicture = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const { public_id } = req.body as DeleteImageInput;
+
+    if (!userId || !role) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    await deleteProfilePictureService(userId, role, public_id);
+
+    res.status(200).json({
+      success: "success",
+      message: "Profile Picture Deleted.",
+    });
+  },
+);
+
+export const updateVerificationDocument = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+
+    if (!userId || !role) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+    const verificationDocs = files["verificationDocument"];
+
+    if (!verificationDocs || verificationDocs.length === 0) {
+      throw new AppError(
+        "Please upload at least one verification document",
+        400,
+      );
+    }
+
+    if (verificationDocs.length > 5) {
+      throw new AppError("Maximum of 5 verification documents allowed", 400);
+    }
+
+    const verificationDocuments = await updateVerificationDocumentService(
+      userId,
+      role,
+      verificationDocs,
+    );
+
+    res.status(200).json({
+      success: "success",
+      message: "Verification Documents Updated.",
+      data: {
+        verificationDocuments,
+      },
+    });
+  },
+);
+
+export const deleteVerificationDocument = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const role = req.user?.role;
+    const { public_id } = req.body as DeleteImageInput;
+
+    if (!userId || !role) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    await deleteVerificationDocumentService(
+      userId,
+      role,
+      public_id,
+    );
+
+    res.status(200).json({
+      success: "success",
+      message: "Verification Document Deleted.",
     });
   },
 );

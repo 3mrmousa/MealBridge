@@ -40,6 +40,11 @@ export const updateVolunteerProfileSchema = z.object({
   verificationDocument: z.string().url().optional(),
 });
 
+export const deleteImageSchema = z.object({
+  public_id: z.string(),
+});
+
 export type UpdateDonorInput = z.infer<typeof updateDonorProfileSchema>;
 export type UpdateRecipientInput = z.infer<typeof updateRecipientProfileSchema>;
 export type UpdateVolunteerInput = z.infer<typeof updateVolunteerProfileSchema>;
+export type DeleteImageInput = z.infer<typeof deleteImageSchema>;
