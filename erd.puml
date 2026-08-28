@@ -156,6 +156,7 @@ entity DonorProfile {
     organizationName : String <<NULLABLE>>
     organizationType : DonorOrganizationType <<NULLABLE>>
     address : String
+    verificationDocument : String <<NULLABLE>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime
@@ -169,6 +170,7 @@ entity RecipientProfile {
     organizationName : String <<NULLABLE>>
     organizationType : RecipientOrganizationType <<NULLABLE>>
     address : String
+    verificationDocument : String <<NULLABLE>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime
@@ -183,6 +185,7 @@ entity VolunteerProfile {
     type : VolunteerType
     transportType : TransportType
     availabilityStatus : Boolean
+    verificationDocument : String <<NULLABLE>>
     verificationStatus : Boolean
     createdAt : DateTime
     updatedAt : DateTime

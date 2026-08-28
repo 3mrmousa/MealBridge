@@ -33,6 +33,7 @@ Can access and read chats between users (read-only; cannot send or edit messages
 Can update global site settings.
 Can view all system reports and analytics.
 Donor
+Verification Requirements: Must upload a Health Department Inspection Certificate, Food Handling Permit, or Business License. Account must be approved by an Admin before they can post donations.
 Can create, edit, or delete a donation only if no volunteer or recipient has entered the process yet.
 Emergency Cancel: Can cancel an active donation if food spoils, which automatically alerts the Admin and connected users.
 Can view the status of all their donations.
@@ -40,6 +41,7 @@ Can chat with the connected recipient or volunteer (once a request is issued).
 Can edit their own profile information.
 Can report issues (regarding a recipient, volunteer, or system error) directly to the Admin.
 Recipient
+Verification Requirements: Must upload a Registered Charity Number, NGO Registration, or official tax-exempt document (e.g., 501(c)(3)). Account must be approved by an Admin before they can request food.
 Can request an existing donation.
 Can edit or cancel a request only if no volunteer has accepted it and it is not currently being processed.
 Can view the status of all their requests.
@@ -47,6 +49,7 @@ Can chat with the connected donor or volunteer (once they issue a request).
 Can edit their own profile information.
 Can report issues (regarding a donor, volunteer, or system error) directly to the Admin.
 Volunteer
+Verification Requirements: Must upload a valid Driver's License or Government ID (and optionally vehicle registration). Account must be approved by an Admin before they can view or accept delivery requests.
 Can update their working status (Available, In Progress, or Not Available).
 Can view delivery requests issued by recipients and choose to accept or deny them.
 When accepting a request, two new chats are created in their inbox: one with the Donor (for pickup) and one with the Recipient (for drop-off).
