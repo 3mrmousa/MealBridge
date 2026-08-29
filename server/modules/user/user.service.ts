@@ -1,4 +1,5 @@
 import prisma from "../../database/index.js";
+import { Prisma } from "@prisma/client";
 import AppError from "../../utils/errors/AppError.js";
 import {
   uploadPFPToCloudinary,
@@ -10,6 +11,19 @@ import type {
   UpdateVolunteerInput,
 } from "./user.zod.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
+import type { Role } from "./user.type.js";
+import {
+  comparePassword,
+  hashPassword,
+} from "../../utils/password/passwordFunctions.js";
+import {
+  deleteOtpSession,
+  getOtpSession,
+  setOtpSession,
+} from "../../utils/otp/otp.redis.js";
+import type { OtpSessionDatachangeEmailRequest } from "./user.otp.store.js";
+import { generateOtp, verifyOtp } from "../../utils/otp/generateOtp.js";
+import { sendChangeEmailOtpMail } from "../../utils/mail/email.service.js";
 
 export const getUserProfileService = async (userId: string) => {
   const user = await prisma.user.findUnique({
@@ -121,7 +135,7 @@ export const updateVolunteerProfileService = async (
 
 export const updateProfilePictureService = async (
   userId: string,
-  role: string,
+  role: Role,
   fileBuffer: Buffer,
 ) => {
   const existingProfile = await prisma.user.findUnique({
@@ -173,9 +187,59 @@ export const updateProfilePictureService = async (
   return profilePictureJson;
 };
 
+export const deleteProfilePictureService = async (
+  userId: string,
+  role: Role,
+  public_id: string,
+) => {
+  const existingProfile = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      donorProfile: true,
+      recipientProfile: true,
+      volunteerProfile: true,
+    },
+  });
+
+  let currentPic: any = null;
+  if (role === "DONOR")
+    currentPic = existingProfile?.donorProfile?.profilePicture;
+  if (role === "RECIPIENT")
+    currentPic = existingProfile?.recipientProfile?.profilePicture;
+  if (role === "VOLUNTEER")
+    currentPic = existingProfile?.volunteerProfile?.profilePicture;
+
+  if (
+    currentPic &&
+    currentPic.public_id &&
+    currentPic.public_id !== public_id
+  ) {
+    await deleteFromCloudinary(public_id);
+  }
+
+  if (role === "DONOR") {
+    await prisma.donorProfile.update({
+      where: { userId },
+      data: { profilePicture: Prisma.DbNull },
+    });
+  } else if (role === "RECIPIENT") {
+    await prisma.recipientProfile.update({
+      where: { userId },
+      data: { profilePicture: Prisma.DbNull },
+    });
+  } else if (role === "VOLUNTEER") {
+    await prisma.volunteerProfile.update({
+      where: { userId },
+      data: { profilePicture: Prisma.DbNull },
+    });
+  } else {
+    throw new AppError("Invalid role for profile picture deletion", 400);
+  }
+};
+
 export const updateVerificationDocumentService = async (
   userId: string,
-  role: string,
+  role: Role,
   files: Express.Multer.File[],
 ) => {
   const existingProfile = await prisma.user.findUnique({
@@ -198,7 +262,10 @@ export const updateVerificationDocumentService = async (
   const existingDocs = Array.isArray(currentDocs) ? currentDocs : [];
 
   if (files.length + existingDocs.length > 5) {
-    throw new AppError("You can only upload a maximum of 5 verification documents in total", 400);
+    throw new AppError(
+      "You can only upload a maximum of 5 verification documents in total",
+      400,
+    );
   }
 
   const uploadPromises = files.map(async (file) => {
@@ -210,8 +277,11 @@ export const updateVerificationDocumentService = async (
   });
 
   const newVerificationDocuments = await Promise.all(uploadPromises);
-  
-  const updatedVerificationDocuments = [...existingDocs, ...newVerificationDocuments];
+
+  const updatedVerificationDocuments = [
+    ...existingDocs,
+    ...newVerificationDocuments,
+  ];
 
   if (role === "DONOR") {
     await prisma.donorProfile.update({
@@ -233,4 +303,195 @@ export const updateVerificationDocumentService = async (
   }
 
   return updatedVerificationDocuments;
+};
+
+export const deleteVerificationDocumentService = async (
+  userId: string,
+  role: Role,
+  public_id: string,
+) => {
+  if (role !== "DONOR" && role !== "RECIPIENT" && role !== "VOLUNTEER") {
+    throw new AppError("Not allowed operation", 404);
+  }
+
+  const existingProfile = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      donorProfile: true,
+      recipientProfile: true,
+      volunteerProfile: true,
+    },
+  });
+
+  let currentDocs: any = null;
+  if (role === "DONOR")
+    currentDocs = existingProfile?.donorProfile?.verificationDocuments;
+  if (role === "RECIPIENT")
+    currentDocs = existingProfile?.recipientProfile?.verificationDocuments;
+  if (role === "VOLUNTEER")
+    currentDocs = existingProfile?.volunteerProfile?.verificationDocuments;
+
+  if (!currentDocs || currentDocs.length === 0 || !Array.isArray(currentDocs)) {
+    throw new AppError("No verification documents found", 404);
+  }
+
+  const filteredDocs = currentDocs.filter(
+    (doc: { secure_url: string; public_id: string }) =>
+      doc.public_id !== public_id,
+  );
+
+  await deleteFromCloudinary(public_id);
+
+  if (role === "DONOR") {
+    await prisma.donorProfile.update({
+      where: { id: userId },
+      data: { verificationDocuments: filteredDocs },
+    });
+  } else if (role === "RECIPIENT") {
+    await prisma.recipientProfile.update({
+      where: { id: userId },
+      data: { verificationDocuments: filteredDocs },
+    });
+  } else if (role === "VOLUNTEER") {
+    await prisma.volunteerProfile.update({
+      where: { id: userId },
+      data: { verificationDocuments: filteredDocs },
+    });
+  }
+};
+
+export const changePasswordService = async (
+  userId: string,
+  currentPassword: string,
+  newPassword: string,
+) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("User not found", 404);
+
+  const isPasswordValid = await comparePassword(
+    currentPassword,
+    user.passwordHash,
+  );
+  if (!isPasswordValid) throw new AppError("Invalid current password", 401);
+
+  const hashedPassword = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { passwordHash: hashedPassword },
+  });
+};
+
+export const changeEmailRequestService = async (
+  currentEmail: string,
+  newEmail: string,
+) => {
+  const existingSession = await getOtpSession<OtpSessionDatachangeEmailRequest>(
+    `changeEmail:${currentEmail}`,
+  );
+
+  if (existingSession) {
+    throw new AppError(
+      "You already have an OTP request check your email or spam or try again later",
+      400,
+    );
+  }
+
+  const existingUser = prisma.user.findUnique({
+    where: {
+      email: newEmail,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError("This email is used", 400);
+  }
+
+  const { otp, hashedOtp } = generateOtp();
+
+  await setOtpSession(
+    `changeEmail:${currentEmail}`,
+    {
+      hashedOtpCurrentEmail: hashedOtp,
+      hashedOtpNewEmail: null,
+      newEmail: newEmail,
+      user: {
+        email: currentEmail,
+      },
+      step1: null,
+    } as OtpSessionDatachangeEmailRequest,
+    600,
+  );
+
+  await sendChangeEmailOtpMail(currentEmail, otp);
+};
+
+export const currentEmailOtpVerificationService = async (
+  currentEmail: string,
+  otp: string,
+) => {
+  const Session = await getOtpSession<OtpSessionDatachangeEmailRequest>(
+    `changeEmail:${currentEmail}`,
+  );
+
+  if (!Session) {
+    throw new AppError("There is no change Email request", 400);
+  }
+
+  if (Session.step1 === true) {
+    throw new AppError("Enter the otp or wait 10 min and try again", 400);
+  }
+
+  const isMatch = verifyOtp(otp, Session.hashedOtpCurrentEmail);
+
+  if (!isMatch) {
+    throw new AppError("Invalid or expired OTP", 400);
+  }
+
+  const { otp: newOtp, hashedOtp } = generateOtp();
+
+  await setOtpSession(
+    `changeEmail:${currentEmail}`,
+    {
+      hashedOtpNewEmail: hashedOtp,
+      step1: true,
+    } as OtpSessionDatachangeEmailRequest,
+    600,
+  );
+
+  await sendChangeEmailOtpMail(Session.newEmail, newOtp);
+};
+
+export const newEmailOtpVerificationAndChangeService = async (
+  currentEmail: string,
+  otp: string,
+) => {
+  const Session = await getOtpSession<OtpSessionDatachangeEmailRequest>(
+    `changeEmail:${currentEmail}`,
+  );
+
+  if (!Session) {
+    throw new AppError("There is no change Email request", 400);
+  }
+
+  if (!Session.step1 === true || !Session.hashedOtpNewEmail) {
+    throw new AppError("Something Wrong try again", 400);
+  }
+
+  const isMatch = verifyOtp(otp, Session.hashedOtpNewEmail);
+
+  if (!isMatch) {
+    throw new AppError("Invalid or expired OTP", 400);
+  }
+
+  await prisma.user.update({
+    where: {
+      email: currentEmail,
+    },
+    data: {
+      email: Session.newEmail,
+    },
+  });
+
+  await deleteOtpSession(`changeEmail:${currentEmail}`);
 };

@@ -55,7 +55,10 @@ export const registerRequestService = async (data: RegisterRequestInput) => {
 
   await setOtpSession(
     `register:${email}`,
-    { hashedOtp, user: { name, email, hashedPassword, phone, role } },
+    {
+      hashedOtp,
+      user: { name, email, hashedPassword, phone, role },
+    } as OtpSessionDataRegisterRequest,
     600,
   );
 
@@ -172,7 +175,7 @@ export const passwordForgotRequestService = async (
 
   await setOtpSession(
     `forgotPassword:${email}`,
-    { hashedOtp, user: { email } },
+    { hashedOtp, user: { email } } as OtpSessionDataPasswordForgotRequest,
     600,
   );
 

@@ -5,14 +5,23 @@ import {
   uploadSingleFileForPFP,
 } from "../../middlewares/multer.middleware.js";
 import {
+  changeEmailRequest,
+  changePassword,
+  currentEmailOtpVerification,
   deleteProfilePicture,
   deleteVerificationDocument,
   getUserProfile,
+  newEmailOtpVerificationAndChange,
   updateProfile,
   updateProfilePicture,
   updateVerificationDocument,
 } from "./user.controller.js";
-import { deleteImageSchema } from "./user.zod.js";
+import {
+  ChangeEmailRequestSchema,
+  changePasswordSchema,
+  deleteImageSchema,
+  otpSchema,
+} from "./user.zod.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 
 const userRouter = Router();
@@ -43,11 +52,26 @@ userRouter
   );
 
 //change field routes
-userRouter.patch("/change-password", changePassword);
-userRouter.patch("/change-email", changeEmail);
-userRouter.patch("/change-phone", changePhone);
-
-//delete account
-userRouter.delete("/delete-account", deleteAccount);
+userRouter.patch(
+  "/change/password",
+  validate(changePasswordSchema),
+  changePassword,
+);
+userRouter.patch(
+  "/change/email/request",
+  validate(ChangeEmailRequestSchema),
+  changeEmailRequest,
+);
+userRouter.patch(
+  "/change/email/current/verify",
+  validate(otpSchema),
+  currentEmailOtpVerification,
+);
+userRouter.patch(
+  "/change/email/new/verify-and-change",
+  validate(otpSchema),
+  newEmailOtpVerificationAndChange,
+);
+// userRouter.patch("/change/phone", changePhone);
 
 export default userRouter;

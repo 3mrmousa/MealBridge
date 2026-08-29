@@ -9,12 +9,21 @@ import {
   updateVolunteerProfileService,
   updateProfilePictureService,
   updateVerificationDocumentService,
+  deleteVerificationDocumentService,
+  deleteProfilePictureService,
+  changePasswordService,
+  changeEmailRequestService,
+  currentEmailOtpVerificationService,
+  newEmailOtpVerificationAndChangeService,
 } from "./user.service.js";
 import {
   updateDonorProfileSchema,
   updateRecipientProfileSchema,
   updateVolunteerProfileSchema,
+  type ChangeEmailRequestInput,
+  type ChangePasswordInput,
   type DeleteImageInput,
+  type otpInput,
 } from "./user.zod.js";
 
 export const getUserProfile = asyncHandler(
@@ -207,15 +216,82 @@ export const deleteVerificationDocument = asyncHandler(
       throw new AppError("Login or Register First", 404);
     }
 
-    await deleteVerificationDocumentService(
-      userId,
-      role,
-      public_id,
-    );
+    await deleteVerificationDocumentService(userId, role, public_id);
 
     res.status(200).json({
       success: "success",
       message: "Verification Document Deleted.",
+    });
+  },
+);
+
+export const changePassword = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const { currentPassword, newPassword } = req.body as ChangePasswordInput;
+
+    if (!userId) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    await changePasswordService(userId, currentPassword, newPassword);
+
+    res.status(200).json({
+      success: "success",
+      message: "Password Changed.",
+    });
+  },
+);
+
+export const changeEmailRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { newEmail } = req.body as ChangeEmailRequestInput;
+    if (!req.user || !req.user.email) {
+      throw new AppError("Login or Register first!", 404);
+    }
+    const currentEmail = req.user.email;
+
+    await changeEmailRequestService(currentEmail, newEmail);
+
+    res.status(200).json({
+      success: "success",
+      message:
+        "OTP sent to current email. Check your email or spam or try again after 10 minutes.",
+    });
+  },
+);
+
+export const currentEmailOtpVerification = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { otp } = req.body as otpInput;
+    if (!req.user || !req.user.email) {
+      throw new AppError("Login or Register first!", 404);
+    }
+    const currentEmail = req.user.email;
+
+    await currentEmailOtpVerificationService(currentEmail, otp);
+
+    res.status(200).json({
+      success: "success",
+      message:
+        "OTP sent to new email. Check your email or spam or try again after 10 minutes.",
+    });
+  },
+);
+
+export const newEmailOtpVerificationAndChange = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { otp } = req.body as otpInput;
+    if (!req.user || !req.user.email) {
+      throw new AppError("Login or Register first!", 404);
+    }
+    const currentEmail = req.user.email;
+
+    await newEmailOtpVerificationAndChangeService(currentEmail, otp);
+
+    res.status(200).json({
+      success: "success",
+      message: "Email Has Been Changed.",
     });
   },
 );

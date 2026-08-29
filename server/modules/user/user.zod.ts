@@ -44,7 +44,23 @@ export const deleteImageSchema = z.object({
   public_id: z.string(),
 });
 
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(6),
+  newPassword: z.string().min(6),
+});
+
+export const ChangeEmailRequestSchema = z.object({
+  newEmail: z.email(),
+});
+
+export const otpSchema = z.object({
+  otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+});
+
 export type UpdateDonorInput = z.infer<typeof updateDonorProfileSchema>;
 export type UpdateRecipientInput = z.infer<typeof updateRecipientProfileSchema>;
 export type UpdateVolunteerInput = z.infer<typeof updateVolunteerProfileSchema>;
 export type DeleteImageInput = z.infer<typeof deleteImageSchema>;
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ChangeEmailRequestInput = z.infer<typeof ChangeEmailRequestSchema>;
+export type otpInput = z.infer<typeof otpSchema>;
