@@ -11,7 +11,7 @@ import type {
   UpdateVolunteerInput,
 } from "./user.zod.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
-import type { Role } from "./user.type.js";
+import type { Role } from "../auth/auth.types.js";
 import {
   comparePassword,
   hashPassword,
@@ -212,9 +212,11 @@ export const deleteProfilePictureService = async (
   if (
     currentPic &&
     currentPic.public_id &&
-    currentPic.public_id !== public_id
+    currentPic.public_id === public_id
   ) {
     await deleteFromCloudinary(public_id);
+  } else {
+    throw new AppError("Profile picture not found", 404);
   }
 
   if (role === "DONOR") {
@@ -340,21 +342,25 @@ export const deleteVerificationDocumentService = async (
       doc.public_id !== public_id,
   );
 
+  if (filteredDocs.length === currentDocs.length) {
+    throw new AppError("Document not found", 404);
+  }
+
   await deleteFromCloudinary(public_id);
 
   if (role === "DONOR") {
     await prisma.donorProfile.update({
-      where: { id: userId },
+      where: { userId },
       data: { verificationDocuments: filteredDocs },
     });
   } else if (role === "RECIPIENT") {
     await prisma.recipientProfile.update({
-      where: { id: userId },
+      where: { userId },
       data: { verificationDocuments: filteredDocs },
     });
   } else if (role === "VOLUNTEER") {
     await prisma.volunteerProfile.update({
-      where: { id: userId },
+      where: { userId },
       data: { verificationDocuments: filteredDocs },
     });
   }
@@ -375,6 +381,10 @@ export const changePasswordService = async (
   if (!isPasswordValid) throw new AppError("Invalid current password", 401);
 
   const hashedPassword = await hashPassword(newPassword);
+
+  if (user.passwordHash === hashedPassword) {
+    throw new AppError("New password is same as current password", 400);
+  }
 
   await prisma.user.update({
     where: { id: userId },
@@ -397,14 +407,14 @@ export const changeEmailRequestService = async (
     );
   }
 
-  const existingUser = prisma.user.findUnique({
+  const existingUser = await prisma.user.findUnique({
     where: {
       email: newEmail,
     },
   });
 
-  if (!existingUser) {
-    throw new AppError("This email is used", 400);
+  if (existingUser) {
+    throw new AppError("This email is already in use", 400);
   }
 
   const { otp, hashedOtp } = generateOtp();
@@ -453,6 +463,7 @@ export const currentEmailOtpVerificationService = async (
   await setOtpSession(
     `changeEmail:${currentEmail}`,
     {
+      ...Session,
       hashedOtpNewEmail: hashedOtp,
       step1: true,
     } as OtpSessionDatachangeEmailRequest,
@@ -474,7 +485,7 @@ export const newEmailOtpVerificationAndChangeService = async (
     throw new AppError("There is no change Email request", 400);
   }
 
-  if (!Session.step1 === true || !Session.hashedOtpNewEmail) {
+  if (Session.step1 !== true || !Session.hashedOtpNewEmail) {
     throw new AppError("Something Wrong try again", 400);
   }
 
@@ -494,4 +505,35 @@ export const newEmailOtpVerificationAndChangeService = async (
   });
 
   await deleteOtpSession(`changeEmail:${currentEmail}`);
+};
+
+export const changePhoneService = async (userId: string, phone: string) => {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new AppError("User not found", 404);
+  const phoneNumber = phone?.startsWith("+20")
+    ? phone
+    : phone?.startsWith("20")
+      ? `+${phone}`
+      : phone?.startsWith("0")
+        ? `+2${phone}`
+        : `+20${phone}`;
+  if (user.phone === phoneNumber) {
+    throw new AppError("This phone number is already used by you", 400);
+  }
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      phone: phoneNumber,
+    },
+  });
+
+  if (existingUser) {
+    throw new AppError(
+      "This phone number is already used by another user",
+      400,
+    );
+  }
+  await prisma.user.update({
+    where: { id: userId },
+    data: { phone: phoneNumber },
+  });
 };

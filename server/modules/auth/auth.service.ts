@@ -18,6 +18,7 @@ import type {
   OtpSessionDataPasswordForgotRequest,
   OtpSessionDataRegisterRequest,
 } from "./auth.otp.store.js";
+import type { IUser } from "./auth.types.js";
 import type {
   LoginInput,
   PasswordForgotRequestInput,
@@ -39,6 +40,21 @@ export const registerRequestService = async (data: RegisterRequestInput) => {
     throw new AppError("Email already used!", 400);
   }
 
+  const phoneNumber = phone?.startsWith("+20")
+    ? phone
+    : phone?.startsWith("20")
+      ? `+${phone}`
+      : phone?.startsWith("0")
+        ? `+2${phone}`
+        : `+20${phone}`;
+
+  const existingPhone = await prisma.user.findUnique({
+    where: { phone: phoneNumber },
+  });
+  if (existingPhone) {
+    throw new AppError("Phone number already used!", 400);
+  }
+
   const session = await getOtpSession<OtpSessionDataRegisterRequest>(
     `register:${email}`,
   );
@@ -57,12 +73,12 @@ export const registerRequestService = async (data: RegisterRequestInput) => {
     `register:${email}`,
     {
       hashedOtp,
-      user: { name, email, hashedPassword, phone, role },
+      user: { name, email, hashedPassword, phone: phoneNumber, role },
     } as OtpSessionDataRegisterRequest,
     600,
   );
 
-  sendRegisterRequestOtpMail(email, otp);
+  await sendRegisterRequestOtpMail(email, otp);
 };
 
 export const registerValidateService = async (data: RegisterValidateInput) => {
@@ -92,6 +108,8 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
     },
   });
 
+  await deleteOtpSession(`register:${email}`);
+
   return user.id;
 };
 
@@ -110,6 +128,10 @@ export const loginService = async (data: LoginInput) => {
 
   if (!user) {
     throw new AppError("Invalid email or password", 401);
+  }
+
+  if (!user.isEmailVerified) {
+    throw new AppError("Please verify your email first", 400);
   }
 
   const isPasswordMatch = await comparePassword(password, user.passwordHash);
@@ -175,11 +197,15 @@ export const passwordForgotRequestService = async (
 
   await setOtpSession(
     `forgotPassword:${email}`,
-    { hashedOtp, user: { email } } as OtpSessionDataPasswordForgotRequest,
+    {
+      hashedOtp,
+      verified: false,
+      user: { email },
+    } as OtpSessionDataPasswordForgotRequest,
     600,
   );
 
-  sendForgotPasswordOtpMail(email, otp);
+  await sendForgotPasswordOtpMail(email, otp);
 };
 
 export const passwordForgotValidateService = async (
@@ -199,6 +225,15 @@ export const passwordForgotValidateService = async (
   if (!isMatch) {
     throw new AppError("Invalid or expired OTP", 400);
   }
+
+  await setOtpSession(
+    `forgotPassword:${email}`,
+    {
+      ...session,
+      verified: true,
+    } as OtpSessionDataPasswordForgotRequest,
+    300,
+  );
 };
 
 export const passwordResetService = async (data: PasswordResetInput) => {
@@ -208,7 +243,11 @@ export const passwordResetService = async (data: PasswordResetInput) => {
   );
 
   if (!session) {
-    throw new AppError("Invalid or expired OTP", 400);
+    throw new AppError("Invalid or expired session", 400);
+  }
+
+  if (!session.verified) {
+    throw new AppError("OTP has not been verified", 400);
   }
 
   const hashedPassword = await hashPassword(newPassword);

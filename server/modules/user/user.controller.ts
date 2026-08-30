@@ -15,6 +15,7 @@ import {
   changeEmailRequestService,
   currentEmailOtpVerificationService,
   newEmailOtpVerificationAndChangeService,
+  changePhoneService,
 } from "./user.service.js";
 import {
   updateDonorProfileSchema,
@@ -22,8 +23,9 @@ import {
   updateVolunteerProfileSchema,
   type ChangeEmailRequestInput,
   type ChangePasswordInput,
+  type ChangePhoneInput,
   type DeleteImageInput,
-  type otpInput,
+  type OtpInput,
 } from "./user.zod.js";
 
 export const getUserProfile = asyncHandler(
@@ -61,14 +63,16 @@ export const updateProfile = asyncHandler(
         verificationDocument,
       } = req.body;
       const validatedData = updateDonorProfileSchema.parse({
-        name,
-        phone,
-        organizationName,
-        organizationType,
-        address,
-        verificationDocument,
+        body: {
+          name,
+          phone,
+          organizationName,
+          organizationType,
+          address,
+          verificationDocument,
+        },
       });
-      await updateDonorProfileService(userId, validatedData);
+      await updateDonorProfileService(userId, validatedData.body);
     } else if (role === "RECIPIENT") {
       const {
         name,
@@ -79,14 +83,16 @@ export const updateProfile = asyncHandler(
         verificationDocument,
       } = req.body;
       const validatedData = updateRecipientProfileSchema.parse({
-        name,
-        phone,
-        organizationName,
-        organizationType,
-        address,
-        verificationDocument,
+        body: {
+          name,
+          phone,
+          organizationName,
+          organizationType,
+          address,
+          verificationDocument,
+        },
       });
-      await updateRecipientProfileService(userId, validatedData);
+      await updateRecipientProfileService(userId, validatedData.body);
     } else if (role === "VOLUNTEER") {
       const {
         name,
@@ -98,15 +104,17 @@ export const updateProfile = asyncHandler(
         verificationDocument,
       } = req.body;
       const validatedData = updateVolunteerProfileSchema.parse({
-        name,
-        phone,
-        address,
-        type,
-        transportType,
-        availabilityStatus,
-        verificationDocument,
+        body: {
+          name,
+          phone,
+          address,
+          type,
+          transportType,
+          availabilityStatus,
+          verificationDocument,
+        },
       });
-      await updateVolunteerProfileService(userId, validatedData);
+      await updateVolunteerProfileService(userId, validatedData.body);
     } else {
       throw new AppError("You can't edit this type of profile", 401);
     }
@@ -263,7 +271,7 @@ export const changeEmailRequest = asyncHandler(
 
 export const currentEmailOtpVerification = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { otp } = req.body as otpInput;
+    const { otp } = req.body as OtpInput;
     if (!req.user || !req.user.email) {
       throw new AppError("Login or Register first!", 404);
     }
@@ -281,7 +289,7 @@ export const currentEmailOtpVerification = asyncHandler(
 
 export const newEmailOtpVerificationAndChange = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { otp } = req.body as otpInput;
+    const { otp } = req.body as OtpInput;
     if (!req.user || !req.user.email) {
       throw new AppError("Login or Register first!", 404);
     }
@@ -292,6 +300,24 @@ export const newEmailOtpVerificationAndChange = asyncHandler(
     res.status(200).json({
       success: "success",
       message: "Email Has Been Changed.",
+    });
+  },
+);
+
+export const changePhone = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.id;
+    const { phone } = req.body as ChangePhoneInput;
+
+    if (!userId) {
+      throw new AppError("Login or Register First", 404);
+    }
+
+    await changePhoneService(userId, phone);
+
+    res.status(200).json({
+      success: "success",
+      message: "Phone Has Been Changed.",
     });
   },
 );

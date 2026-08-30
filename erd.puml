@@ -29,9 +29,8 @@ skinparam enum {
 
 title MealBridge - Entity Relationship Diagram
 
-
 ' =========================================================
-' ENUMS
+' Enums
 ' =========================================================
 
 enum Role {
@@ -90,15 +89,12 @@ enum DonationRequestStatus {
     CANCELLED
 }
 
-
 enum ClaimStatus {
     ACTIVE
     COMPLETED
     CANCELLED
 }
 
-' Set on DonationClaim. Defaults to SELF; flips to VOLUNTEER only
-' while a volunteer is actively assigned via an ACCEPTED PickupRequest.
 enum PickupMethod {
     SELF
     VOLUNTEER
@@ -125,9 +121,8 @@ enum ReportStatus {
     REJECTED
 }
 
-
 ' =========================================================
-' USERS
+' Entities/Tables
 ' =========================================================
 
 entity User {
@@ -136,17 +131,13 @@ entity User {
     name : String
     email : String <<UNIQUE>>
     isEmailVerified : Boolean default(false)
+    isBlocked : Boolean default(false)
     passwordHash : String
     phone : String <<UNIQUE>>
     role : Role
     createdAt : DateTime
     updatedAt : DateTime
 }
-
-
-' =========================================================
-' OPTIONAL ROLE PROFILES
-' =========================================================
 
 entity DonorProfile {
     * id : UUID <<PK>>
@@ -191,15 +182,6 @@ entity VolunteerProfile {
     updatedAt : DateTime
 }
 
-
-' =========================================================
-' DONATION
-' availableFrom/availableUntil = the pickup window/opening hours
-' for this donation (independent of createdAt - when it was posted
-' isn't the same as when it can be picked up). expirationDate =
-' food-safety limit, used to compute DonationClaim.pickupDeadline.
-' =========================================================
-
 entity Donation {
     * id : UUID <<PK>>
     --
@@ -219,11 +201,6 @@ entity Donation {
     updatedAt : DateTime
 }
 
-
-' =========================================================
-' STAGE 1 - RECIPIENT REQUESTS A DONATION ("pick request")
-' =========================================================
-
 entity DonationRequest {
     * id : UUID <<PK>>
     --
@@ -235,14 +212,6 @@ entity DonationRequest {
     createdAt : DateTime
     updatedAt : DateTime
 }
-
-
-' =========================================================
-' STAGE 2 - REQUEST GOT ACCEPTED -> CLAIM CREATED
-' Triggers: Conversation(type=DONOR_RECIPIENT)
-' pickupDeadline = createdAt + (donation.expirationDate - createdAt) / 3
-' Computed once at creation and stored for a background job to scan.
-' =========================================================
 
 entity DonationClaim {
     * id : UUID <<PK>>
@@ -257,19 +226,6 @@ entity DonationClaim {
     createdAt : DateTime
     updatedAt : DateTime
 }
-
-
-' =========================================================
-' STAGE 3 - RECIPIENT OPENS A PICKUP REQUEST (open to any volunteer)
-' recipientId is NEVER nullable - if this row exists, a recipient
-' created it (optionality of "no pickup request" is handled by the
-' row not existing, per DonationClaim ||--o| PickupRequest).
-' volunteerId starts NULL - any available VolunteerProfile may
-' accept it (sets volunteerId + status=ACCEPTED, pickupMethod->VOLUNTEER).
-' If that volunteer backs out, the SAME row reopens (volunteerId->NULL,
-' status->PENDING) rather than creating a new row.
-' Acceptance triggers: Conversation(type=RECIPIENT_VOLUNTEER)
-' =========================================================
 
 entity PickupRequest {
     * id : UUID <<PK>>
@@ -287,11 +243,6 @@ entity PickupRequest {
     createdAt : DateTime
     updatedAt : DateTime
 }
-
-
-' =========================================================
-' CHAT
-' =========================================================
 
 entity Conversation {
     * id : UUID <<PK>>
@@ -320,13 +271,6 @@ entity Message {
     updatedAt : DateTime
 }
 
-
-' =========================================================
-' NOTIFICATIONS
-' sourceReportId lets an admin notify the ORIGINAL REPORTER
-' (Report.reporterId) once a report has been reviewed.
-' =========================================================
-
 entity Notification {
     * id : UUID <<PK>>
     --
@@ -337,14 +281,6 @@ entity Notification {
     isRead : Boolean
     createdAt : DateTime
 }
-
-
-' =========================================================
-' REPORTS
-' Visible/actionable by ADMIN only. Admin can update status /
-' reviewedById / reviewedAt, but the report content itself
-' (title, description, reporterId, reportedUserId) is read-only.
-' =========================================================
 
 entity Report {
     * id : UUID <<PK>>
@@ -360,11 +296,6 @@ entity Report {
     updatedAt : DateTime
 }
 
-
-' =========================================================
-' SITE SETTINGS
-' =========================================================
-
 entity SiteSetting {
     * id : UUID <<PK>>
     --
@@ -379,35 +310,30 @@ entity SiteSetting {
     updatedAt : DateTime
 }
 
+entity BlockedUser {
+    * id : UUID <<PK>>
+    --
+    blockerId : UUID <<FK>>
+    blockedId : UUID <<FK>>
+    reason : String
+    message : String
+    createdAt : DateTime
+    updatedAt : DateTime
+}
 
 ' =========================================================
-' USER -> PROFILE
+' Relationships
 ' =========================================================
 
 User ||--o| DonorProfile
 User ||--o| RecipientProfile
 User ||--o| VolunteerProfile
 
-
-' =========================================================
-' DONATION
-' =========================================================
-
 DonorProfile ||--o{ Donation
-
-
-' =========================================================
-' STAGE 1: DONATION REQUEST ("pick request")
-' =========================================================
 
 Donation ||--o{ DonationRequest
 
 RecipientProfile ||--o{ DonationRequest
-
-
-' =========================================================
-' STAGE 2: DONATION CLAIM (request accepted)
-' =========================================================
 
 DonationRequest ||--o| DonationClaim
 
@@ -415,28 +341,11 @@ Donation ||--o{ DonationClaim
 
 RecipientProfile ||--o{ DonationClaim
 
-
-' =========================================================
-' STAGE 3: PICKUP REQUEST (volunteer delivery)
-' =========================================================
-
 DonationClaim ||--o| PickupRequest
 
 RecipientProfile ||--o{ PickupRequest
 
 VolunteerProfile ||--o{ PickupRequest
-
-
-' =========================================================
-' CONVERSATIONS
-' Conversation always anchors to DonationClaim (never nullable).
-'   DONOR_RECIPIENT      - exactly one, created when the claim is made
-'   RECIPIENT_VOLUNTEER  - created each time a volunteer accepts;
-'                          a claim can end up with more than one over
-'                          time if the pickup request gets reopened
-'                          and a different volunteer later accepts
-' The recipient is the hub - donor and volunteer never chat directly.
-' =========================================================
 
 DonationClaim ||--o{ Conversation
 
@@ -448,19 +357,9 @@ Conversation ||--o{ Message
 
 User ||--o{ Message
 
-
-' =========================================================
-' NOTIFICATIONS
-' =========================================================
-
 User ||--o{ Notification : receives
 
 Report ||--o{ Notification : triggers (to reporter)
-
-
-' =========================================================
-' REPORTS
-' =========================================================
 
 User ||--o{ Report : creates
 
@@ -468,13 +367,10 @@ User ||--o{ Report : reported
 
 User ||--o{ Report : reviews
 
-
-' =========================================================
-' SITE SETTINGS
-' =========================================================
-
 User ||--o{ SiteSetting : updates
 
+User ||--o{ BlockedUser : blocker
+User ||--o| BlockedUser : blocked
 
 ' =========================================================
 ' VISUAL LAYOUT
@@ -496,6 +392,7 @@ ConversationParticipant -[hidden]right- Message
 ' Admin
 Notification -[hidden]right- Report
 Report -[hidden]right- SiteSetting
+SiteSetting -[hidden]right- BlockedUser
 
 @enduml
 

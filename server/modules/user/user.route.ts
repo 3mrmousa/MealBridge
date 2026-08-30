@@ -7,6 +7,7 @@ import {
 import {
   changeEmailRequest,
   changePassword,
+  changePhone,
   currentEmailOtpVerification,
   deleteProfilePicture,
   deleteVerificationDocument,
@@ -19,6 +20,7 @@ import {
 import {
   ChangeEmailRequestSchema,
   changePasswordSchema,
+  changePhoneSchema,
   deleteImageSchema,
   otpSchema,
 } from "./user.zod.js";
@@ -72,6 +74,6 @@ userRouter.patch(
   validate(otpSchema),
   newEmailOtpVerificationAndChange,
 );
-// userRouter.patch("/change/phone", changePhone);
+userRouter.patch("/change/phone", validate(changePhoneSchema), changePhone);
 
 export default userRouter;

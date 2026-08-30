@@ -26,8 +26,10 @@ Reliability & Availability
 Error Handling: The system must gracefully handle transaction errors (e.g., simultaneous claims on the same donation) by cleanly resolving conflicts and alerting the user, rather than causing a system failure.
 4. Users and Roles
 Admin
-Can view all users of any role.
-Can put any account under review or block/delete them. Banned emails and phone numbers are saved to prevent re-registration.
+Can view all users (basic info or with full profile details).
+Can view a specific user's complete profile by their ID.
+Can verify or unverify users (approve/reject verification documents).
+Can block or unblock users to restrict their platform access.
 Can view all website activity (donations, requests, system logs).
 Can access and read chats between users (read-only; cannot send or edit messages) to resolve disputes.
 Can update global site settings.

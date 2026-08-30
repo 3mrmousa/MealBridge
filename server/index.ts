@@ -11,6 +11,8 @@ import AppError from "./utils/errors/AppError.js";
 import prisma from "./database/index.js";
 import { z } from "zod";
 import authRouter from "./modules/auth/auth.route.js";
+import userRouter from "./modules/user/user.route.js";
+import adminRouter from "./modules/admin/admin.route.js";
 
 const app = express();
 
@@ -25,36 +27,44 @@ app.use(cookieParser());
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
+app.use("/api/admin", adminRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));
 });
 
 app.use(
-  (err: AppError | z.ZodError, req: Request, res: Response, next: NextFunction) => {
+  (
+    err: AppError | z.ZodError,
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) => {
     if (err instanceof z.ZodError) {
       return res.status(400).json({
         status: "fail",
         statusCode: 400,
         message: "Validation Failed",
-      errors: err.issues,
+        errors: err.issues,
+      });
+    }
+
+    console.error("unhandled error: ", err);
+
+    const statusCode = err.statusCode || 500;
+    const status = err.status || "error";
+    const message = err.message || "Internal server error";
+    const errors = err.errors || [];
+
+    res.status(statusCode).json({
+      status,
+      statusCode,
+      message,
+      errors,
     });
-  }
-
-  console.error("unhandled error: ", err);
-
-  const statusCode = err.statusCode || 500;
-  const status = err.status || "error";
-  const message = err.message || "Internal server error";
-  const errors = err.errors || [];
-
-  res.status(statusCode).json({
-    status,
-    statusCode,
-    message,
-    errors,
-  });
-});
+  },
+);
 
 const startServer = async () => {
   try {

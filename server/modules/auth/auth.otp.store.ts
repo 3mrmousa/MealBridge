@@ -11,6 +11,7 @@ export type OtpSessionDataRegisterRequest = {
 
 export type OtpSessionDataPasswordForgotRequest = {
   hashedOtp: string;
+  verified: boolean;
   user: {
     email: string;
   };

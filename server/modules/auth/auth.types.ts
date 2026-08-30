@@ -15,6 +15,7 @@ export interface IUser {
   passwordHash: string;
   phone: string;
   role: Role;
+  isEmailVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

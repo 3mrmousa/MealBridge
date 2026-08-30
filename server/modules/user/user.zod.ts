@@ -8,59 +8,86 @@ import {
 
 // Donor Profile Schema
 export const updateDonorProfileSchema = z.object({
-  name: z.string().min(2).optional(),
-  phone: z.string().min(10).optional(),
-  profilePicture: z.string().url().optional(),
-  organizationName: z.string().min(2).optional(),
-  organizationType: z.nativeEnum(DonorOrganizationType).optional(),
-  address: z.string().min(5).optional(),
-  verificationDocument: z.string().url().optional(),
+  body: z.object({
+    name: z.string().min(2).optional(),
+    phone: z.string().min(10).optional(),
+    profilePicture: z.string().url().optional(),
+    organizationName: z.string().min(2).optional(),
+    organizationType: z.nativeEnum(DonorOrganizationType).optional(),
+    address: z.string().min(5).optional(),
+    verificationDocument: z.string().url().optional(),
+  }),
 });
 
 // Recipient Profile Schema
 export const updateRecipientProfileSchema = z.object({
-  name: z.string().min(2).optional(),
-  phone: z.string().min(10).optional(),
-  profilePicture: z.string().url().optional(),
-  organizationName: z.string().min(2).optional(),
-  organizationType: z.nativeEnum(RecipientOrganizationType).optional(),
-  address: z.string().min(5).optional(),
-  verificationDocument: z.string().url().optional(),
+  body: z.object({
+    name: z.string().min(2).optional(),
+    phone: z.string().min(10).optional(),
+    profilePicture: z.string().url().optional(),
+    organizationName: z.string().min(2).optional(),
+    organizationType: z.nativeEnum(RecipientOrganizationType).optional(),
+    address: z.string().min(5).optional(),
+    verificationDocument: z.string().url().optional(),
+  }),
 });
 
 // Volunteer Profile Schema
 export const updateVolunteerProfileSchema = z.object({
-  name: z.string().min(2).optional(),
-  phone: z.string().min(10).optional(),
-  profilePicture: z.string().url().optional(),
-  address: z.string().min(5).optional(),
-  type: z.nativeEnum(VolunteerType).optional(),
-  transportType: z.nativeEnum(TransportType).optional(),
-  availabilityStatus: z.boolean().optional(),
-  verificationDocument: z.string().url().optional(),
+  body: z.object({
+    name: z.string().min(2).optional(),
+    phone: z.string().min(10).optional(),
+    profilePicture: z.string().url().optional(),
+    address: z.string().min(5).optional(),
+    type: z.nativeEnum(VolunteerType).optional(),
+    transportType: z.nativeEnum(TransportType).optional(),
+    availabilityStatus: z.boolean().optional(),
+    verificationDocument: z.string().url().optional(),
+  }),
 });
 
 export const deleteImageSchema = z.object({
-  public_id: z.string(),
+  body: z.object({
+    public_id: z.string(),
+  }),
 });
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(6),
-  newPassword: z.string().min(6),
+  body: z.object({
+    currentPassword: z.string().min(8),
+    newPassword: z.string().min(8),
+  }),
 });
 
 export const ChangeEmailRequestSchema = z.object({
-  newEmail: z.email(),
+  body: z.object({
+    newEmail: z.email(),
+  }),
 });
 
 export const otpSchema = z.object({
-  otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+  body: z.object({
+    otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+  }),
 });
 
-export type UpdateDonorInput = z.infer<typeof updateDonorProfileSchema>;
-export type UpdateRecipientInput = z.infer<typeof updateRecipientProfileSchema>;
-export type UpdateVolunteerInput = z.infer<typeof updateVolunteerProfileSchema>;
-export type DeleteImageInput = z.infer<typeof deleteImageSchema>;
-export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
-export type ChangeEmailRequestInput = z.infer<typeof ChangeEmailRequestSchema>;
-export type otpInput = z.infer<typeof otpSchema>;
+export const changePhoneSchema = z.object({
+  body: z.object({
+    phone: z.string().min(10),
+  }),
+});
+
+export type UpdateDonorInput = z.infer<typeof updateDonorProfileSchema>["body"];
+export type UpdateRecipientInput = z.infer<
+  typeof updateRecipientProfileSchema
+>["body"];
+export type UpdateVolunteerInput = z.infer<
+  typeof updateVolunteerProfileSchema
+>["body"];
+export type DeleteImageInput = z.infer<typeof deleteImageSchema>["body"];
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>["body"];
+export type ChangeEmailRequestInput = z.infer<
+  typeof ChangeEmailRequestSchema
+>["body"];
+export type OtpInput = z.infer<typeof otpSchema>["body"];
+export type ChangePhoneInput = z.infer<typeof changePhoneSchema>["body"];

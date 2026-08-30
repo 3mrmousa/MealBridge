@@ -3,6 +3,7 @@ model User {
   name            String   @map("name")
   email           String   @unique @map("email")
   isEmailVerified Boolean  @default(false) @map("is_email_verified")
+  isBlocked       Boolean  @default(false) @map("is_blocked")
   passwordHash    String   @map("password_hash")
   phone           String   @unique @map("phone")
   role            Role     @map("role")

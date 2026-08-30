@@ -66,7 +66,7 @@ export const sendForgotPasswordOtpMail = async (email: string, otp: string) => {
     "Verify your email",
     `
       <p style="margin-top: 0;">Hello,</p>
-      <p>Thank you for registering with MealBridge. Please enter the following OTP to complete your registration:</p>
+      <p>Please enter the following OTP to reset your password:</p>
       <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #a855f7;">
           ${otp}
@@ -98,7 +98,7 @@ export const sendChangeEmailOtpMail = async (email: string, otp: string) => {
     "Verify your email",
     `
       <p style="margin-top: 0;">Hello,</p>
-      <p>Thank you for registering with MealBridge. Please enter the following OTP to complete your registration:</p>
+      <p>Please enter the following OTP to change your email:</p>
       <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #a855f7;">
           ${otp}
