@@ -24,6 +24,7 @@ import {
 import type { OtpSessionDatachangeEmailRequest } from "./user.otp.store.js";
 import { generateOtp, verifyOtp } from "../../utils/otp/generateOtp.js";
 import { sendChangeEmailOtpMail } from "../../utils/mail/email.service.js";
+import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
 
 export const getUserProfileService = async (userId: string) => {
   const user = await prisma.user.findUnique({
@@ -510,13 +511,7 @@ export const newEmailOtpVerificationAndChangeService = async (
 export const changePhoneService = async (userId: string, phone: string) => {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new AppError("User not found", 404);
-  const phoneNumber = phone?.startsWith("+20")
-    ? phone
-    : phone?.startsWith("20")
-      ? `+${phone}`
-      : phone?.startsWith("0")
-        ? `+2${phone}`
-        : `+20${phone}`;
+  const phoneNumber = formatPhoneNumber(phone);
   if (user.phone === phoneNumber) {
     throw new AppError("This phone number is already used by you", 400);
   }

@@ -1,5 +1,12 @@
 import prisma from "../../database/index.js";
 import AppError from "../../utils/errors/AppError.js";
+import {
+  sendVerificationStatusChangeMail,
+  sendBlockStatusChangeMail,
+  sendWelcomeMail,
+} from "../../utils/mail/email.service.js";
+import { hashPassword } from "../../utils/password/passwordFunctions.js";
+import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
 import type { Role } from "../auth/auth.types.js";
 
 export const getAllUsersService = async () => {
@@ -80,6 +87,15 @@ export const AcceptUserVerificationStatusService = async (
       data: { verificationStatus: !user.volunteerProfile.verificationStatus },
     });
   }
+
+  await sendVerificationStatusChangeMail(
+    user.email,
+    "Accepted",
+    role,
+    "Your verification docs is accepted",
+  );
+
+  // TODO: Send notification to user
 };
 
 export const RejectUserVerificationStatusService = async (
@@ -106,9 +122,192 @@ export const RejectUserVerificationStatusService = async (
     throw new AppError("User not found", 404);
   }
 
-  // TODO: Send mail and notification to reject user verification status
+  await sendVerificationStatusChangeMail(
+    user.email,
+    "Rejected",
+    role,
+    "Your verification docs is rejected",
+  );
+
+  // TODO: Send notification to user
 };
 
-export const blockUserService = async (id: string) => {
-  // TODO: Implement block user logic and mail send for blocked user
+export const blockUserService = async (
+  blockedId: string,
+  blockerId: string,
+  blockerRole: Role,
+  reason: string,
+  message: string,
+) => {
+  if (blockerRole !== "ADMIN" && blockerRole !== "MANAGER") {
+    throw new AppError("You are not authorized to perform this action", 403);
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: blockedId },
+  });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const userBlockStatus = await prisma.blockedUser.findUnique({
+    where: { blockedId },
+  });
+
+  if (userBlockStatus) {
+    throw new AppError("User is already blocked", 400);
+  }
+
+  if (user.role === "ADMIN") {
+    throw new AppError("You are an admin, you cannot be blocked", 400);
+  }
+
+  if (blockerRole === "MANAGER" && user.role === "MANAGER") {
+    throw new AppError(
+      "Manager cannot block manager, please contact admin",
+      400,
+    );
+  }
+
+  await prisma.blockedUser.create({
+    data: {
+      blockedId,
+      blockerId,
+      reason,
+      message,
+    },
+  });
+
+  await prisma.user.update({
+    where: { id: blockedId },
+    data: { isBlocked: true },
+  });
+
+  await sendBlockStatusChangeMail(user.email, "Blocked", message);
+
+  // TODO: Send notification to user
+};
+
+export const unBlockUserService = async (
+  blockedId: string,
+  blockerRole: Role,
+  message: string,
+) => {
+  if (blockerRole !== "ADMIN" && blockerRole !== "MANAGER") {
+    throw new AppError("You are not authorized to perform this action", 403);
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: blockedId },
+  });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const userBlockStatus = await prisma.blockedUser.findUnique({
+    where: { blockedId },
+  });
+
+  if (!userBlockStatus) {
+    throw new AppError("User is not blocked", 400);
+  }
+
+  await prisma.blockedUser.delete({
+    where: { blockedId },
+  });
+
+  await prisma.user.update({
+    where: { id: blockedId },
+    data: { isBlocked: false },
+  });
+
+  await sendBlockStatusChangeMail(user.email, "Unblocked", message);
+
+  // TODO: Send notification to user
+};
+
+export const getAllManagerService = async () => {
+  const users = await prisma.user.findMany({
+    where: { role: "MANAGER" },
+  });
+
+  return users;
+};
+
+export const createManagerService = async (
+  name: string,
+  email: string,
+  phone: string,
+  password: string,
+) => {
+  const formattedPhone = formatPhoneNumber(phone);
+
+  const userExistByEmail = await prisma.user.findUnique({
+    where: { email },
+  });
+  if (userExistByEmail) {
+    throw new AppError("Email already exists", 400);
+  }
+  const userExistByPhone = await prisma.user.findUnique({
+    where: { phone: formattedPhone },
+  });
+  if (userExistByPhone) {
+    throw new AppError("Phone number already exists", 400);
+  }
+
+  const hashedPassword = await hashPassword(password);
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      phone: formattedPhone,
+      passwordHash: hashedPassword,
+      role: "MANAGER",
+      isBlocked: false,
+      isEmailVerified: true,
+    },
+  });
+
+  await sendWelcomeMail(user.email, user.name, "Manager");
+};
+
+export const updateManagerService = async (
+  id: string,
+  name?: string,
+  email?: string,
+  phone?: string,
+  password?: string,
+) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+  });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (name) user.name = name;
+  if (email) user.email = email;
+  if (phone) user.phone = phone;
+  if (password) user.passwordHash = await hashPassword(password);
+
+  await prisma.user.update({
+    where: { id },
+    data: user,
+  });
+};
+
+export const deleteManagerService = async (id: string) => {
+  const user = await prisma.user.findUnique({
+    where: { id },
+  });
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (user.role !== "MANAGER") {
+    throw new AppError("User is not a manager", 400);
+  }
+
+  await prisma.user.delete({
+    where: { id },
+  });
 };

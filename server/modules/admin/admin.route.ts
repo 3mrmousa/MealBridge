@@ -6,39 +6,63 @@ import {
   getSingleUserById,
   getAllUsersWithProfile,
   toggleUserBlockStatus,
+  toggleUserUnblockStatus,
+  getAllManager,
+  createManager,
+  updateManager,
+  deleteManager,
 } from "./admin.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   getSingleUserByIdSchema,
   toggleUserVerificationStatusSchema,
   toggleUserBlockStatusSchema,
+  createManagerSchema,
+  toggleUserUnBlockStatusSchema,
+  updateManagerSchema,
+  deleteManagerSchema,
 } from "./admin.zod.js";
+import { protect } from "../../middlewares/auth.middleware.js";
 
 const adminRouter = Router();
 
 // Admin routes
 
-adminRouter.get("/users", getAllUsers);
-adminRouter.get("/users/with-profile", getAllUsersWithProfile);
+adminRouter.use(protect);
+
+adminRouter.get("/user", getAllUsers);
+adminRouter.get("/user/with-profile", getAllUsersWithProfile);
 adminRouter.get(
-  "/users/:id",
+  "/user/:id",
   validate(getSingleUserByIdSchema),
   getSingleUserById,
 );
+
 adminRouter.patch(
-  "/users/:id/verify/accept",
+  "/user/:id/verify/accept",
   validate(toggleUserVerificationStatusSchema),
   AcceptUserVerificationStatus,
 );
 adminRouter.patch(
-  "/users/:id/verify/reject",
+  "/user/:id/verify/reject",
   validate(toggleUserVerificationStatusSchema),
   RejectUserVerificationStatus,
 );
+
 adminRouter.patch(
-  "/users/:id/block",
+  "/user/:id/block",
   validate(toggleUserBlockStatusSchema),
   toggleUserBlockStatus,
 );
+adminRouter.patch(
+  "/user/:id/unblock",
+  validate(toggleUserUnBlockStatusSchema),
+  toggleUserUnblockStatus,
+);
+
+adminRouter.get("/manager", getAllManager);
+adminRouter.post("/manager", validate(createManagerSchema), createManager);
+adminRouter.patch("/manager/:id", validate(updateManagerSchema) ,updateManager);
+adminRouter.delete("/manager/:id", validate(deleteManagerSchema),deleteManager);
 
 export default adminRouter;

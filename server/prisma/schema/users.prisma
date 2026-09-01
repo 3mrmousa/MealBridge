@@ -25,6 +25,9 @@ model User {
   reportedReports Report[] @relation("ReportedReports")
   reviewedReports Report[] @relation("ReviewedReports")
 
+  userAsBlocker BlockedUser[] @relation("Blocker")
+  userAsBlocked BlockedUser?  @relation("Blocked")
+
   @@map("users")
 }
 

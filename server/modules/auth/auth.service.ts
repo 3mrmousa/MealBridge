@@ -3,8 +3,10 @@ import AppError from "../../utils/errors/AppError.js";
 import {
   sendForgotPasswordOtpMail,
   sendRegisterRequestOtpMail,
+  sendWelcomeMail,
 } from "../../utils/mail/email.service.js";
 import { generateOtp, verifyOtp } from "../../utils/otp/generateOtp.js";
+import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
 import {
   deleteOtpSession,
   getOtpSession,
@@ -18,7 +20,6 @@ import type {
   OtpSessionDataPasswordForgotRequest,
   OtpSessionDataRegisterRequest,
 } from "./auth.otp.store.js";
-import type { IUser } from "./auth.types.js";
 import type {
   LoginInput,
   PasswordForgotRequestInput,
@@ -36,17 +37,18 @@ export const registerRequestService = async (data: RegisterRequestInput) => {
     },
   });
 
+  if (existingUser && existingUser.isBlocked) {
+    throw new AppError(
+      "Your account has been blocked by support team. Please contact support for more information.",
+      403,
+    );
+  }
+
   if (existingUser) {
     throw new AppError("Email already used!", 400);
   }
 
-  const phoneNumber = phone?.startsWith("+20")
-    ? phone
-    : phone?.startsWith("20")
-      ? `+${phone}`
-      : phone?.startsWith("0")
-        ? `+2${phone}`
-        : `+20${phone}`;
+  const phoneNumber = formatPhoneNumber(phone);
 
   const existingPhone = await prisma.user.findUnique({
     where: { phone: phoneNumber },
@@ -110,6 +112,8 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
 
   await deleteOtpSession(`register:${email}`);
 
+  await sendWelcomeMail(user.email, user.name, "User");
+
   return user.id;
 };
 
@@ -128,6 +132,13 @@ export const loginService = async (data: LoginInput) => {
 
   if (!user) {
     throw new AppError("Invalid email or password", 401);
+  }
+
+  if (user.isBlocked) {
+    throw new AppError(
+      "Your account has been blocked by support team. Please contact support for more information.",
+      403,
+    );
   }
 
   if (!user.isEmailVerified) {
@@ -155,6 +166,7 @@ export const meService = async (id: string) => {
       phone: true,
       role: true,
       isEmailVerified: true,
+      isBlocked: true,
       createdAt: true,
       updatedAt: true,
     },
@@ -164,6 +176,12 @@ export const meService = async (id: string) => {
     throw new AppError("User not found", 404);
   }
 
+  if (user?.isBlocked) {
+    throw new AppError(
+      "Your account has been blocked by support team. Please contact support for more information.",
+      403,
+    );
+  }
   return user;
 };
 
@@ -179,6 +197,13 @@ export const passwordForgotRequestService = async (
 
   if (!user) {
     throw new AppError("User not found", 404);
+  }
+
+  if (user.isBlocked) {
+    throw new AppError(
+      "Your account has been blocked by support team. Please contact support for more information.",
+      403,
+    );
   }
 
   const existingSession =
