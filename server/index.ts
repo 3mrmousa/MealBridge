@@ -13,6 +13,9 @@ import { z } from "zod";
 import authRouter from "./modules/auth/auth.route.js";
 import userRouter from "./modules/user/user.route.js";
 import adminRouter from "./modules/admin/admin.route.js";
+import { createServer } from "http";
+import { initSocketServer } from "./utils/socket/socket.js";
+import notificationRouter from "./modules/notification/notification.route.js";
 
 const app = express();
 
@@ -29,6 +32,7 @@ app.use(express.json());
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/admin", adminRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));
@@ -71,7 +75,10 @@ const startServer = async () => {
     await prisma.$connect();
     console.log("🟢 Connected to PostgreSQL database successfully.");
 
-    app.listen(process.env.PORT, () => {
+    const httpServer = createServer(app);
+    initSocketServer(httpServer);
+
+    httpServer.listen(process.env.PORT, () => {
       console.log(`🚀 Server is running on port ${process.env.PORT}`);
     });
   } catch (error) {

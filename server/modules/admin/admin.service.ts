@@ -8,6 +8,7 @@ import {
 import { hashPassword } from "../../utils/password/passwordFunctions.js";
 import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
 import type { Role } from "../auth/auth.types.js";
+import { createNotificationService } from "../notification/notification.service.js";
 
 export const getAllUsersService = async () => {
   const users = await prisma.user.findMany();
@@ -92,15 +93,20 @@ export const AcceptUserVerificationStatusService = async (
     user.email,
     "Accepted",
     role,
-    "Your verification docs is accepted",
+    "Your verification docs has been accepted",
   );
 
-  // TODO: Send notification to user
+  await createNotificationService(
+    user.id,
+    "Verification Accepted",
+    "Your verification docs has been accepted",
+  );
 };
 
 export const RejectUserVerificationStatusService = async (
   id: string,
   role: Role,
+  rejectionReason?: string,
 ) => {
   if (role === "ADMIN" || role === "MANAGER") {
     throw new AppError(
@@ -126,10 +132,14 @@ export const RejectUserVerificationStatusService = async (
     user.email,
     "Rejected",
     role,
-    "Your verification docs is rejected",
+    rejectionReason || "Your verification docs is rejected",
   );
 
-  // TODO: Send notification to user
+  await createNotificationService(
+    user.id,
+    "Verification Rejected",
+    rejectionReason || "Your verification docs has been rejected",
+  );
 };
 
 export const blockUserService = async (
@@ -221,7 +231,7 @@ export const unBlockUserService = async (
 
   await sendBlockStatusChangeMail(user.email, "Unblocked", message);
 
-  // TODO: Send notification to user
+  await createNotificationService(blockedId, "Unblocked", message);
 };
 
 export const getAllManagerService = async () => {

@@ -16,8 +16,9 @@ import {
   deleteManagerService,
 } from "./admin.service.js";
 import type {
-  GetSingleUserByIdInput,
-  toggleUserVerificationStatusInput,
+  getSingleUserByIdInput,
+  userAcceptVerificationStatusInput,
+  userRejectVerificationStatusInput,
   toggleUserBlockStatusInput,
   createManagerInput,
   toggleUserUnBlockStatusInput,
@@ -49,7 +50,7 @@ export const getAllUsersWithProfile = asyncHandler(
 
 export const getSingleUserById = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { id } = req.params as GetSingleUserByIdInput;
+    const { id } = req.params as getSingleUserByIdInput;
     const data = await getSingleUserByIdService(id);
     res.status(200).json({
       success: "success",
@@ -61,11 +62,11 @@ export const getSingleUserById = asyncHandler(
 
 export const AcceptUserVerificationStatus = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { id } = req.params as toggleUserVerificationStatusInput;
-    const { role } = req.body as toggleUserVerificationStatusInput;
+    const { id } = req.params as userAcceptVerificationStatusInput;
+    const { role } = req.body as userAcceptVerificationStatusInput;
 
     if (!role) {
-      throw new AppError("Role is required to toggle verification status", 400);
+      throw new AppError("Role is required to accept verification status", 400);
     }
 
     await AcceptUserVerificationStatusService(id, role);
@@ -78,14 +79,15 @@ export const AcceptUserVerificationStatus = asyncHandler(
 
 export const RejectUserVerificationStatus = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { id } = req.params as toggleUserVerificationStatusInput;
-    const { role } = req.body as toggleUserVerificationStatusInput;
+    const { id } = req.params as userRejectVerificationStatusInput;
+    const { role, rejectReason } =
+      req.body as userRejectVerificationStatusInput;
 
     if (!role) {
-      throw new AppError("Role is required to toggle verification status", 400);
+      throw new AppError("Role is required to reject verification status", 400);
     }
 
-    await RejectUserVerificationStatusService(id, role);
+    await RejectUserVerificationStatusService(id, role, rejectReason);
     res.status(200).json({
       success: "success",
       message: "User verification status Rejected successfully.",

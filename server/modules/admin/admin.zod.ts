@@ -3,22 +3,32 @@ import { Role } from "../auth/auth.types.js";
 
 export const getSingleUserByIdSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().uuid({ message: "Invalid ID format" }),
   }),
 });
 
-export const toggleUserVerificationStatusSchema = z.object({
+export const userAcceptVerificationStatusSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
     role: z.nativeEnum(Role),
   }),
 });
 
+export const userRejectVerificationStatusSchema = z.object({
+  params: z.object({
+    id: z.string().uuid({ message: "Invalid ID format" }),
+  }),
+  body: z.object({
+    role: z.nativeEnum(Role),
+    rejectReason: z.string().optional(),
+  }),
+});
+
 export const toggleUserBlockStatusSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
     reason: z.string().min(1, "Reason is required"),
@@ -28,7 +38,7 @@ export const toggleUserBlockStatusSchema = z.object({
 
 export const toggleUserUnBlockStatusSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
     message: z.string().min(1, "Message is required"),
@@ -46,7 +56,7 @@ export const createManagerSchema = z.object({
 
 export const updateManagerSchema = z.object({
   params: z.object({
-    id: z.string(),
+    id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
     name: z.string().min(1, "Name is required").optional(),
@@ -61,23 +71,28 @@ export const updateManagerSchema = z.object({
 
 export const deleteManagerSchema = z.object({
   params: z.object({
-    id: z.string()
-  })
-})
+    id: z.string().uuid({ message: "Invalid ID format" }),
+  }),
+});
 
 export type createManagerInput = z.infer<typeof createManagerSchema>["body"];
 export type updateManagerInput = z.infer<typeof updateManagerSchema>["params"] &
   z.infer<typeof updateManagerSchema>["body"];
 export type deleteManagerInput = z.infer<typeof deleteManagerSchema>["params"];
 
-export type GetSingleUserByIdInput = z.infer<
+export type getSingleUserByIdInput = z.infer<
   typeof getSingleUserByIdSchema
 >["params"];
 
-export type toggleUserVerificationStatusInput = z.infer<
-  typeof toggleUserVerificationStatusSchema
+export type userAcceptVerificationStatusInput = z.infer<
+  typeof userAcceptVerificationStatusSchema
 >["params"] &
-  z.infer<typeof toggleUserVerificationStatusSchema>["body"];
+  z.infer<typeof userAcceptVerificationStatusSchema>["body"];
+
+export type userRejectVerificationStatusInput = z.infer<
+  typeof userRejectVerificationStatusSchema
+>["params"] &
+  z.infer<typeof userRejectVerificationStatusSchema>["body"];
 
 export type toggleUserBlockStatusInput = z.infer<
   typeof toggleUserBlockStatusSchema
