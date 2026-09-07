@@ -10,11 +10,13 @@ import type { MarkAsReadInput } from "./notification.zod.js";
 
 export const getUserNotifications = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    if (!req.user) {
-      throw new AppError("User is not found", 404);
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new AppError("User is not authenticated", 401);
     }
 
-    const notifications = await getUserNotificationsService(req.user.id);
+    const notifications = await getUserNotificationsService(userId);
 
     res.status(200).json({
       status: "success",
@@ -26,13 +28,15 @@ export const getUserNotifications = asyncHandler(
 
 export const markAsRead = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    if (!req.user) {
-      throw new AppError("User is not found", 404);
+    const userId = req.user?.id;
+
+    if (!userId) {
+      throw new AppError("User is not authenticated", 401);
     }
 
     const { notificationId } = req.params as MarkAsReadInput;
 
-    await markNotificationAsReadService(req.user.id, notificationId);
+    await markNotificationAsReadService(userId, notificationId);
 
     res.status(200).json({
       status: "success",

@@ -24,7 +24,7 @@ import {
   deleteManagerSchema,
 } from "./admin.zod.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
-import { Role } from "../auth/auth.types.js";
+import { Role } from "@prisma/client";
 
 const adminRouter = Router();
 
@@ -32,62 +32,62 @@ const adminRouter = Router();
 
 adminRouter.use(protect);
 
-adminRouter.get("/user", authorizeRoles(Role.Admin, Role.Manager), getAllUsers);
+adminRouter.get("/user", authorizeRoles(Role.ADMIN, Role.MANAGER), getAllUsers);
 adminRouter.get(
   "/user/with-profile",
-  authorizeRoles(Role.Admin, Role.Manager),
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
   getAllUsersWithProfile,
 );
 adminRouter.get(
   "/user/:id",
-  authorizeRoles(Role.Admin, Role.Manager),
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(getSingleUserByIdSchema),
   getSingleUserById,
 );
 
 adminRouter.patch(
   "/user/:id/verify/accept",
-  authorizeRoles(Role.Admin, Role.Manager),
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(userAcceptVerificationStatusSchema),
   AcceptUserVerificationStatus,
 );
 adminRouter.patch(
   "/user/:id/verify/reject",
-  authorizeRoles(Role.Admin, Role.Manager),
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(userRejectVerificationStatusSchema),
   RejectUserVerificationStatus,
 );
 
 adminRouter.patch(
   "/user/:id/block",
-  authorizeRoles(Role.Admin, Role.Manager),
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(toggleUserBlockStatusSchema),
   toggleUserBlockStatus,
 );
 adminRouter.patch(
   "/user/:id/unblock",
-  authorizeRoles(Role.Admin),
+  authorizeRoles(Role.ADMIN),
   validate(toggleUserUnBlockStatusSchema),
   toggleUserUnblockStatus,
 );
 
-adminRouter.get("/manager", authorizeRoles(Role.Admin), getAllManager);
+adminRouter.get("/manager", authorizeRoles(Role.ADMIN), getAllManager);
 adminRouter.post(
   "/manager",
   validate(createManagerSchema),
-  authorizeRoles(Role.Admin),
+  authorizeRoles(Role.ADMIN),
   createManager,
 );
 adminRouter.patch(
   "/manager/:id",
   validate(updateManagerSchema),
-  authorizeRoles(Role.Admin),
+  authorizeRoles(Role.ADMIN),
   updateManager,
 );
 adminRouter.delete(
   "/manager/:id",
   validate(deleteManagerSchema),
-  authorizeRoles(Role.Admin),
+  authorizeRoles(Role.ADMIN),
   deleteManager,
 );
 

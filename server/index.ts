@@ -16,23 +16,25 @@ import adminRouter from "./modules/admin/admin.route.js";
 import { createServer } from "http";
 import { initSocketServer } from "./utils/socket/socket.js";
 import notificationRouter from "./modules/notification/notification.route.js";
+import reportRouter from "./modules/report/report.route.js";
 
 const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:3001",
+    origin: process.env.CLIENT_URL,
     credentials: true,
   }),
 );
 app.use(helmet());
 app.use(cookieParser());
-app.use(express.json());
+app.use(express.json({limit:"5mb"}));
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/admin", adminRouter);
-app.use("/api/notifications", notificationRouter);
+app.use("/api/notification", notificationRouter);
+app.use("/api/report", reportRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));

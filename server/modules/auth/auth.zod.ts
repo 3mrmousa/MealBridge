@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Role } from "./auth.types.js";
+import { Role } from "@prisma/client";
 
 // Register Schemas
 export const registerRequestSchema = z.object({
@@ -19,7 +19,7 @@ export const registerRequestSchema = z.object({
 export const registerValidateSchema = z.object({
   body: z.object({
     email: z.email({ message: "Invalid email address" }),
-    otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+    otp: z.string().length(6, { message: "OTP must be 6 digits" }),
   }),
 });
 
@@ -39,7 +39,7 @@ export const passwordForgotRequestSchema = z.object({
 export const passwordForgotValidateSchema = z.object({
   body: z.object({
     email: z.email({ message: "Invalid email address" }),
-    otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+    otp: z.string().length(6, { message: "OTP must be 6 digits" }),
   }),
 });
 

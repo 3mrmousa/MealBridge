@@ -26,6 +26,9 @@ import {
   type ChangePhoneInput,
   type DeleteImageInput,
   type OtpInput,
+  type UpdateDonorInput,
+  type UpdateRecipientInput,
+  type UpdateVolunteerInput,
 } from "./user.zod.js";
 
 export const getUserProfile = asyncHandler(
@@ -61,7 +64,7 @@ export const updateProfile = asyncHandler(
         organizationType,
         address,
         verificationDocument,
-      } = req.body;
+      } = req.body as UpdateDonorInput;
       const validatedData = updateDonorProfileSchema.parse({
         body: {
           name,
@@ -81,7 +84,7 @@ export const updateProfile = asyncHandler(
         organizationType,
         address,
         verificationDocument,
-      } = req.body;
+      } = req.body as UpdateRecipientInput;
       const validatedData = updateRecipientProfileSchema.parse({
         body: {
           name,
@@ -102,7 +105,7 @@ export const updateProfile = asyncHandler(
         transportType,
         availabilityStatus,
         verificationDocument,
-      } = req.body;
+      } = req.body as UpdateVolunteerInput;
       const validatedData = updateVolunteerProfileSchema.parse({
         body: {
           name,

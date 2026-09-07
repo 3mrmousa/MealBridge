@@ -11,7 +11,7 @@ import type {
   UpdateVolunteerInput,
 } from "./user.zod.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
-import type { Role } from "../auth/auth.types.js";
+import type { Role } from "@prisma/client";
 import {
   comparePassword,
   hashPassword,
@@ -381,11 +381,13 @@ export const changePasswordService = async (
   );
   if (!isPasswordValid) throw new AppError("Invalid current password", 401);
 
-  const hashedPassword = await hashPassword(newPassword);
+  const isSame = await comparePassword(newPassword, user.passwordHash);
 
-  if (user.passwordHash === hashedPassword) {
+  if (isSame) {
     throw new AppError("New password is same as current password", 400);
   }
+
+  const hashedPassword = await hashPassword(newPassword);
 
   await prisma.user.update({
     where: { id: userId },

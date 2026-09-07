@@ -1,25 +1,15 @@
 import type { Request } from "express";
+import type { User } from "@prisma/client";
 
-export enum Role {
-  Admin = "ADMIN",
-  Manager = "MANAGER",
-  Donor = "DONOR",
-  Recipient = "RECIPIENT",
-  Volunteer = "VOLUNTEER",
-}
-
-export interface IUser {
-  id: string;
-  name: string;
-  email: string;
-  passwordHash: string;
-  phone: string;
-  role: Role;
-  isEmailVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
+// Role enum is now imported from @prisma/client (Prisma-generated enum)
+// export enum Role {
+//   Admin = "ADMIN",
+//   Manager = "MANAGER",
+//   Donor = "DONOR",
+//   Recipient = "RECIPIENT",
+//   Volunteer = "VOLUNTEER",
+// }
 
 export interface AuthRequest extends Request {
-  user?: IUser;
+  user?: User;
 }

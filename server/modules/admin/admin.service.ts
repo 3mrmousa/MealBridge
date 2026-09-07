@@ -7,7 +7,7 @@ import {
 } from "../../utils/mail/email.service.js";
 import { hashPassword } from "../../utils/password/passwordFunctions.js";
 import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
-import type { Role } from "../auth/auth.types.js";
+import type { Role } from "@prisma/client";
 import { createNotificationService } from "../notification/notification.service.js";
 
 export const getAllUsersService = async () => {
@@ -194,7 +194,6 @@ export const blockUserService = async (
 
   await sendBlockStatusChangeMail(user.email, "Blocked", message);
 
-  // TODO: Send notification to user
 };
 
 export const unBlockUserService = async (
@@ -294,14 +293,16 @@ export const updateManagerService = async (
     throw new AppError("User not found", 404);
   }
 
-  if (name) user.name = name;
-  if (email) user.email = email;
-  if (phone) user.phone = phone;
-  if (password) user.passwordHash = await hashPassword(password);
+  const updatedUser: Record<string, unknown> = {};
+
+  if (name) updatedUser.name = name;
+  if (email) updatedUser.email = email;
+  if (phone) updatedUser.phone = phone;
+  if (password) updatedUser.passwordHash = await hashPassword(password);
 
   await prisma.user.update({
     where: { id },
-    data: user,
+    data: updatedUser,
   });
 };
 

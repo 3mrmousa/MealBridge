@@ -1,7 +1,7 @@
 import crypto from "crypto";
 
 export function generateOtp(): { otp: string; hashedOtp: string } {
-  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+  const otp = crypto.randomInt(100000, 1000000).toString();
 
   const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
 

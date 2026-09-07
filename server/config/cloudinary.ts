@@ -1,12 +1,11 @@
 import { v2 as cloudinary } from "cloudinary";
-import AppError from "../utils/errors/AppError.js";
 
 if (
   !process.env.CLOUDINARY_CLOUD_NAME ||
   !process.env.CLOUDINARY_API_KEY ||
   !process.env.CLOUDINARY_API_SECRET
 ) {
-  throw new AppError("Missing Cloudinary environment variables", 500);
+  throw new Error("Missing Cloudinary environment variables");
 }
 
 cloudinary.config({

@@ -1,9 +1,10 @@
 import jwt from "jsonwebtoken";
 import AppError from "../utils/errors/AppError.js";
 import asyncHandler from "../utils/errors/asyncHandler.js";
-import type { AuthRequest, Role } from "../modules/auth/auth.types.js";
+import type { AuthRequest } from "../modules/auth/auth.types.js";
 import type { NextFunction, Response } from "express";
 import prisma from "../database/index.js";
+import type { Role, User } from "@prisma/client";
 
 interface JWTPayload {
   userId: string;
@@ -37,7 +38,11 @@ export const protect = asyncHandler(
       throw new AppError("Not Authorized", 401);
     }
 
-    req.user = user as any;
+    if (user.isBlocked) {
+      throw new AppError("Your account has been blocked", 403);
+    }
+
+    req.user = user as User;
     return next();
   },
 );

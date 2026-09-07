@@ -28,6 +28,7 @@ import type {
   RegisterRequestInput,
   RegisterValidateInput,
 } from "./auth.zod.js";
+import type { Role } from "@prisma/client";
 
 export const registerRequestService = async (data: RegisterRequestInput) => {
   const { name, email, password, phone, role } = data;
@@ -105,7 +106,7 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
       email: session.user.email,
       passwordHash: session.user.hashedPassword,
       phone: session.user.phone,
-      role: session.user.role as any,
+      role: session.user.role as Role,
       isEmailVerified: true,
     },
   });
@@ -119,10 +120,6 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
 
 export const loginService = async (data: LoginInput) => {
   const { email, password } = data;
-
-  if (!email || !password) {
-    throw new AppError("Email and password are required", 400);
-  }
 
   const user = await prisma.user.findUnique({
     where: {
@@ -176,7 +173,7 @@ export const meService = async (id: string) => {
     throw new AppError("User not found", 404);
   }
 
-  if (user?.isBlocked) {
+  if (user.isBlocked) {
     throw new AppError(
       "Your account has been blocked by support team. Please contact support for more information.",
       403,
@@ -273,6 +270,28 @@ export const passwordResetService = async (data: PasswordResetInput) => {
 
   if (!session.verified) {
     throw new AppError("OTP has not been verified", 400);
+  }
+
+  const user = await prisma.user.findUnique({
+    where: {
+      email: email,
+    },
+    select: {
+      passwordHash: true,
+    },
+  });
+
+  if (!user) {
+    throw new AppError("User not found", 404);
+  }
+
+  const isPasswordMatch = await comparePassword(
+    newPassword,
+    user.passwordHash,
+  );
+
+  if (isPasswordMatch) {
+    throw new AppError("New password cannot be same as old password", 400);
   }
 
   const hashedPassword = await hashPassword(newPassword);

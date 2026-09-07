@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Role } from "../auth/auth.types.js";
+import { Role } from "@prisma/client";
 
 export const getSingleUserByIdSchema = z.object({
   params: z.object({

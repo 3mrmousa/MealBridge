@@ -20,8 +20,11 @@ import {
   registerValidateSchema,
 } from "./auth.zod.js";
 import { protect } from "../../middlewares/auth.middleware.js";
+import { authRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 
 const authRouter = Router();
+
+authRouter.use(authRateLimiter);
 
 authRouter.post(
   "/register/request",

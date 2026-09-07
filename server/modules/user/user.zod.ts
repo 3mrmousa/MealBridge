@@ -67,7 +67,7 @@ export const ChangeEmailRequestSchema = z.object({
 
 export const otpSchema = z.object({
   body: z.object({
-    otp: z.string().length(4, { message: "OTP must be 4 digits" }),
+    otp: z.string().length(6, { message: "OTP must be 6 digits" }),
   }),
 });
 

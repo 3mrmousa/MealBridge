@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
-import type { AuthRequest, Role } from "../auth/auth.types.js";
+import type { AuthRequest } from "../auth/auth.types.js";
 import AppError from "../../utils/errors/AppError.js";
 import {
   getAllUsersService,
@@ -144,9 +144,6 @@ export const createManager = asyncHandler(
     if (!req.user) {
       throw new AppError("User not found", 404);
     }
-    if (req.user.role !== "ADMIN") {
-      throw new AppError("You are not authorized to create a manager", 403);
-    }
     const { name, email, phone, password } = req.body as createManagerInput;
     const data = await createManagerService(name, email, phone, password);
     res.status(200).json({
@@ -162,9 +159,6 @@ export const updateManager = asyncHandler(
     if (!req.user) {
       throw new AppError("User not found", 404);
     }
-    if (req.user.role !== "ADMIN") {
-      throw new AppError("You are not authorized to update a manager", 403);
-    }
     const { id } = req.params as updateManagerInput;
     const { name, email, phone, password } = req.body as updateManagerInput;
     await updateManagerService(id, name, email, phone, password);
@@ -179,9 +173,6 @@ export const deleteManager = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     if (!req.user) {
       throw new AppError("User not found", 404);
-    }
-    if (req.user.role !== "ADMIN") {
-      throw new AppError("You are not authorized to delete a manager", 403);
     }
     const { id } = req.params as deleteManagerInput;
     await deleteManagerService(id);
