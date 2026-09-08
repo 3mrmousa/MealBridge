@@ -274,8 +274,8 @@ export const updateVerificationDocumentService = async (
   const uploadPromises = files.map(async (file) => {
     const uploadResult = await uploadVerificationDocsToCloudinary(file.buffer);
     return {
-      secure_url: uploadResult.secure_url,
-      public_id: uploadResult.public_id,
+      imageUrl: uploadResult.secure_url,
+      publicId: uploadResult.public_id,
     };
   });
 
@@ -391,7 +391,7 @@ export const changePasswordService = async (
 
   await prisma.user.update({
     where: { id: userId },
-    data: { passwordHash: hashedPassword },
+    data: { passwordHash: hashedPassword, tokenVersion: { increment: 1 } },
   });
 };
 

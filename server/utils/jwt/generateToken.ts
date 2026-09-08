@@ -2,12 +2,12 @@ import jwt from "jsonwebtoken";
 import type { Response } from "express";
 import AppError from "../errors/AppError.js";
 
-const generateToken = (res: Response, userId: string) => {
+const generateToken = (res: Response, userId: string, tokenVersion: number) => {
   const secret = process.env.JWT_SECRET;
   if (!secret) {
     throw new AppError("JWT secret is not defined", 500);
   }
-  const token = jwt.sign({ userId: userId.toString() }, secret, {
+  const token = jwt.sign({ userId, tokenVersion }, secret, {
     expiresIn: "7d",
   });
 

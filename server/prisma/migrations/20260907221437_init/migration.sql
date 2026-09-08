@@ -67,7 +67,7 @@ CREATE TABLE "report" (
 );
 
 -- CreateTable
-CREATE TABLE "Notification" (
+CREATE TABLE "notification" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
     "source_report_id" UUID,
@@ -76,7 +76,20 @@ CREATE TABLE "Notification" (
     "is_read" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "Notification_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "notification_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "blocked_user" (
+    "id" UUID NOT NULL,
+    "blocker_id" UUID NOT NULL,
+    "blocked_id" UUID NOT NULL,
+    "reason" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "blocked_user_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -187,9 +200,12 @@ CREATE TABLE "users" (
     "id" UUID NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "is_email_verified" BOOLEAN NOT NULL DEFAULT false,
+    "is_blocked" BOOLEAN NOT NULL DEFAULT false,
     "password_hash" TEXT NOT NULL,
     "phone" TEXT NOT NULL,
     "role" "role" NOT NULL,
+    "token_version" INTEGER NOT NULL DEFAULT 0,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
@@ -200,10 +216,11 @@ CREATE TABLE "users" (
 CREATE TABLE "donor_profiles" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "profile_picture" TEXT,
+    "profile_picture" JSONB,
     "organization_name" TEXT,
     "organization_type" "donor_organization_type",
     "address" TEXT NOT NULL,
+    "verification_documents" JSONB[],
     "verification_status" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -215,10 +232,11 @@ CREATE TABLE "donor_profiles" (
 CREATE TABLE "recipient_profiles" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "profile_picture" TEXT,
+    "profile_picture" JSONB,
     "organization_name" TEXT,
     "organization_type" "recipient_organization_type",
     "address" TEXT NOT NULL,
+    "verification_documents" JSONB[],
     "verification_status" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
@@ -230,17 +248,21 @@ CREATE TABLE "recipient_profiles" (
 CREATE TABLE "volunteer_profiles" (
     "id" UUID NOT NULL,
     "user_id" UUID NOT NULL,
-    "profile_picture" TEXT,
+    "profile_picture" JSONB,
     "address" TEXT NOT NULL,
     "type" "volunteer_type" NOT NULL,
     "transport_type" "transport_type" NOT NULL,
     "availability_status" BOOLEAN NOT NULL DEFAULT false,
+    "verification_documents" JSONB[],
     "verification_status" BOOLEAN NOT NULL DEFAULT false,
     "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "volunteer_profiles_pkey" PRIMARY KEY ("id")
 );
+
+-- CreateIndex
+CREATE UNIQUE INDEX "blocked_user_blocked_id_key" ON "blocked_user"("blocked_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "conversation_donation_claim_id_key" ON "conversation"("donation_claim_id");
@@ -279,10 +301,16 @@ ALTER TABLE "report" ADD CONSTRAINT "report_reported_user_id_fkey" FOREIGN KEY (
 ALTER TABLE "report" ADD CONSTRAINT "report_reviewed_by_fkey" FOREIGN KEY ("reviewed_by") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "notification" ADD CONSTRAINT "notification_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Notification" ADD CONSTRAINT "Notification_source_report_id_fkey" FOREIGN KEY ("source_report_id") REFERENCES "report"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "notification" ADD CONSTRAINT "notification_source_report_id_fkey" FOREIGN KEY ("source_report_id") REFERENCES "report"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "blocked_user" ADD CONSTRAINT "blocked_user_blocker_id_fkey" FOREIGN KEY ("blocker_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "blocked_user" ADD CONSTRAINT "blocked_user_blocked_id_fkey" FOREIGN KEY ("blocked_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "conversation" ADD CONSTRAINT "conversation_donation_claim_id_fkey" FOREIGN KEY ("donation_claim_id") REFERENCES "donation_claim"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

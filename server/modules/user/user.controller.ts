@@ -40,7 +40,7 @@ export const getUserProfile = asyncHandler(
     const data = await getUserProfileService(userId.toString());
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Profile Fetched.",
       data,
     });
@@ -123,7 +123,7 @@ export const updateProfile = asyncHandler(
     }
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Profile Updated.",
     });
   },
@@ -150,7 +150,7 @@ export const updateProfilePicture = asyncHandler(
     );
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Profile Picture Updated.",
       data: {
         profilePicture: imageUrl,
@@ -172,7 +172,7 @@ export const deleteProfilePicture = asyncHandler(
     await deleteProfilePictureService(userId, role, public_id);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Profile Picture Deleted.",
     });
   },
@@ -208,7 +208,7 @@ export const updateVerificationDocument = asyncHandler(
     );
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Verification Documents Updated.",
       data: {
         verificationDocuments,
@@ -230,7 +230,7 @@ export const deleteVerificationDocument = asyncHandler(
     await deleteVerificationDocumentService(userId, role, public_id);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Verification Document Deleted.",
     });
   },
@@ -248,7 +248,7 @@ export const changePassword = asyncHandler(
     await changePasswordService(userId, currentPassword, newPassword);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Password Changed.",
     });
   },
@@ -265,7 +265,7 @@ export const changeEmailRequest = asyncHandler(
     await changeEmailRequestService(currentEmail, newEmail);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message:
         "OTP sent to current email. Check your email or spam or try again after 10 minutes.",
     });
@@ -283,7 +283,7 @@ export const currentEmailOtpVerification = asyncHandler(
     await currentEmailOtpVerificationService(currentEmail, otp);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message:
         "OTP sent to new email. Check your email or spam or try again after 10 minutes.",
     });
@@ -301,7 +301,7 @@ export const newEmailOtpVerificationAndChange = asyncHandler(
     await newEmailOtpVerificationAndChangeService(currentEmail, otp);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Email Has Been Changed.",
     });
   },
@@ -319,7 +319,7 @@ export const changePhone = asyncHandler(
     await changePhoneService(userId, phone);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Phone Has Been Changed.",
     });
   },

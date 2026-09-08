@@ -36,7 +36,7 @@ export const registerRequest = asyncHandler(
     });
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message:
         "OTP sent to email. Check your email or spam or try again after 10 minutes.",
     });
@@ -47,12 +47,12 @@ export const registerValidate = asyncHandler(
   async (req: Request, res: Response) => {
     const { email, otp } = req.body as RegisterValidateInput;
 
-    const id = await registerValidateService({ email, otp });
+    const { id, tokenVersion } = await registerValidateService({ email, otp });
 
-    generateToken(res, id);
+    generateToken(res, id, tokenVersion);
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Registration successful",
     });
   },
@@ -63,12 +63,12 @@ export const registerValidate = asyncHandler(
 export const login = asyncHandler(async (req: Request, res: Response) => {
   const { email, password } = req.body as LoginInput;
 
-  const id = await loginService({ email, password });
+  const { id, tokenVersion } = await loginService({ email, password });
 
-  generateToken(res, id);
+  generateToken(res, id, tokenVersion);
 
   res.status(200).json({
-    success: "success",
+    status: "success",
     message: "Login successful",
   });
 });
@@ -76,7 +76,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 export const logout = asyncHandler(async (req: AuthRequest, res: Response) => {
   res.clearCookie("access_token");
   res.status(200).json({
-    success: "success",
+    status: "success",
     message: "Logout successful",
   });
 });
@@ -87,7 +87,7 @@ export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await meService(id);
 
   res.status(200).json({
-    success: "success",
+    status: "success",
     message: "User fetched successfully",
     data: user,
   });
@@ -102,7 +102,7 @@ export const passwordForgotRequest = asyncHandler(
     await passwordForgotRequestService({ email });
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message:
         "OTP sent to email. Check your email or spam or try again after 10 minutes.",
     });
@@ -116,7 +116,7 @@ export const passwordForgotValidate = asyncHandler(
     await passwordForgotValidateService({ email, otp });
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "OTP verified successfully",
     });
   },
@@ -129,7 +129,7 @@ export const passwordReset = asyncHandler(
     await passwordResetService({ email, newPassword });
 
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Password reset successfully. You can now login.",
     });
   },

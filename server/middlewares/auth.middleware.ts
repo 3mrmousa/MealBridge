@@ -8,6 +8,7 @@ import type { Role, User } from "@prisma/client";
 
 interface JWTPayload {
   userId: string;
+  tokenVersion: number;
 }
 
 export const protect = asyncHandler(
@@ -24,7 +25,7 @@ export const protect = asyncHandler(
 
     const decodedToken = jwt.verify(token, secret) as JWTPayload;
 
-    if (!decodedToken || !decodedToken.userId) {
+    if (!decodedToken || !decodedToken.userId || decodedToken.tokenVersion === undefined) {
       throw new AppError("Not Authorized", 401);
     }
 
@@ -40,6 +41,10 @@ export const protect = asyncHandler(
 
     if (user.isBlocked) {
       throw new AppError("Your account has been blocked", 403);
+    }
+
+    if (user.tokenVersion !== decodedToken.tokenVersion) {
+      throw new AppError("Session expired. Please login again.", 401);
     }
 
     req.user = user as User;

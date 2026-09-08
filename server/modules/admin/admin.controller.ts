@@ -17,12 +17,17 @@ import {
 } from "./admin.service.js";
 import type {
   getSingleUserByIdInput,
-  userAcceptVerificationStatusInput,
-  userRejectVerificationStatusInput,
-  toggleUserBlockStatusInput,
+  userAcceptVerificationStatusParams,
+  userAcceptVerificationStatusBody,
+  userRejectVerificationStatusParams,
+  userRejectVerificationStatusBody,
+  toggleUserBlockStatusParams,
+  toggleUserBlockStatusBody,
   createManagerInput,
-  toggleUserUnBlockStatusInput,
-  updateManagerInput,
+  toggleUserUnBlockStatusParams,
+  toggleUserUnBlockStatusBody,
+  updateManagerParams,
+  updateManagerBody,
   deleteManagerInput,
 } from "./admin.zod.js";
 
@@ -30,7 +35,7 @@ export const getAllUsers = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const data = await getAllUsersService();
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Users fetched successfully.",
       data,
     });
@@ -41,7 +46,7 @@ export const getAllUsersWithProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const data = await getAllUsersWithProfileService();
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Users with profiles fetched successfully.",
       data,
     });
@@ -53,7 +58,7 @@ export const getSingleUserById = asyncHandler(
     const { id } = req.params as getSingleUserByIdInput;
     const data = await getSingleUserByIdService(id);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "User fetched successfully.",
       data,
     });
@@ -62,8 +67,8 @@ export const getSingleUserById = asyncHandler(
 
 export const AcceptUserVerificationStatus = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { id } = req.params as userAcceptVerificationStatusInput;
-    const { role } = req.body as userAcceptVerificationStatusInput;
+    const { id } = req.params as userAcceptVerificationStatusParams;
+    const { role } = req.body as userAcceptVerificationStatusBody;
 
     if (!role) {
       throw new AppError("Role is required to accept verification status", 400);
@@ -71,7 +76,7 @@ export const AcceptUserVerificationStatus = asyncHandler(
 
     await AcceptUserVerificationStatusService(id, role);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "User verification status Accepted successfully.",
     });
   },
@@ -79,9 +84,9 @@ export const AcceptUserVerificationStatus = asyncHandler(
 
 export const RejectUserVerificationStatus = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { id } = req.params as userRejectVerificationStatusInput;
+    const { id } = req.params as userRejectVerificationStatusParams;
     const { role, rejectReason } =
-      req.body as userRejectVerificationStatusInput;
+      req.body as userRejectVerificationStatusBody;
 
     if (!role) {
       throw new AppError("Role is required to reject verification status", 400);
@@ -89,7 +94,7 @@ export const RejectUserVerificationStatus = asyncHandler(
 
     await RejectUserVerificationStatusService(id, role, rejectReason);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "User verification status Rejected successfully.",
     });
   },
@@ -102,11 +107,11 @@ export const toggleUserBlockStatus = asyncHandler(
     }
     const blockerRole = req.user.role;
     const blockerId = req.user.id;
-    const { id: blockedId } = req.params as toggleUserBlockStatusInput;
-    const { reason, message } = req.body as toggleUserBlockStatusInput;
+    const { id: blockedId } = req.params as toggleUserBlockStatusParams;
+    const { reason, message } = req.body as toggleUserBlockStatusBody;
     await blockUserService(blockedId, blockerId, blockerRole, reason, message);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "User blocked successfully.",
     });
   },
@@ -118,11 +123,11 @@ export const toggleUserUnblockStatus = asyncHandler(
       throw new AppError("User not found", 404);
     }
     const blockerRole = req.user.role;
-    const { id: blockedId } = req.params as toggleUserUnBlockStatusInput;
-    const { message } = req.body as toggleUserUnBlockStatusInput;
+    const { id: blockedId } = req.params as toggleUserUnBlockStatusParams;
+    const { message } = req.body as toggleUserUnBlockStatusBody;
     await unBlockUserService(blockedId, blockerRole, message);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "User unblocked successfully.",
     });
   },
@@ -132,7 +137,7 @@ export const getAllManager = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const data = await getAllManagerService();
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Managers fetched successfully.",
       data,
     });
@@ -147,7 +152,7 @@ export const createManager = asyncHandler(
     const { name, email, phone, password } = req.body as createManagerInput;
     const data = await createManagerService(name, email, phone, password);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Manager created successfully.",
       data,
     });
@@ -159,11 +164,11 @@ export const updateManager = asyncHandler(
     if (!req.user) {
       throw new AppError("User not found", 404);
     }
-    const { id } = req.params as updateManagerInput;
-    const { name, email, phone, password } = req.body as updateManagerInput;
+    const { id } = req.params as updateManagerParams;
+    const { name, email, phone, password } = req.body as updateManagerBody;
     await updateManagerService(id, name, email, phone, password);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Manager updated successfully.",
     });
   },
@@ -177,7 +182,7 @@ export const deleteManager = asyncHandler(
     const { id } = req.params as deleteManagerInput;
     await deleteManagerService(id);
     res.status(200).json({
-      success: "success",
+      status: "success",
       message: "Manager deleted successfully.",
     });
   },

@@ -41,3 +41,23 @@ export const uploadVerificationDocsToCloudinary = (
     streamifier.createReadStream(fileBuffer).pipe(stream);
   });
 };
+
+export const uploadDonationPicsToCloudinary = (
+  fileBuffer: Buffer,
+): Promise<UploadApiResponse> => {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        folder: "MealBridge/DonationPictures",
+      },
+      (error, result) => {
+        if (error || !result) {
+          return reject(error);
+        }
+        resolve(result);
+      },
+    );
+
+    streamifier.createReadStream(fileBuffer).pipe(stream);
+  });
+};

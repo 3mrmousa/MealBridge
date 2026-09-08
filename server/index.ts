@@ -28,7 +28,7 @@ app.use(
 );
 app.use(helmet());
 app.use(cookieParser());
-app.use(express.json({limit:"5mb"}));
+app.use(express.json({ limit: "5mb" }));
 
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
@@ -89,4 +89,8 @@ const startServer = async () => {
   }
 };
 
-startServer();
+export { app };
+
+if (process.env.NODE_ENV !== "test") {
+  startServer();
+}

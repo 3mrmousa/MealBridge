@@ -108,6 +108,7 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
       phone: session.user.phone,
       role: session.user.role as Role,
       isEmailVerified: true,
+      tokenVersion: 0,
     },
   });
 
@@ -115,7 +116,7 @@ export const registerValidateService = async (data: RegisterValidateInput) => {
 
   await sendWelcomeMail(user.email, user.name, "User");
 
-  return user.id;
+  return { id: user.id, tokenVersion: user.tokenVersion };
 };
 
 export const loginService = async (data: LoginInput) => {
@@ -148,7 +149,7 @@ export const loginService = async (data: LoginInput) => {
     throw new AppError("Invalid email or password", 401);
   }
 
-  return user.id;
+  return { id: user.id, tokenVersion: user.tokenVersion };
 };
 
 export const meService = async (id: string) => {
@@ -278,6 +279,7 @@ export const passwordResetService = async (data: PasswordResetInput) => {
     },
     select: {
       passwordHash: true,
+      tokenVersion: true,
     },
   });
 
@@ -285,10 +287,7 @@ export const passwordResetService = async (data: PasswordResetInput) => {
     throw new AppError("User not found", 404);
   }
 
-  const isPasswordMatch = await comparePassword(
-    newPassword,
-    user.passwordHash,
-  );
+  const isPasswordMatch = await comparePassword(newPassword, user.passwordHash);
 
   if (isPasswordMatch) {
     throw new AppError("New password cannot be same as old password", 400);
@@ -302,6 +301,7 @@ export const passwordResetService = async (data: PasswordResetInput) => {
     },
     data: {
       passwordHash: hashedPassword,
+      tokenVersion: { increment: 1 },
     },
   });
 

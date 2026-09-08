@@ -30,3 +30,6 @@ export const uploadSingleFileForPFP = upload.single("profilePicture");
 export const uploadMultipleFilesForVerificationDocs = upload.fields([
   { name: "verificationDocument", maxCount: 5 },
 ]);
+export const uploadMultipleFilesForDonation = upload.fields([
+  { name: "donationPicture", maxCount: 5 },
+]);

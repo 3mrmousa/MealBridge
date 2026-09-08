@@ -4,7 +4,7 @@ model Donation {
 
   title       String   @map("title")
   description String   @map("description")
-  images      String[] @map("images")
+  images      Json[] @map("images")
   foodType    String   @map("food_type")
 
   quantity Int    @map("quantity")

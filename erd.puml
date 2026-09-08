@@ -135,6 +135,7 @@ entity User {
     passwordHash : String
     phone : String <<UNIQUE>>
     role : Role
+    tokenVersion : Int default(0)
     createdAt : DateTime
     updatedAt : DateTime
 }
