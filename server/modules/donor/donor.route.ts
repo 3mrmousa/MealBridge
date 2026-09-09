@@ -1,16 +1,28 @@
 import { Router } from "express";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import {
+  addPicsToDonation,
   createDonation,
   getDonationById,
   getMyDonations,
+  removePicFromDonation,
   updateDonation,
+  deleteDonation,
+  getAllDonationRequests,
+  getSingleDonationRequest,
+  acceptDonationRequest,
+  rejectDonationRequest,
 } from "./donor.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
+  acceptRequestSchema,
   createDonationSchema,
   getDonationByIdSchema,
   getMyDonationsSchema,
+  idWithPangitinationRequestsSchema,
+  idWithPangitinationSingleRequestSchema,
+  onlyIdParamSchema,
+  rejectRequestSchema,
   updateDonationSchema,
 } from "./donor.zod.js";
 import { uploadMultipleFilesForDonation } from "../../middlewares/multer.middleware.js";
@@ -19,7 +31,7 @@ import { Role } from "@prisma/client";
 const donorRouter = Router();
 
 donorRouter.use(protect);
-donorRouter.use(authorizeRoles(Role.DONOR))
+donorRouter.use(authorizeRoles(Role.DONOR));
 
 donorRouter.get("/donation", validate(getMyDonationsSchema), getMyDonations);
 
@@ -38,16 +50,49 @@ donorRouter.post(
 
 donorRouter.patch(
   "/donation/:id",
-  uploadMultipleFilesForDonation,
   validate(updateDonationSchema),
   updateDonation,
 );
 
-// donorRouter.delete("/donation/:id", deleteDonation);
+donorRouter.patch(
+  "/donation/:id/add-pics",
+  uploadMultipleFilesForDonation,
+  validate(onlyIdParamSchema),
+  addPicsToDonation,
+);
+donorRouter.patch(
+  "/donation/:id/remove-pics",
+  validate(onlyIdParamSchema),
+  removePicFromDonation,
+);
 
-// // Requests by recipient
-// donorRouter.get("/donation/:id/requests", getAllDonationRequests);
-// donorRouter.patch("/donation/:id/requests/:reqId", updateDonationRequest);
+donorRouter.delete(
+  "/donation/:id",
+  validate(onlyIdParamSchema),
+  deleteDonation,
+);
+
+// Requests by recipient
+donorRouter.get(
+  "/donation/:id/requests",
+  validate(idWithPangitinationRequestsSchema),
+  getAllDonationRequests,
+);
+donorRouter.get(
+  "/donation/:id/requests/:reqId",
+  validate(idWithPangitinationSingleRequestSchema),
+  getSingleDonationRequest,
+);
+donorRouter.patch(
+  "/donation/:id/accept/:reqId",
+  validate(acceptRequestSchema),
+  acceptDonationRequest,
+);
+donorRouter.patch(
+  "/donation/:id/reject/:reqId",
+  validate(rejectRequestSchema),
+  rejectDonationRequest,
+);
 
 // // Donation claims
 // donorRouter.get("/donation/:id/claims", getAllDonationClaims);
