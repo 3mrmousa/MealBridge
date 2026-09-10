@@ -2,18 +2,14 @@ import type { Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import {
-  acceptDonationRequestService,
   addPicsToDonationService,
   createDonationService,
   deleteDonationService,
-  getAllDonationRequestsService,
   getDonationByIdService,
   getMyDonationsService,
-  getSingleDonationRequestsService,
-  rejectDonationRequestService,
   removePicFromDonationService,
   updateDonationService,
-} from "./donor.service.js";
+} from "./donation.service.js";
 import type {
   CreateDonationBody,
   GetDonationByIdParams,
@@ -21,12 +17,7 @@ import type {
   UpdateDonationParams,
   UpdateDonationBody,
   OnlyIdParamParams,
-  IdWithPangitinationRequestsParams,
-  IdWithPangitinationRequestsQuery,
-  IdWithPangitinationSingleRequestParams,
-  AcceptRequestParams,
-  RejectRequestParams,
-} from "./donor.zod.js";
+} from "./donation.zod.js";
 import AppError from "../../utils/errors/AppError.js";
 
 export const getMyDonations = asyncHandler(
@@ -67,7 +58,6 @@ export const createDonation = asyncHandler(
       address,
       availableFrom,
       availableUntil,
-      expirationDate,
     } = req.body as CreateDonationBody;
     const files = req.files as { [fileName: string]: Express.Multer.File[] };
     const donationPictures = files["donationPicture"];
@@ -87,7 +77,6 @@ export const createDonation = asyncHandler(
         address,
         availableFrom,
         availableUntil,
-        expirationDate,
       },
       donationPictures,
     );
@@ -112,7 +101,6 @@ export const updateDonation = asyncHandler(
       address,
       availableFrom,
       availableUntil,
-      expirationDate,
     } = req.body as UpdateDonationBody;
     const donation = await updateDonationService(userId!, {
       id: donationId,
@@ -124,7 +112,6 @@ export const updateDonation = asyncHandler(
       address,
       availableFrom,
       availableUntil,
-      expirationDate,
     });
     res.status(200).json({
       status: "success",
@@ -178,79 +165,6 @@ export const deleteDonation = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Donation deleted successfully",
-    });
-  },
-);
-
-// Requests by recipient
-
-export const getAllDonationRequests = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { id: donationId } = req.params as IdWithPangitinationRequestsParams;
-    const { limit, page } = req.query as IdWithPangitinationRequestsQuery;
-
-    const requests = await getAllDonationRequestsService(
-      userId!,
-      donationId,
-      limit,
-      page,
-    );
-
-    res.status(200).json({
-      status: "success",
-      message: "Donation requests fetched successfully",
-      data: requests,
-    });
-  },
-);
-
-export const getSingleDonationRequest = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { id: donationId, reqId } =
-      req.params as IdWithPangitinationSingleRequestParams;
-
-    const request = await getSingleDonationRequestsService(
-      userId!,
-      donationId,
-      reqId,
-    );
-
-    res.status(200).json({
-      status: "success",
-      message: "Donation request fetched successfully",
-      data: request,
-    });
-  },
-);
-
-export const acceptDonationRequest = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { id: donationId, reqId } =
-      req.params as AcceptRequestParams;
-
-    await acceptDonationRequestService(userId!, donationId, reqId);
-
-    res.status(200).json({
-      status: "success",
-      message: "Donation request accepted successfully",
-    });
-  },
-);
-
-export const rejectDonationRequest = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { id: donationId, reqId } =
-      req.params as RejectRequestParams;
-
-    await rejectDonationRequestService(userId!, donationId, reqId);
-
-    res.status(200).json({
-      status: "success",
-      message: "Donation request rejected successfully",
     });
   },
 );

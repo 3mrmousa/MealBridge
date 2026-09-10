@@ -196,7 +196,7 @@ entity Donation {
     address : String
     availableFrom : DateTime
     availableUntil : DateTime
-    expirationDate : DateTime
+
     status : DonationStatus
     createdAt : DateTime
     updatedAt : DateTime

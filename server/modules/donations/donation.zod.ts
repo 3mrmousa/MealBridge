@@ -23,7 +23,6 @@ export const createDonationSchema = z.object({
     address: z.string().min(1, "Address is required"),
     availableFrom: z.coerce.date({ error: "availableFrom Date is required" }),
     availableUntil: z.coerce.date({ error: "availableTo Date is required" }),
-    expirationDate: z.coerce.date({ error: "expirationDate Date is required" }),
   }),
 });
 
@@ -50,44 +49,12 @@ export const updateDonationSchema = z.object({
     availableUntil: z.coerce
       .date({ error: "availableTo Date is required" })
       .optional(),
-    expirationDate: z.coerce
-      .date({ error: "expirationDate Date is required" })
-      .optional(),
   }),
 });
 
 export const onlyIdParamSchema = z.object({
   params: z.object({
     id: z.string(),
-  }),
-});
-
-export const idWithPangitinationRequestsSchema = z.object({
-  params: z.object({
-    id: z.string(),
-  }),
-  query: z.object({
-    page: z.coerce.number().int().optional(),
-    limit: z.coerce.number().int().optional(),
-  }),
-});
-export const idWithPangitinationSingleRequestSchema = z.object({
-  params: z.object({
-    id: z.string(),
-    reqId: z.string(),
-  }),
-});
-
-export const acceptRequestSchema = z.object({
-  params: z.object({
-    id: z.string(),
-    reqId: z.string(),
-  }),
-});
-export const rejectRequestSchema = z.object({
-  params: z.object({
-    id: z.string(),
-    reqId: z.string(),
   }),
 });
 
@@ -101,16 +68,3 @@ export type UpdateDonationParams = z.infer<
 >["params"];
 export type UpdateDonationBody = z.infer<typeof updateDonationSchema>["body"];
 export type OnlyIdParamParams = z.infer<typeof onlyIdParamSchema>["params"];
-
-export type IdWithPangitinationRequestsParams = z.infer<
-  typeof idWithPangitinationRequestsSchema
->["params"];
-export type IdWithPangitinationRequestsQuery = z.infer<
-  typeof idWithPangitinationRequestsSchema
->["query"];
-
-export type IdWithPangitinationSingleRequestParams = z.infer<
-  typeof idWithPangitinationSingleRequestSchema
->["params"];
-export type AcceptRequestParams = z.infer<typeof acceptRequestSchema>["params"];
-export type RejectRequestParams = z.infer<typeof rejectRequestSchema>["params"];

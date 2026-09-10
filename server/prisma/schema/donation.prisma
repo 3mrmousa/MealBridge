@@ -2,19 +2,19 @@ model Donation {
   id      String @id @default(uuid()) @map("id") @db.Uuid
   donorId String @map("donor_id") @db.Uuid
 
-  title       String   @map("title")
-  description String   @map("description")
+  title       String @map("title")
+  description String @map("description")
   images      Json[] @map("images")
-  foodType    String   @map("food_type")
+  foodType    String @map("food_type")
 
   quantity Int    @map("quantity")
   unit     String @map("unit")
   address  String @map("address")
 
-  availableFrom  DateTime       @map("available_from")
-  availableUntil DateTime       @map("available_until")
-  expirationDate DateTime       @map("expiration_date")
-  status         DonationStatus @map("status")
+  availableFrom  DateTime @map("available_from")
+  availableUntil DateTime @map("available_until")
+
+  status DonationStatus @map("status")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

@@ -17,6 +17,10 @@ import { createServer } from "http";
 import { initSocketServer } from "./utils/socket/socket.js";
 import notificationRouter from "./modules/notification/notification.route.js";
 import reportRouter from "./modules/report/report.route.js";
+import donationRouter from "./modules/donations/donation.route.js";
+import donationRequestRouter from "./modules/donationRequest/donationRequest.route.js";
+import donationClaimRouter from "./modules/donationClaim/donationClaim.route.js";
+import pickupRouter from "./modules/pickup/pickup.route.js";
 
 const app = express();
 
@@ -35,6 +39,10 @@ app.use("/api/user", userRouter);
 app.use("/api/admin", adminRouter);
 app.use("/api/notification", notificationRouter);
 app.use("/api/report", reportRouter);
+app.use("/api/donations", donationRouter);
+app.use("/api/donations", donationRequestRouter);
+app.use("/api/donations", donationClaimRouter);
+app.use("/api/pickup-request", pickupRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));
