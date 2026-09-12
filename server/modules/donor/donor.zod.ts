@@ -58,6 +58,37 @@ export const onlyIdParamSchema = z.object({
   }),
 });
 
+export const getDonationRequestsSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  query: z.object({
+    page: z.coerce.number().int().optional(),
+    limit: z.coerce.number().int().optional(),
+  }),
+});
+
+export const getSingleDonationRequestSchema = z.object({
+  params: z.object({
+    id: z.string(),
+    reqId: z.string(),
+  }),
+});
+
+export const acceptRequestSchema = z.object({
+  params: z.object({
+    id: z.string(),
+    reqId: z.string(),
+  }),
+});
+
+export const rejectRequestSchema = z.object({
+  params: z.object({
+    id: z.string(),
+    reqId: z.string(),
+  }),
+});
+
 export type GetMyDonationsQuery = z.infer<typeof getMyDonationsSchema>["query"];
 export type GetDonationByIdParams = z.infer<
   typeof getDonationByIdSchema
@@ -68,3 +99,45 @@ export type UpdateDonationParams = z.infer<
 >["params"];
 export type UpdateDonationBody = z.infer<typeof updateDonationSchema>["body"];
 export type OnlyIdParamParams = z.infer<typeof onlyIdParamSchema>["params"];
+
+
+export type GetDonationRequestsParams = z.infer<
+  typeof getDonationRequestsSchema
+>["params"];
+export type GetDonationRequestsQuery = z.infer<
+  typeof getDonationRequestsSchema
+>["query"];
+export type GetSingleDonationRequestParams = z.infer<
+  typeof getSingleDonationRequestSchema
+>["params"];
+export type AcceptRequestParams = z.infer<typeof acceptRequestSchema>["params"];
+export type RejectRequestParams = z.infer<typeof rejectRequestSchema>["params"];
+
+export const getAllDonationClaimsSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  query: z.object({
+    page: z.coerce.number().int().optional(),
+    limit: z.coerce.number().int().optional(),
+  }),
+});
+
+export const getSingleDonationClaimSchema = z.object({
+  params: z.object({
+    id: z.string(),
+    claimId: z.string(),
+  }),
+});
+
+export type GetAllDonationClaimsParams = z.infer<
+  typeof getAllDonationClaimsSchema
+>["params"];
+export type GetAllDonationClaimsQuery = z.infer<
+  typeof getAllDonationClaimsSchema
+>["query"];
+export type GetSingleDonationClaimParams = z.infer<
+  typeof getSingleDonationClaimSchema
+>["params"];
+
+

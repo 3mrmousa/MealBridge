@@ -9,7 +9,13 @@ import {
   getMyDonationsService,
   removePicFromDonationService,
   updateDonationService,
-} from "./donation.service.js";
+  getDonorDonationRequestsService,
+  getDonorDonationRequestService,
+  acceptDonationRequestService,
+  rejectDonationRequestService,
+  getAllDonationClaimsService,
+  getSingleDonationClaimService,
+} from "./donor.service.js";
 import type {
   CreateDonationBody,
   GetDonationByIdParams,
@@ -17,7 +23,15 @@ import type {
   UpdateDonationParams,
   UpdateDonationBody,
   OnlyIdParamParams,
-} from "./donation.zod.js";
+  GetDonationRequestsParams,
+  GetDonationRequestsQuery,
+  GetSingleDonationRequestParams,
+  AcceptRequestParams,
+  RejectRequestParams,
+  GetAllDonationClaimsParams,
+  GetAllDonationClaimsQuery,
+  GetSingleDonationClaimParams,
+} from "./donor.zod.js";
 import AppError from "../../utils/errors/AppError.js";
 
 export const getMyDonations = asyncHandler(
@@ -168,3 +182,105 @@ export const deleteDonation = asyncHandler(
     });
   },
 );
+
+export const getDonorDonationRequests = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id: donationId } = req.params as GetDonationRequestsParams;
+    const { limit, page } = req.query as GetDonationRequestsQuery;
+
+    const requests = await getDonorDonationRequestsService(
+      userId!,
+      donationId,
+      limit,
+      page,
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation requests fetched successfully",
+      data: requests,
+    });
+  },
+);
+
+export const getDonorDonationRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id: donationId, reqId } =
+      req.params as GetSingleDonationRequestParams;
+
+    const request = await getDonorDonationRequestService(
+      userId!,
+      donationId,
+      reqId,
+    );
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation request fetched successfully",
+      data: request,
+    });
+  },
+);
+
+export const acceptDonationRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id: donationId, reqId } = req.params as AcceptRequestParams;
+
+    await acceptDonationRequestService(userId!, donationId, reqId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation request accepted successfully",
+    });
+  },
+);
+
+export const rejectDonationRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id: donationId, reqId } = req.params as RejectRequestParams;
+
+    await rejectDonationRequestService(userId!, donationId, reqId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation request rejected successfully",
+    });
+  },
+);
+
+export const getAllDonationClaims = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id } = req.params as GetAllDonationClaimsParams;
+    const { page, limit } = req.query as GetAllDonationClaimsQuery;
+
+    const claims = await getAllDonationClaimsService(userId, id, page, limit);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation claims fetched successfully",
+      data: claims,
+    });
+  },
+);
+
+export const getSingleDonationClaim = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id, claimId } = req.params as GetSingleDonationClaimParams;
+
+    const claim = await getSingleDonationClaimService(userId, id, claimId);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation claim fetched successfully",
+      data: claim,
+    });
+  },
+);
+
+
