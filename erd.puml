@@ -223,6 +223,7 @@ entity DonationClaim {
     quantityClaimed : Int
     pickupDeadline : DateTime
     pickupMethod : PickupMethod default(SELF)
+    collectedAt : DateTime <<NULLABLE>>
     status : ClaimStatus
     createdAt : DateTime
     updatedAt : DateTime

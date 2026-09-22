@@ -1,23 +1,52 @@
-import { ClaimStatus, DonationRequestStatus, Prisma, type Donation } from "@prisma/client";
+import {
+  ClaimStatus,
+  DonationRequestStatus,
+  DonationStatus,
+  Prisma,
+  type Donation,
+} from "@prisma/client";
 import prisma from "../../database/index.js";
 import { uploadDonationPicsToCloudinary } from "../../utils/cloudinary/uploadImage.js";
 import AppError from "../../utils/errors/AppError.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
+import type {
+  SortAndPaginateOnDonationClaims,
+  SortAndPaginateOnDonationRequests,
+  SortAndPaginateOnDonations,
+} from "../../utils/types/sort.types.js";
 
 export const getMyDonationsService = async (
   donorId: string,
-  page: number = 1,
-  limit: number = 10,
+  options: SortAndPaginateOnDonations,
 ) => {
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = options;
+
   const skip = (page - 1) * limit;
 
-  const donations = await prisma.donation.findMany({
-    where: { donorId },
-    take: limit,
-    skip,
-  });
+  const where: Prisma.DonationWhereInput = {
+    donorId,
+    ...(status && { status }),
+  };
 
-  return donations;
+  const [donations, totalCount] = await Promise.all([
+    prisma.donation.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+    }),
+    prisma.donation.count({ where }),
+  ]);
+
+  return { donations, totalCount };
 };
 
 export const getDonationByIdService = async (
@@ -224,10 +253,20 @@ export const deleteDonationService = async (
 export const getDonorDonationRequestsService = async (
   donorId: string,
   donationId: string,
-  limit: number = 10,
-  page: number = 1,
+  options: SortAndPaginateOnDonationRequests,
 ) => {
+  const {
+    limit = 10,
+    page = 1,
+    status,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = options;
   const skip = (page - 1) * limit;
+  const where: Prisma.DonationRequestWhereInput = {
+    donationId,
+    ...(status && { status }),
+  };
 
   const donation = await prisma.donation.findUnique({
     where: { id: donationId, donorId },
@@ -237,13 +276,20 @@ export const getDonorDonationRequestsService = async (
     throw new AppError("Donation not found", 404);
   }
 
-  const requests = await prisma.donationRequest.findMany({
-    where: { donationId },
-    take: limit,
-    skip,
-  });
+  const [requests, totalCount] = await prisma.$transaction([
+    prisma.donationRequest.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: { recipient: true },
+    }),
+    prisma.donationRequest.count({
+      where: { donationId },
+    }),
+  ]);
 
-  return requests;
+  return { requests, totalCount };
 };
 
 export const getDonorDonationRequestService = async (
@@ -276,40 +322,75 @@ export const acceptDonationRequestService = async (
   donationId: string,
   requestId: string,
 ) => {
-  const donation = await prisma.donation.findUnique({
-    where: { id: donationId, donorId },
-  });
+  return await prisma.$transaction(async (tx) => {
+    const donation = await tx.donation.findUnique({
+      where: { id: donationId, donorId },
+    });
+    if (!donation) {
+      throw new AppError("Donation not found", 404);
+    }
 
-  if (!donation) {
-    throw new AppError("Donation not found", 404);
-  }
+    if (donation.status !== DonationStatus.AVAILABLE) {
+      throw new AppError("Donation is no longer avilable", 400);
+    }
 
-  const request = await prisma.donationRequest.findUnique({
-    where: { id: requestId, donationId },
-  });
+    if (new Date(donation.availableUntil) < new Date()) {
+      throw new AppError("Donation has already expired", 400);
+    }
+    const request = await tx.donationRequest.findUnique({
+      where: { id: requestId, donationId },
+    });
 
-  if (!request) {
-    throw new AppError("Request not found", 404);
-  }
+    if (!request) {
+      throw new AppError("Request not found", 404);
+    }
 
-  if (request.status !== DonationRequestStatus.PENDING) {
-    throw new AppError("Request is not in pending state", 400);
-  }
+    if (request.status !== DonationRequestStatus.PENDING) {
+      throw new AppError("Request is not in pending state", 400);
+    }
 
-  await prisma.donationRequest.update({
-    where: { id: requestId, donationId },
-    data: { status: DonationRequestStatus.ACCEPTED },
-  });
+    if (donation.quantity === 0) {
+      await tx.donation.update({
+        where: { id: donationId },
+        data: { status: DonationStatus.RESERVED },
+      });
 
-  await prisma.donationClaim.create({
-    data: {
-      donationId: donationId,
-      donationRequestId: requestId,
-      recipientId: request.recipientId,
-      quantityClaimed: request.quantityRequested,
-      pickupDeadline: donation.availableUntil,
-      status: ClaimStatus.ACTIVE,
-    },
+      throw new AppError("This donation is now reserved", 400);
+    }
+
+    if (donation.quantity < request.quantityRequested) {
+      throw new AppError(
+        `Insufficient quantity available (${donation.quantity} available, ${request.quantityRequested} requested)`,
+        400,
+      );
+    }
+
+    await tx.donationRequest.update({
+      where: { id: requestId, donationId },
+      data: { status: DonationRequestStatus.ACCEPTED },
+    });
+
+    await tx.donationClaim.create({
+      data: {
+        donationId: donationId,
+        donationRequestId: requestId,
+        recipientId: request.recipientId,
+        quantityClaimed: request.quantityRequested,
+        pickupDeadline: donation.availableUntil,
+        status: ClaimStatus.ACTIVE,
+      },
+    });
+
+    const newQuantity = donation.quantity - request.quantityRequested;
+
+    await tx.donation.update({
+      where: {
+        id: donationId,
+      },
+      data: {
+        quantity: newQuantity,
+      },
+    });
   });
 };
 
@@ -347,23 +428,42 @@ export const rejectDonationRequestService = async (
 export const getAllDonationClaimsService = async (
   donorId: string,
   donationId: string,
-  limit: number = 10,
-  page: number = 1,
+  options: SortAndPaginateOnDonationClaims,
 ) => {
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    pickupMethod,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = options;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DonationClaimWhereInput = {
+    donationId,
+    ...(status && { status }),
+    ...(pickupMethod && { pickupMethod }),
+  };
+
   const donation = await prisma.donation.findUnique({
     where: { id: donationId, donorId },
   });
   if (!donation) {
     throw new AppError("Donation not found", 404);
   }
-  const skip = (page - 1) * limit;
 
-  const claims = await prisma.donationClaim.findMany({
-    where: { donationId },
-    take: limit,
-    skip,
-  });
-  return claims;
+  const [claims, totalCount] = await Promise.all([
+    prisma.donationClaim.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: { recipient: true },
+    }),
+    prisma.donationClaim.count({ where: { donationId } }),
+  ]);
+  return { claims, totalCount };
 };
 
 export const getSingleDonationClaimService = async (
@@ -387,5 +487,3 @@ export const getSingleDonationClaimService = async (
 
   return claim;
 };
-
-

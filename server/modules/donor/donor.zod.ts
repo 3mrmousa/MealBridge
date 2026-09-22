@@ -1,9 +1,15 @@
+import { ClaimStatus, DonationRequestStatus, DonationStatus, PickupMethod } from "@prisma/client";
 import z from "zod";
 
 export const getMyDonationsSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().optional(),
     limit: z.coerce.number().int().optional(),
+    status: z.nativeEnum(DonationStatus).optional(),
+    sortBy: z
+      .enum(["createdAt", "quantity", "availableFrom", "availableUntil"])
+      .optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
 
@@ -65,6 +71,9 @@ export const getDonationRequestsSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().optional(),
     limit: z.coerce.number().int().optional(),
+    status: z.nativeEnum(DonationRequestStatus).optional(),
+    sortBy: z.enum(["createdAt", "quantityRequested"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
 
@@ -100,7 +109,6 @@ export type UpdateDonationParams = z.infer<
 export type UpdateDonationBody = z.infer<typeof updateDonationSchema>["body"];
 export type OnlyIdParamParams = z.infer<typeof onlyIdParamSchema>["params"];
 
-
 export type GetDonationRequestsParams = z.infer<
   typeof getDonationRequestsSchema
 >["params"];
@@ -120,6 +128,12 @@ export const getAllDonationClaimsSchema = z.object({
   query: z.object({
     page: z.coerce.number().int().optional(),
     limit: z.coerce.number().int().optional(),
+    status: z.nativeEnum(ClaimStatus).optional(),
+    pickupMethod: z.nativeEnum(PickupMethod).optional(),
+    sortBy: z
+      .enum(["createdAt", "quantityClaimed", "collectedAt", "pickupDeadline"])
+      .optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
 
@@ -139,5 +153,3 @@ export type GetAllDonationClaimsQuery = z.infer<
 export type GetSingleDonationClaimParams = z.infer<
   typeof getSingleDonationClaimSchema
 >["params"];
-
-

@@ -37,8 +37,15 @@ import AppError from "../../utils/errors/AppError.js";
 export const getMyDonations = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const { page, limit } = req.query as GetMyDonationsQuery;
-    const donations = await getMyDonationsService(userId!, page, limit);
+    const { page, limit, status, sortBy, sortOrder } =
+      req.query as GetMyDonationsQuery;
+    const donations = await getMyDonationsService(userId!, {
+      page,
+      limit,
+      status,
+      sortBy,
+      sortOrder,
+    });
     res.status(200).json({
       status: "success",
       message: "Donations fetched successfully",
@@ -187,13 +194,13 @@ export const getDonorDonationRequests = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id: donationId } = req.params as GetDonationRequestsParams;
-    const { limit, page } = req.query as GetDonationRequestsQuery;
+    const { limit, page, status, sortBy, sortOrder } =
+      req.query as GetDonationRequestsQuery;
 
     const requests = await getDonorDonationRequestsService(
       userId!,
       donationId,
-      limit,
-      page,
+      { limit, page, status, sortBy, sortOrder },
     );
 
     res.status(200).json({
@@ -256,9 +263,17 @@ export const getAllDonationClaims = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params as GetAllDonationClaimsParams;
-    const { page, limit } = req.query as GetAllDonationClaimsQuery;
+    const { page, limit, sortBy, pickupMethod, sortOrder, status } =
+      req.query as GetAllDonationClaimsQuery;
 
-    const claims = await getAllDonationClaimsService(userId, id, page, limit);
+    const claims = await getAllDonationClaimsService(userId, id, {
+      sortBy,
+      page,
+      limit,
+      pickupMethod,
+      sortOrder,
+      status,
+    });
 
     res.status(200).json({
       status: "success",
@@ -282,5 +297,3 @@ export const getSingleDonationClaim = asyncHandler(
     });
   },
 );
-
-

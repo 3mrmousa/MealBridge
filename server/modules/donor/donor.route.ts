@@ -38,26 +38,22 @@ donorRouter.use(protect);
 donorRouter.use(authorizeRoles(Role.DONOR));
 
 donorRouter.get("/", validate(getMyDonationsSchema), getMyDonations);
-
 donorRouter.get(
   "/:id",
   validate(getDonationByIdSchema),
   getDonationById,
 );
-
 donorRouter.post(
   "/:id",
   uploadMultipleFilesForDonation,
   validate(createDonationSchema),
   createDonation,
 );
-
 donorRouter.patch(
   "/:id",
   validate(updateDonationSchema),
   updateDonation,
 );
-
 donorRouter.patch(
   "/:id/add-pics",
   uploadMultipleFilesForDonation,
@@ -69,7 +65,6 @@ donorRouter.patch(
   validate(onlyIdParamSchema),
   removePicFromDonation,
 );
-
 donorRouter.delete(
   "/:id",
   validate(onlyIdParamSchema),
