@@ -51,7 +51,7 @@ export const registerValidate = asyncHandler(
 
     generateToken(res, id, tokenVersion);
 
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       message: "Registration successful",
     });
@@ -82,7 +82,7 @@ export const logout = asyncHandler(async (req: AuthRequest, res: Response) => {
 });
 
 export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const id = req.user?.id as string;
+  const id = req.user!.id;
 
   const user = await meService(id);
 

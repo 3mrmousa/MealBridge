@@ -156,11 +156,8 @@ export const updateProfilePictureService = async (
   if (role === "VOLUNTEER")
     currentPic = existingProfile?.volunteerProfile?.profilePicture;
 
-  if (currentPic && currentPic.public_id) {
-    await deleteFromCloudinary(currentPic.public_id);
-  }
-
   const uploadResult = await uploadPFPToCloudinary(fileBuffer);
+
   const profilePictureJson = {
     secure_url: uploadResult.secure_url,
     public_id: uploadResult.public_id,
@@ -183,6 +180,10 @@ export const updateProfilePictureService = async (
     });
   } else {
     throw new AppError("Invalid role for profile picture update", 400);
+  }
+
+  if (currentPic && currentPic.public_id) {
+    await deleteFromCloudinary(currentPic.public_id);
   }
 
   return profilePictureJson;
@@ -211,12 +212,10 @@ export const deleteProfilePictureService = async (
     currentPic = existingProfile?.volunteerProfile?.profilePicture;
 
   if (
-    currentPic &&
-    currentPic.public_id &&
-    currentPic.public_id === public_id
+    !currentPic ||
+    !currentPic.public_id ||
+    currentPic.public_id !== public_id
   ) {
-    await deleteFromCloudinary(public_id);
-  } else {
     throw new AppError("Profile picture not found", 404);
   }
 
@@ -238,6 +237,8 @@ export const deleteProfilePictureService = async (
   } else {
     throw new AppError("Invalid role for profile picture deletion", 400);
   }
+
+  await deleteFromCloudinary(public_id);
 };
 
 export const updateVerificationDocumentService = async (
@@ -286,26 +287,32 @@ export const updateVerificationDocumentService = async (
     ...newVerificationDocuments,
   ];
 
-  if (role === "DONOR") {
-    await prisma.donorProfile.update({
-      where: { userId },
-      data: { verificationDocuments: updatedVerificationDocuments },
+  try {
+    if (role === "DONOR") {
+      await prisma.donorProfile.update({
+        where: { userId },
+        data: { verificationDocuments: updatedVerificationDocuments },
+      });
+    } else if (role === "RECIPIENT") {
+      await prisma.recipientProfile.update({
+        where: { userId },
+        data: { verificationDocuments: updatedVerificationDocuments },
+      });
+    } else if (role === "VOLUNTEER") {
+      await prisma.volunteerProfile.update({
+        where: { userId },
+        data: { verificationDocuments: updatedVerificationDocuments },
+      });
+    } else {
+      throw new AppError("Invalid role for verification document update", 400);
+    }
+  } catch (error) {
+    const deletePromises = newVerificationDocuments.map(async (doc) => {
+      return deleteFromCloudinary(doc.publicId);
     });
-  } else if (role === "RECIPIENT") {
-    await prisma.recipientProfile.update({
-      where: { userId },
-      data: { verificationDocuments: updatedVerificationDocuments },
-    });
-  } else if (role === "VOLUNTEER") {
-    await prisma.volunteerProfile.update({
-      where: { userId },
-      data: { verificationDocuments: updatedVerificationDocuments },
-    });
-  } else {
-    throw new AppError("Invalid role for verification document update", 400);
+    await Promise.all(deletePromises);
+    throw new AppError("Failed to update verification document", 500);
   }
-
-  return updatedVerificationDocuments;
 };
 
 export const deleteVerificationDocumentService = async (
@@ -339,15 +346,13 @@ export const deleteVerificationDocumentService = async (
   }
 
   const filteredDocs = currentDocs.filter(
-    (doc: { secure_url: string; public_id: string }) =>
-      doc.public_id !== public_id,
+    (doc: { secureUrl: string; publicId: string }) =>
+      doc.publicId !== public_id,
   );
 
   if (filteredDocs.length === currentDocs.length) {
     throw new AppError("Document not found", 404);
   }
-
-  await deleteFromCloudinary(public_id);
 
   if (role === "DONOR") {
     await prisma.donorProfile.update({
@@ -365,6 +370,7 @@ export const deleteVerificationDocumentService = async (
       data: { verificationDocuments: filteredDocs },
     });
   }
+  await deleteFromCloudinary(public_id);
 };
 
 export const changePasswordService = async (

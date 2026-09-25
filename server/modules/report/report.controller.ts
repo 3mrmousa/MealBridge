@@ -18,18 +18,14 @@ import AppError from "../../utils/errors/AppError.js";
 
 export const createReport = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-
-    if (!userId) {
-      throw new AppError("User is not authenticated", 401);
-    }
+    const userId = req.user!.id;
 
     const { reportedUserId, title, description } =
       req.body as CreateReportInput;
 
     await createReportService(userId, title, description, reportedUserId);
 
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       message: "Report sent successfully",
     });

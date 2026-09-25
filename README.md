@@ -227,7 +227,7 @@ erDiagram
 | Enum | Values |
 | :--- | :--- |
 | `Role` | DONOR, RECIPIENT, VOLUNTEER, ADMIN, MANAGER |
-| `DonationStatus` | AVAILABLE, RESERVED, COMPLETED, CANCELLED, EXPIRED |
+| `DonationStatus` | AVAILABLE, COMPLETED, CANCELLED, EXPIRED |
 | `DonationRequestStatus` | PENDING, ACCEPTED, REJECTED, CANCELLED |
 | `ClaimStatus` | ACTIVE, COMPLETED, CANCELLED |
 | `PickupMethod` | SELF, VOLUNTEER |

@@ -33,10 +33,7 @@ import {
 
 export const getUserProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    if (!userId) {
-      throw new AppError("Login or Register First", 404);
-    }
+    const userId = req.user!.id;
     const data = await getUserProfileService(userId.toString());
 
     res.status(200).json({
@@ -49,12 +46,8 @@ export const getUserProfile = asyncHandler(
 
 export const updateProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    if (!userId) {
-      throw new AppError("Login or Register First", 404);
-    }
+    const userId = req.user!.id;
+    const role = req.user!.role;
 
     if (role === "DONOR") {
       const {
@@ -131,13 +124,9 @@ export const updateProfile = asyncHandler(
 
 export const updateProfilePicture = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    const role = req.user?.role;
+    const userId = req.user!.id;
+    const role = req.user!.role;
     const file = req.file;
-
-    if (!userId || !role) {
-      throw new AppError("Login or Register First", 404);
-    }
 
     if (!file) {
       throw new AppError("Please upload an image", 400);
@@ -161,13 +150,9 @@ export const updateProfilePicture = asyncHandler(
 
 export const deleteProfilePicture = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    const role = req.user?.role;
+    const userId = req.user!.id;
+    const role = req.user!.role;
     const { public_id } = req.body as DeleteImageInput;
-
-    if (!userId || !role) {
-      throw new AppError("Login or Register First", 404);
-    }
 
     await deleteProfilePictureService(userId, role, public_id);
 
@@ -180,12 +165,8 @@ export const deleteProfilePicture = asyncHandler(
 
 export const updateVerificationDocument = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    const role = req.user?.role;
-
-    if (!userId || !role) {
-      throw new AppError("Login or Register First", 404);
-    }
+    const userId = req.user!.id;
+    const role = req.user!.role;
 
     const files = req.files as { [fieldname: string]: Express.Multer.File[] };
     const verificationDocs = files["verificationDocument"];
@@ -201,31 +182,20 @@ export const updateVerificationDocument = asyncHandler(
       throw new AppError("Maximum of 5 verification documents allowed", 400);
     }
 
-    const verificationDocuments = await updateVerificationDocumentService(
-      userId,
-      role,
-      verificationDocs,
-    );
+    await updateVerificationDocumentService(userId, role, verificationDocs);
 
     res.status(200).json({
       status: "success",
       message: "Verification Documents Updated.",
-      data: {
-        verificationDocuments,
-      },
     });
   },
 );
 
 export const deleteVerificationDocument = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
-    const role = req.user?.role;
+    const userId = req.user!.id;
+    const role = req.user!.role;
     const { public_id } = req.body as DeleteImageInput;
-
-    if (!userId || !role) {
-      throw new AppError("Login or Register First", 404);
-    }
 
     await deleteVerificationDocumentService(userId, role, public_id);
 
@@ -238,12 +208,8 @@ export const deleteVerificationDocument = asyncHandler(
 
 export const changePassword = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { currentPassword, newPassword } = req.body as ChangePasswordInput;
-
-    if (!userId) {
-      throw new AppError("Login or Register First", 404);
-    }
 
     await changePasswordService(userId, currentPassword, newPassword);
 
@@ -309,12 +275,8 @@ export const newEmailOtpVerificationAndChange = asyncHandler(
 
 export const changePhone = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user?.id;
+    const userId = req.user!.id;
     const { phone } = req.body as ChangePhoneInput;
-
-    if (!userId) {
-      throw new AppError("Login or Register First", 404);
-    }
 
     await changePhoneService(userId, phone);
 

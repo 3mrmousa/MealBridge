@@ -40,6 +40,7 @@ model DonationRequest {
   recipient     RecipientProfile @relation("RecipientRequests", fields: [recipientId], references: [id])
   donationClaim DonationClaim?
 
+  @@unique([recipientId, donationId])
   @@map("donation_request")
 }
 
@@ -73,8 +74,8 @@ model PickupRequest {
   recipientId     String              @map("recipient_id") @db.Uuid
   volunteerId     String?             @map("volunteer_id") @db.Uuid
   pickupAddress   String              @map("pickup_address")
-  deliveryAddress String?             @map("delivery_address")
-  message         String?             @map("message")
+  deliveryAddress String             @map("delivery_address")
+  message         String             @map("message")
   requestedAt     DateTime            @map("requested_at")
   acceptedAt      DateTime?           @map("accepted_at")
   completedAt     DateTime?           @map("completed_at")

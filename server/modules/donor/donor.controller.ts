@@ -39,7 +39,7 @@ export const getMyDonations = asyncHandler(
     const userId = req.user!.id;
     const { page, limit, status, sortBy, sortOrder } =
       req.query as GetMyDonationsQuery;
-    const donations = await getMyDonationsService(userId!, {
+    const result = await getMyDonationsService(userId!, {
       page,
       limit,
       status,
@@ -49,7 +49,8 @@ export const getMyDonations = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Donations fetched successfully",
-      data: donations,
+      data: result.donations,
+      pagination: result.pagination,
     });
   },
 );
@@ -102,7 +103,7 @@ export const createDonation = asyncHandler(
       donationPictures,
     );
 
-    res.status(200).json({
+    res.status(201).json({
       status: "success",
       message: "Donation created successfully",
     });
@@ -123,7 +124,7 @@ export const updateDonation = asyncHandler(
       availableFrom,
       availableUntil,
     } = req.body as UpdateDonationBody;
-    const donation = await updateDonationService(userId!, {
+    await updateDonationService(userId!, {
       id: donationId,
       title,
       description,
@@ -136,8 +137,7 @@ export const updateDonation = asyncHandler(
     });
     res.status(200).json({
       status: "success",
-      message: "Donation fetched successfully",
-      data: donation,
+      message: "Donation updated successfully",
     });
   },
 );
@@ -147,7 +147,7 @@ export const addPicsToDonation = asyncHandler(
     const userId = req.user!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
     const files = req.files as { [fileName: string]: Express.Multer.File[] };
-    const donationPictures = files["donationPictures"];
+    const donationPictures = files["donationPicture"];
     if (!donationPictures || donationPictures.length === 0) {
       throw new AppError("Please upload at least one donation picture", 400);
     }
@@ -197,16 +197,19 @@ export const getDonorDonationRequests = asyncHandler(
     const { limit, page, status, sortBy, sortOrder } =
       req.query as GetDonationRequestsQuery;
 
-    const requests = await getDonorDonationRequestsService(
-      userId!,
-      donationId,
-      { limit, page, status, sortBy, sortOrder },
-    );
+    const result = await getDonorDonationRequestsService(userId!, donationId, {
+      limit,
+      page,
+      status,
+      sortBy,
+      sortOrder,
+    });
 
     res.status(200).json({
       status: "success",
       message: "Donation requests fetched successfully",
-      data: requests,
+      data: result.requests,
+      pagination: result.pagination,
     });
   },
 );
@@ -266,7 +269,7 @@ export const getAllDonationClaims = asyncHandler(
     const { page, limit, sortBy, pickupMethod, sortOrder, status } =
       req.query as GetAllDonationClaimsQuery;
 
-    const claims = await getAllDonationClaimsService(userId, id, {
+    const result = await getAllDonationClaimsService(userId, id, {
       sortBy,
       page,
       limit,
@@ -278,7 +281,8 @@ export const getAllDonationClaims = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Donation claims fetched successfully",
-      data: claims,
+      data: result.claims,
+      pagination: result.pagination,
     });
   },
 );

@@ -46,7 +46,15 @@ export const getMyDonationsService = async (
     prisma.donation.count({ where }),
   ]);
 
-  return { donations, totalCount };
+  return {
+    donations,
+    pagination: {
+      page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+    },
+  };
 };
 
 export const getDonationByIdService = async (
@@ -57,6 +65,8 @@ export const getDonationByIdService = async (
     where: { donorId, id: donationId },
     include: { donationClaims: true, donationRequests: true },
   });
+
+  if (!donation) throw new AppError("Donation not found", 404);
 
   return donation;
 };
@@ -78,21 +88,29 @@ export const createDonationService = async (
   });
   const uploadedImages = await Promise.all(uploadPromises);
 
-  await prisma.donation.create({
-    data: {
-      donorId,
-      title: donationData.title,
-      description: donationData.description,
-      foodType: donationData.foodType,
-      quantity: donationData.quantity,
-      unit: donationData.unit,
-      address: donationData.address,
-      availableFrom: donationData.availableFrom,
-      availableUntil: donationData.availableUntil,
-      status: "AVAILABLE",
-      images: uploadedImages,
-    },
-  });
+  try {
+    await prisma.donation.create({
+      data: {
+        donorId,
+        title: donationData.title,
+        description: donationData.description,
+        foodType: donationData.foodType,
+        quantity: donationData.quantity,
+        unit: donationData.unit,
+        address: donationData.address,
+        availableFrom: donationData.availableFrom,
+        availableUntil: donationData.availableUntil,
+        status: "AVAILABLE",
+        images: uploadedImages,
+      },
+    });
+  } catch (error) {
+    const deletePromises = uploadedImages.map(async (img) => {
+      return deleteFromCloudinary(img.publicId);
+    });
+    await Promise.all(deletePromises);
+    throw new AppError("Failed to create donation", 500);
+  }
 };
 
 export const updateDonationService = async (
@@ -179,10 +197,18 @@ export const addPicsToDonationService = async (
 
   const uploadedImages = await Promise.all(uploadPromises);
 
-  await prisma.donation.update({
-    where: { donorId, id: donationId },
-    data: { images: { push: uploadedImages } },
-  });
+  try {
+    await prisma.donation.update({
+      where: { donorId, id: donationId },
+      data: { images: { push: uploadedImages } },
+    });
+  } catch (error) {
+    const deletePromises = uploadedImages.map(async (img) => {
+      return deleteFromCloudinary(img.publicId);
+    });
+    await Promise.all(deletePromises);
+    throw new AppError("Failed to add pictures to donation", 500);
+  }
 };
 
 export const removePicFromDonationService = async (
@@ -210,13 +236,12 @@ export const removePicFromDonationService = async (
     throw new AppError("You must have at least one image for a donation", 400);
   }
 
-  await deleteFromCloudinary(publicId);
   const updatedImages = images.filter((img) => img.publicId !== publicId);
-
   await prisma.donation.update({
     where: { id: donationId },
     data: { images: updatedImages },
   });
+  await deleteFromCloudinary(publicId);
 };
 
 export const deleteDonationService = async (
@@ -248,6 +273,13 @@ export const deleteDonationService = async (
   await prisma.donation.delete({
     where: { donorId, id: donationId },
   });
+
+  if (donation.images && Array.isArray(donation.images)) {
+    const deletePromises = donation.images.map(async (img: any) => {
+      if (img.publicId) return deleteFromCloudinary(img.publicId);
+    });
+    await Promise.all(deletePromises);
+  }
 };
 
 export const getDonorDonationRequestsService = async (
@@ -285,11 +317,19 @@ export const getDonorDonationRequestsService = async (
       include: { recipient: true },
     }),
     prisma.donationRequest.count({
-      where: { donationId },
+      where,
     }),
   ]);
 
-  return { requests, totalCount };
+  return {
+    requests,
+    pagination: {
+      page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+    },
+  };
 };
 
 export const getDonorDonationRequestService = async (
@@ -349,15 +389,6 @@ export const acceptDonationRequestService = async (
       throw new AppError("Request is not in pending state", 400);
     }
 
-    if (donation.quantity === 0) {
-      await tx.donation.update({
-        where: { id: donationId },
-        data: { status: DonationStatus.RESERVED },
-      });
-
-      throw new AppError("This donation is now reserved", 400);
-    }
-
     if (donation.quantity < request.quantityRequested) {
       throw new AppError(
         `Insufficient quantity available (${donation.quantity} available, ${request.quantityRequested} requested)`,
@@ -365,30 +396,41 @@ export const acceptDonationRequestService = async (
       );
     }
 
+    const remainingQuantity = donation.quantity - request.quantityRequested;
+
     await tx.donationRequest.update({
       where: { id: requestId, donationId },
       data: { status: DonationRequestStatus.ACCEPTED },
     });
 
-    await tx.donationClaim.create({
-      data: {
-        donationId: donationId,
-        donationRequestId: requestId,
-        recipientId: request.recipientId,
-        quantityClaimed: request.quantityRequested,
-        pickupDeadline: donation.availableUntil,
-        status: ClaimStatus.ACTIVE,
-      },
-    });
-
-    const newQuantity = donation.quantity - request.quantityRequested;
+    try {
+      await tx.donationClaim.create({
+        data: {
+          donationId: donationId,
+          donationRequestId: requestId,
+          recipientId: request.recipientId,
+          quantityClaimed: request.quantityRequested,
+          pickupDeadline: donation.availableUntil,
+          status: ClaimStatus.ACTIVE,
+        },
+      });
+    } catch (e: any) {
+      if (e.code === "P2002")
+        throw new AppError("You already accepted this request", 400);
+      else
+        throw new AppError(
+          `Failed to accept request because of : ${e.message ? e.message : e}`,
+          500,
+        );
+    }
 
     await tx.donation.update({
-      where: {
-        id: donationId,
-      },
+      where: { id: donationId },
       data: {
-        quantity: newQuantity,
+        quantity: remainingQuantity,
+        ...(remainingQuantity === 0
+          ? { status: DonationStatus.COMPLETED }
+          : {}),
       },
     });
   });
@@ -461,9 +503,17 @@ export const getAllDonationClaimsService = async (
       orderBy: { [sortBy]: sortOrder },
       include: { recipient: true },
     }),
-    prisma.donationClaim.count({ where: { donationId } }),
+    prisma.donationClaim.count({ where }),
   ]);
-  return { claims, totalCount };
+  return {
+    claims,
+    pagination: {
+      page,
+      limit,
+      totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+    },
+  };
 };
 
 export const getSingleDonationClaimService = async (
