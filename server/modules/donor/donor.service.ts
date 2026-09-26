@@ -14,6 +14,14 @@ import type {
   SortAndPaginateOnDonationRequests,
   SortAndPaginateOnDonations,
 } from "../../utils/types/sort.types.js";
+import { createNotificationService } from "../notification/notification.service.js";
+import {
+  sendAcceptDonationRequestDonorPovMail,
+  sendAcceptDonationRequestRecipientPovMail,
+  sendChangeEmailOtpMail,
+  sendRejectDonationRequestDonorPovMail,
+  sendRejectDonationRequestRecipientPovMail,
+} from "../../utils/mail/email.service.js";
 
 export const getMyDonationsService = async (
   donorId: string,
@@ -100,7 +108,7 @@ export const createDonationService = async (
         address: donationData.address,
         availableFrom: donationData.availableFrom,
         availableUntil: donationData.availableUntil,
-        status: "AVAILABLE",
+        status: DonationStatus.AVAILABLE,
         images: uploadedImages,
       },
     });
@@ -119,50 +127,59 @@ export const updateDonationService = async (
     Omit<Donation, "createdAt" | "updatedAt" | "donorId" | "status" | "images">
   >,
 ) => {
-  const donation = await prisma.donation.findUnique({
-    where: { donorId, id: donationData.id },
-    include: { donationRequests: true, donationClaims: true },
-  });
+  await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id
+      FROM "Donation"
+      WHERE id = ${donationData.id}
+      FOR UPDATE
+    `;
 
-  if (!donation) {
-    throw new AppError("Donation not found", 404);
-  }
+    const donation = await tx.donation.findUnique({
+      where: { donorId, id: donationData.id },
+      include: { donationRequests: true, donationClaims: true },
+    });
 
-  const hasActiveInteractions =
-    donation.donationClaims.some((d) => d.status === ClaimStatus.ACTIVE) ||
-    donation.donationRequests.some(
-      (r) => r.status === DonationRequestStatus.PENDING,
-    );
+    if (!donation) {
+      throw new AppError("Donation not found", 404);
+    }
 
-  if (hasActiveInteractions) {
-    throw new AppError(
-      "Can't change donation once there is a pending request or active claim until they are resolved or cancelled",
-      400,
-    );
-  }
+    const hasActiveInteractions =
+      donation.donationClaims.some((d) => d.status === ClaimStatus.ACTIVE) ||
+      donation.donationRequests.some(
+        (r) => r.status === DonationRequestStatus.PENDING,
+      );
 
-  const donationDataToSend: Prisma.DonationUpdateInput = {};
-  if (donationData.title) donationDataToSend.title = donationData.title;
-  if (donationData.description)
-    donationDataToSend.description = donationData.description;
-  if (donationData.foodType)
-    donationDataToSend.foodType = donationData.foodType;
-  if (donationData.quantity)
-    donationDataToSend.quantity = donationData.quantity;
-  if (donationData.unit) donationDataToSend.unit = donationData.unit;
-  if (donationData.address) donationDataToSend.address = donationData.address;
-  if (donationData.availableFrom)
-    donationDataToSend.availableFrom = donationData.availableFrom;
-  if (donationData.availableUntil)
-    donationDataToSend.availableUntil = donationData.availableUntil;
+    if (hasActiveInteractions) {
+      throw new AppError(
+        "Can't change donation once there is a pending request or active claim until they are resolved or cancelled",
+        400,
+      );
+    }
 
-  if (!Object.keys(donationDataToSend).length) {
-    throw new AppError("No data to update", 400);
-  }
+    const donationDataToSend: Prisma.DonationUpdateInput = {};
+    if (donationData.title) donationDataToSend.title = donationData.title;
+    if (donationData.description)
+      donationDataToSend.description = donationData.description;
+    if (donationData.foodType)
+      donationDataToSend.foodType = donationData.foodType;
+    if (donationData.quantity)
+      donationDataToSend.quantity = donationData.quantity;
+    if (donationData.unit) donationDataToSend.unit = donationData.unit;
+    if (donationData.address) donationDataToSend.address = donationData.address;
+    if (donationData.availableFrom)
+      donationDataToSend.availableFrom = donationData.availableFrom;
+    if (donationData.availableUntil)
+      donationDataToSend.availableUntil = donationData.availableUntil;
 
-  await prisma.donation.update({
-    where: { donorId, id: donationData.id },
-    data: { ...donationDataToSend },
+    if (!Object.keys(donationDataToSend).length) {
+      throw new AppError("No data to update", 400);
+    }
+
+    await tx.donation.update({
+      where: { donorId, id: donationData.id },
+      data: { ...donationDataToSend },
+    });
   });
 };
 
@@ -362,9 +379,22 @@ export const acceptDonationRequestService = async (
   donationId: string,
   requestId: string,
 ) => {
-  return await prisma.$transaction(async (tx) => {
+  const { donation, request } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "Donation"
+    WHERE id = ${donationId}
+    FOR UPDATE`;
+
     const donation = await tx.donation.findUnique({
       where: { id: donationId, donorId },
+      include: {
+        donor: {
+          include: {
+            user: { select: { name: true, email: true } },
+          },
+        },
+      },
     });
     if (!donation) {
       throw new AppError("Donation not found", 404);
@@ -379,6 +409,11 @@ export const acceptDonationRequestService = async (
     }
     const request = await tx.donationRequest.findUnique({
       where: { id: requestId, donationId },
+      include: {
+        recipient: {
+          include: { user: { select: { name: true, email: true } } },
+        },
+      },
     });
 
     if (!request) {
@@ -433,7 +468,53 @@ export const acceptDonationRequestService = async (
           : {}),
       },
     });
+
+    if (remainingQuantity === 0) {
+      await tx.donationRequest.updateMany({
+        where: {
+          donationId,
+          status: DonationRequestStatus.PENDING,
+        },
+        data: {
+          status: DonationRequestStatus.REJECTED,
+        },
+      });
+    }
+
+    return { donation, request };
   });
+
+  try {
+    await createNotificationService(
+      request.recipientId,
+      "Donation Request Accepted!",
+      `Your request for "${donation.title}" has been accepted. A claim has been created.`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify recipient:", error.message || error);
+  }
+
+  try {
+    await sendAcceptDonationRequestRecipientPovMail(
+      request.recipient.user.email,
+      request.recipient.user.name,
+      donationId,
+      donation.title,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to recipient:", error.message || error);
+  }
+
+  try {
+    await sendAcceptDonationRequestDonorPovMail(
+      donation.donor.user.email,
+      donation.donor.user.name,
+      requestId,
+      donation.title,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to donor:", error.message || error);
+  }
 };
 
 export const rejectDonationRequestService = async (
@@ -443,6 +524,9 @@ export const rejectDonationRequestService = async (
 ) => {
   const donation = await prisma.donation.findUnique({
     where: { id: donationId, donorId },
+    include: {
+      donor: { include: { user: { select: { name: true, email: true } } } },
+    },
   });
 
   if (!donation) {
@@ -451,6 +535,11 @@ export const rejectDonationRequestService = async (
 
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId, donationId },
+    include: {
+      recipient: {
+        include: { user: { select: { name: true, email: true } } },
+      },
+    },
   });
 
   if (!request) {
@@ -465,6 +554,38 @@ export const rejectDonationRequestService = async (
     where: { id: requestId, donationId },
     data: { status: DonationRequestStatus.REJECTED },
   });
+
+  try {
+    await createNotificationService(
+      request.recipientId,
+      "Donation Request Rejected!",
+      `Your request for "${donation.title}" has been rejected.`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify recipient:", error.message || error);
+  }
+
+  try {
+    await sendRejectDonationRequestRecipientPovMail(
+      request.recipient.user.email,
+      request.recipient.user.name,
+      donationId,
+      donation.title,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to recipient:", error.message || error);
+  }
+
+  try {
+    await sendRejectDonationRequestDonorPovMail(
+      donation.donor.user.email,
+      donation.donor.user.name,
+      requestId,
+      donation.title,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to donor:", error.message || error);
+  }
 };
 
 export const getAllDonationClaimsService = async (

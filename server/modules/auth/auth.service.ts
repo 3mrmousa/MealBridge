@@ -155,7 +155,7 @@ export const loginService = async (data: LoginInput) => {
 export const meService = async (id: string) => {
   const user = await prisma.user.findUnique({
     where: {
-      id: id.toString(),
+      id,
     },
     select: {
       id: true,
@@ -174,12 +174,6 @@ export const meService = async (id: string) => {
     throw new AppError("User not found", 404);
   }
 
-  if (user.isBlocked) {
-    throw new AppError(
-      "Your account has been blocked by support team. Please contact support for more information.",
-      403,
-    );
-  }
   return user;
 };
 
@@ -194,7 +188,7 @@ export const passwordForgotRequestService = async (
   });
 
   if (!user) {
-    throw new AppError("User not found", 404);
+    return;
   }
 
   if (user.isBlocked) {

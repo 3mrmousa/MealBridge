@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { protect } from "../../middlewares/auth.middleware.js";
+import { heavyRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 import {
   uploadMultipleFilesForVerificationDocs,
   uploadSingleFileForPFP,
@@ -30,11 +31,18 @@ const userRouter = Router();
 
 userRouter.use(protect);
 
-//profile routes
+// Profile routes
+
+// patch route it for create or update
 userRouter.get("/profile", getUserProfile).patch("/profile", updateProfile);
 
 userRouter
-  .put("/profile/profile-picture", uploadSingleFileForPFP, updateProfilePicture)
+  .put(
+    "/profile/profile-picture",
+    heavyRateLimiter,
+    uploadSingleFileForPFP,
+    updateProfilePicture,
+  )
   .delete(
     "/profile/profile-picture",
     validate(deleteImageSchema),
@@ -44,6 +52,7 @@ userRouter
 userRouter
   .patch(
     "/profile/verification-document",
+    heavyRateLimiter,
     uploadMultipleFilesForVerificationDocs,
     updateVerificationDocument,
   )
@@ -53,7 +62,7 @@ userRouter
     deleteVerificationDocument,
   );
 
-//change field routes
+// Change field routes
 userRouter.patch(
   "/change/password",
   validate(changePasswordSchema),

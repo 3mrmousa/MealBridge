@@ -348,7 +348,7 @@ RecipientProfile ||--o{ PickupRequest
 
 VolunteerProfile ||--o{ PickupRequest
 
-DonationClaim ||--o{ Conversation
+DonationClaim ||--o| Conversation
 
 Conversation ||--o{ ConversationParticipant
 

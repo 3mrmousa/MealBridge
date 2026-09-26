@@ -14,7 +14,7 @@ model Donation {
   availableFrom  DateTime @map("available_from")
   availableUntil DateTime @map("available_until")
 
-  status DonationStatus @map("status")
+  status DonationStatus @default(AVAILABLE) @map("status")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -63,7 +63,7 @@ model DonationClaim {
   donation        Donation         @relation(fields: [donationId], references: [id])
   recipient       RecipientProfile @relation("RecipientClaims", fields: [recipientId], references: [id])
   pickupRequest   PickupRequest?
-  conversation    Conversation?    @relation("DonationClaimConversations")
+  conversation    Conversation?   @relation("DonationClaimConversations")
 
   @@map("donation_claim")
 }

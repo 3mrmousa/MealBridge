@@ -25,6 +25,25 @@ export const createDonationRequestSchema = z.object({
   }),
 });
 
+export const updateDonationRequestSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+  body: z.object({
+    quantityRequested: z
+      .number()
+      .min(1, "Quantity requested is required")
+      .optional(),
+    message: z.string().optional(),
+  }),
+});
+
+export const deleteDonationRequestSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+});
+
 export type GetMyDonationRequestsQuery = z.infer<
   typeof getMyDonationRequestsSchema
 >["query"];
@@ -36,3 +55,15 @@ export type GetMyDonationRequestByIdParams = z.infer<
 export type CreateDonationRequestBody = z.infer<
   typeof createDonationRequestSchema
 >["body"];
+
+export type UpdateDonationRequestBody = z.infer<
+  typeof updateDonationRequestSchema
+>["body"];
+
+export type UpdateDonationRequestParams = z.infer<
+  typeof updateDonationRequestSchema
+>["params"];
+
+export type DeleteDonationRequestParams = z.infer<
+  typeof deleteDonationRequestSchema
+>["params"];

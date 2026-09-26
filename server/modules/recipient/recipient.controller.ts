@@ -3,14 +3,19 @@ import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import AppError from "../../utils/errors/AppError.js";
 import type {
-    CreateDonationRequestBody,
+  CreateDonationRequestBody,
+  DeleteDonationRequestParams,
   GetMyDonationRequestByIdParams,
   GetMyDonationRequestsQuery,
+  UpdateDonationRequestBody,
+  UpdateDonationRequestParams,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
   getMyDonationRequestsService,
-  createDonationService,
+  createDonationRequestService,
+  updateDonationRequestService,
+  deleteDonationRequestService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -56,7 +61,7 @@ export const createDonationRequest = asyncHandler(
     const { donationId, quantityRequested, message } =
       req.body as CreateDonationRequestBody;
 
-    await createDonationService(
+    await createDonationRequestService(
       recipientId,
       donationId,
       quantityRequested,
@@ -70,28 +75,35 @@ export const createDonationRequest = asyncHandler(
   },
 );
 
-// export const updateDonationRequest = asyncHandler(
-//   async (req: AuthRequest, res: Response) => {
-//     const recipientId = req.user?.id;
-//     const { donationId, quantityRequested, message } =
-//       req.body as UpdateDonationRequestBody;
+export const updateDonationRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as UpdateDonationRequestParams;
+    const { quantityRequested, message } =
+      req.body as UpdateDonationRequestBody;
 
-//     if (!recipientId) {
-//       throw new AppError("Recipient not found", 404);
-//     }
-//     await createDonationService(
-//       recipientId!,
-//       quantityRequested,
-//       message,
-//     );
+    await updateDonationRequestService(
+      recipientId,
+      id,
+      quantityRequested,
+      message,
+    );
 
-//     res.status(200).json({
-//       status: "success",
-//       message: "Donation request created successfully",
-//     });
-//   },
-// );
+    res.status(200).json({
+      status: "success",
+      message: "Donation request created successfully",
+    });
+  },
+);
 
 export const deleteDonationRequest = asyncHandler(
-  async (req: AuthRequest, res: Response) => {},
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as DeleteDonationRequestParams;
+    await deleteDonationRequestService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Donation request deleted successfully",
+    });
+  },
 );

@@ -163,23 +163,35 @@ export const updateProfilePictureService = async (
     public_id: uploadResult.public_id,
   };
 
-  if (role === "DONOR") {
-    await prisma.donorProfile.update({
-      where: { userId },
-      data: { profilePicture: profilePictureJson },
-    });
-  } else if (role === "RECIPIENT") {
-    await prisma.recipientProfile.update({
-      where: { userId },
-      data: { profilePicture: profilePictureJson },
-    });
-  } else if (role === "VOLUNTEER") {
-    await prisma.volunteerProfile.update({
-      where: { userId },
-      data: { profilePicture: profilePictureJson },
-    });
-  } else {
-    throw new AppError("Invalid role for profile picture update", 400);
+  try {
+    if (role === "DONOR") {
+      await prisma.donorProfile.update({
+        where: { userId },
+        data: { profilePicture: profilePictureJson },
+      });
+    } else if (role === "RECIPIENT") {
+      await prisma.recipientProfile.update({
+        where: { userId },
+        data: { profilePicture: profilePictureJson },
+      });
+    } else if (role === "VOLUNTEER") {
+      await prisma.volunteerProfile.update({
+        where: { userId },
+        data: { profilePicture: profilePictureJson },
+      });
+    } else {
+      throw new AppError("Invalid role for profile picture update", 400);
+    }
+  } catch (error: any) {
+    await deleteFromCloudinary(profilePictureJson.public_id);
+    throw new AppError(
+      `Failed to update profile picture because of : ${error.message ? error.message : error}`,
+      500,
+    );
+  }
+
+  if (currentPic && currentPic.public_id) {
+    await deleteFromCloudinary(currentPic.public_id);
   }
 
   if (currentPic && currentPic.public_id) {
@@ -219,23 +231,33 @@ export const deleteProfilePictureService = async (
     throw new AppError("Profile picture not found", 404);
   }
 
-  if (role === "DONOR") {
-    await prisma.donorProfile.update({
-      where: { userId },
-      data: { profilePicture: Prisma.DbNull },
-    });
-  } else if (role === "RECIPIENT") {
-    await prisma.recipientProfile.update({
-      where: { userId },
-      data: { profilePicture: Prisma.DbNull },
-    });
-  } else if (role === "VOLUNTEER") {
-    await prisma.volunteerProfile.update({
-      where: { userId },
-      data: { profilePicture: Prisma.DbNull },
-    });
-  } else {
-    throw new AppError("Invalid role for profile picture deletion", 400);
+  try {
+    if (role === "DONOR") {
+      await prisma.donorProfile.update({
+        where: { userId },
+        data: { profilePicture: Prisma.DbNull },
+      });
+    } else if (role === "RECIPIENT") {
+      await prisma.recipientProfile.update({
+        where: { userId },
+        data: { profilePicture: Prisma.DbNull },
+      });
+    } else if (role === "VOLUNTEER") {
+      await prisma.volunteerProfile.update({
+        where: { userId },
+        data: { profilePicture: Prisma.DbNull },
+      });
+    } else {
+      throw new AppError("Invalid role for profile picture deletion", 400);
+    }
+  } catch (error: any) {
+    if (error.code === "P2025") {
+      throw new AppError(
+        "Profile not found. Please complete your profile first.",
+        400,
+      );
+    }
+    throw new AppError("Failed to delete profile picture.", 500);
   }
 
   await deleteFromCloudinary(public_id);
@@ -306,11 +328,17 @@ export const updateVerificationDocumentService = async (
     } else {
       throw new AppError("Invalid role for verification document update", 400);
     }
-  } catch (error) {
+  } catch (error: any) {
     const deletePromises = newVerificationDocuments.map(async (doc) => {
       return deleteFromCloudinary(doc.publicId);
     });
     await Promise.all(deletePromises);
+    if (error.code === "P2025") {
+      throw new AppError(
+        "Profile not found. Please complete your profile details before uploading documents.",
+        400,
+      );
+    }
     throw new AppError("Failed to update verification document", 500);
   }
 };
@@ -354,21 +382,31 @@ export const deleteVerificationDocumentService = async (
     throw new AppError("Document not found", 404);
   }
 
-  if (role === "DONOR") {
-    await prisma.donorProfile.update({
-      where: { userId },
-      data: { verificationDocuments: filteredDocs },
-    });
-  } else if (role === "RECIPIENT") {
-    await prisma.recipientProfile.update({
-      where: { userId },
-      data: { verificationDocuments: filteredDocs },
-    });
-  } else if (role === "VOLUNTEER") {
-    await prisma.volunteerProfile.update({
-      where: { userId },
-      data: { verificationDocuments: filteredDocs },
-    });
+  try {
+    if (role === "DONOR") {
+      await prisma.donorProfile.update({
+        where: { userId },
+        data: { verificationDocuments: filteredDocs },
+      });
+    } else if (role === "RECIPIENT") {
+      await prisma.recipientProfile.update({
+        where: { userId },
+        data: { verificationDocuments: filteredDocs },
+      });
+    } else if (role === "VOLUNTEER") {
+      await prisma.volunteerProfile.update({
+        where: { userId },
+        data: { verificationDocuments: filteredDocs },
+      });
+    }
+  } catch (error: any) {
+    if (error.code === "P2025") {
+      throw new AppError(
+        "Profile not found. Please complete your profile first.",
+        400,
+      );
+    }
+    throw new AppError("Failed to delete verification document.", 500);
   }
   await deleteFromCloudinary(public_id);
 };
@@ -510,6 +548,7 @@ export const newEmailOtpVerificationAndChangeService = async (
     },
     data: {
       email: Session.newEmail,
+      tokenVersion: { increment: 1 },
     },
   });
 

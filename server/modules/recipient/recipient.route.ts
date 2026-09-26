@@ -1,16 +1,21 @@
 import { Router } from "express";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
+import { heavyRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 import { Role } from "@prisma/client";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createDonationRequestSchema,
+  deleteDonationRequestSchema,
   getMyDonationRequestByIdSchema,
   getMyDonationRequestsSchema,
+  updateDonationRequestSchema,
 } from "./recipient.zod.js";
 import {
-    createDonationRequest,
+  createDonationRequest,
+  deleteDonationRequest,
   getMyDonationRequestById,
   getMyDonationRequests,
+  updateDonationRequest,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
@@ -30,11 +35,21 @@ recipientRouter.get(
 );
 recipientRouter.post(
   "/request",
+  heavyRateLimiter,
   validate(createDonationRequestSchema),
   createDonationRequest,
 );
-// recipientRouter.patch("/request/:id", updateDonationRequest);
-// recipientRouter.delete("/request/:id", deleteDonationRequest);
+recipientRouter.patch(
+  "/request/:id",
+  heavyRateLimiter,
+  validate(updateDonationRequestSchema),
+  updateDonationRequest,
+);
+recipientRouter.delete(
+  "/request/:id",
+  validate(deleteDonationRequestSchema),
+  deleteDonationRequest,
+);
 
 // // Donations Routes (Recipient Perspective)
 // recipientRouter.get("/donation", getAllDonations);

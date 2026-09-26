@@ -8,3 +8,11 @@ export const authRateLimiter = rateLimit({
     next(new AppError("Too many requests. Please try again later.", 429));
   },
 });
+
+export const heavyRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  handler: (_req, _res, next) => {
+    next(new AppError("Too many heavy requests. Please try again later.", 429));
+  },
+});

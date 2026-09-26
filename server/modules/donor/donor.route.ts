@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { heavyRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 import {
   addPicsToDonation,
   createDonation,
@@ -45,6 +46,7 @@ donorRouter.get(
 );
 donorRouter.post(
   "/:id",
+  heavyRateLimiter,
   uploadMultipleFilesForDonation,
   validate(createDonationSchema),
   createDonation,
@@ -56,6 +58,7 @@ donorRouter.patch(
 );
 donorRouter.patch(
   "/:id/add-pics",
+  heavyRateLimiter,
   uploadMultipleFilesForDonation,
   validate(onlyIdParamSchema),
   addPicsToDonation,

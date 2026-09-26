@@ -8,8 +8,6 @@ const allowedFileTypes = [
   "image/jpg",
   "image/png",
   "image/webp",
-  "image/svg",
-  "image/svg+xml",
 ];
 
 export const upload = multer({
