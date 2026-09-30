@@ -6,16 +6,26 @@ import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createDonationRequestSchema,
   deleteDonationRequestSchema,
+  getAllDonationsSchema,
+  getDonationByIdSchema,
   getMyDonationRequestByIdSchema,
   getMyDonationRequestsSchema,
   updateDonationRequestSchema,
+  getClaimsSchema,
+  getClaimByIdSchema,
+  cancleClaimSchema,
 } from "./recipient.zod.js";
 import {
   createDonationRequest,
   deleteDonationRequest,
+  getAllDonations,
+  getDonationById,
   getMyDonationRequestById,
   getMyDonationRequests,
   updateDonationRequest,
+  getClaims,
+  getClaimById,
+  cancleClaim,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
@@ -23,48 +33,43 @@ const recipientRouter = Router();
 recipientRouter.use(protect);
 recipientRouter.use(authorizeRoles(Role.RECIPIENT));
 
+// Donation Request Routes (Recipient Perspective)
+recipientRouter
+  .route("/request")
+  .get(validate(getMyDonationRequestsSchema), getMyDonationRequests)
+  .post(
+    heavyRateLimiter,
+    validate(createDonationRequestSchema),
+    createDonationRequest,
+  );
+
+recipientRouter
+  .route("/request/:id")
+  .get(validate(getMyDonationRequestByIdSchema), getMyDonationRequestById)
+  .patch(
+    heavyRateLimiter,
+    validate(updateDonationRequestSchema),
+    updateDonationRequest,
+  )
+  .delete(validate(deleteDonationRequestSchema), deleteDonationRequest);
+
+// Donations Routes (Recipient Perspective)
 recipientRouter.get(
-  "/request",
-  validate(getMyDonationRequestsSchema),
-  getMyDonationRequests,
+  "/donation",
+  validate(getAllDonationsSchema),
+  getAllDonations,
 );
 recipientRouter.get(
-  "/request/:id",
-  validate(getMyDonationRequestByIdSchema),
-  getMyDonationRequestById,
-);
-recipientRouter.post(
-  "/request",
-  heavyRateLimiter,
-  validate(createDonationRequestSchema),
-  createDonationRequest,
-);
-recipientRouter.patch(
-  "/request/:id",
-  heavyRateLimiter,
-  validate(updateDonationRequestSchema),
-  updateDonationRequest,
-);
-recipientRouter.delete(
-  "/request/:id",
-  validate(deleteDonationRequestSchema),
-  deleteDonationRequest,
+  "/donation/:id",
+  validate(getDonationByIdSchema),
+  getDonationById,
 );
 
-// // Donations Routes (Recipient Perspective)
-// recipientRouter.get("/donation", getAllDonations);
-// recipientRouter.get("/donation/:id", getDonationById);
-
-// // Donation Request Routes (Recipient Perspective)
-// recipientRouter.get("/request", getMyDonationRequests);
-// recipientRouter.get("/request/:id", getMyDoantionRequestById);
-// recipientRouter.post("/request/:id", createDonationRequest);
-// recipientRouter.patch("/request/:id", updateDonationRequest);
-// recipientRouter.delete("/request/:id", deleteDonationRequest);
-
-// // Donation Claim Routes (Recipient Perspective)
-// recipientRouter.get("/claim", getClaims);
-// recipientRouter.get("/claim/:id", getClaimById);
-// recipientRouter.delete("/claim/:id", deleteClaimById);
+// Donation Claim Routes (Recipient Perspective)
+recipientRouter.get("/claim", validate(getClaimsSchema), getClaims);
+recipientRouter
+  .route("/claim/:id")
+  .get(validate(getClaimByIdSchema), getClaimById)
+  .delete(validate(cancleClaimSchema), cancleClaim);
 
 export default recipientRouter;

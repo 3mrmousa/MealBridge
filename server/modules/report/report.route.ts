@@ -19,9 +19,10 @@ const reportRouter = Router();
 
 reportRouter.use(protect);
 
-reportRouter.post("/", validate(createReportSchema), createReport);
-
-reportRouter.get("/", authorizeRoles(Role.ADMIN, Role.MANAGER), getAllReports);
+reportRouter
+  .route("/")
+  .post(validate(createReportSchema), createReport)
+  .get(authorizeRoles(Role.ADMIN, Role.MANAGER), getAllReports);
 
 reportRouter.get(
   "/:id",

@@ -1,4 +1,4 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import AppError from "../../utils/errors/AppError.js";
@@ -32,7 +32,7 @@ import type {
 } from "./admin.zod.js";
 
 export const getAllUsers = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const data = await getAllUsersService();
     res.status(200).json({
       status: "success",
@@ -43,7 +43,7 @@ export const getAllUsers = asyncHandler(
 );
 
 export const getAllUsersWithProfile = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const data = await getAllUsersWithProfileService();
     res.status(200).json({
       status: "success",
@@ -54,7 +54,7 @@ export const getAllUsersWithProfile = asyncHandler(
 );
 
 export const getSingleUserById = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params as getSingleUserByIdInput;
     const data = await getSingleUserByIdService(id);
     res.status(200).json({
@@ -66,7 +66,7 @@ export const getSingleUserById = asyncHandler(
 );
 
 export const AcceptUserVerificationStatus = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params as userAcceptVerificationStatusParams;
     const { role } = req.body as userAcceptVerificationStatusBody;
 
@@ -83,7 +83,7 @@ export const AcceptUserVerificationStatus = asyncHandler(
 );
 
 export const RejectUserVerificationStatus = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const { id } = req.params as userRejectVerificationStatusParams;
     const { role, rejectReason } =
       req.body as userRejectVerificationStatusBody;
@@ -134,7 +134,7 @@ export const toggleUserUnblockStatus = asyncHandler(
 );
 
 export const getAllManager = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
+  async (req: Request, res: Response) => {
     const data = await getAllManagerService();
     res.status(200).json({
       status: "success",

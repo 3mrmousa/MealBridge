@@ -196,3 +196,41 @@ export const sendCreateRequestForDonorMail = async (
     );
   }
 };
+
+export const sendClaimCancleForDonorMail = async (
+  email: string,
+  donationTitle: string,
+  organizationName: string | null | undefined,
+) => {
+  const html = baseEmailLayout(
+    `Claim Cancelled for Your Donation`,
+    `
+      <p style="margin-top: 0;">Hello,</p>
+      <p>This is to notify you that the claim on your donation "<strong>${donationTitle}</strong>" has been cancelled by ${organizationName ? `<strong>${organizationName}</strong>` : "the recipient"}.</p>
+      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
+          Claim Cancelled
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          Your donation is now available again for other potential recipients to request.
+        </p>
+      </div>
+      <p style="margin-bottom: 0;">Thank you for your continued generosity on MealBridge.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Update: Claim Cancelled - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send claim cancellation email to donor",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};

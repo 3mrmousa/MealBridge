@@ -38,24 +38,21 @@ const donorRouter = Router();
 donorRouter.use(protect);
 donorRouter.use(authorizeRoles(Role.DONOR));
 
-donorRouter.get("/", validate(getMyDonationsSchema), getMyDonations);
-donorRouter.get(
-  "/:id",
-  validate(getDonationByIdSchema),
-  getDonationById,
-);
-donorRouter.post(
-  "/:id",
-  heavyRateLimiter,
-  uploadMultipleFilesForDonation,
-  validate(createDonationSchema),
-  createDonation,
-);
-donorRouter.patch(
-  "/:id",
-  validate(updateDonationSchema),
-  updateDonation,
-);
+donorRouter
+  .route("/")
+  .get(validate(getMyDonationsSchema), getMyDonations)
+  .post(
+    heavyRateLimiter,
+    uploadMultipleFilesForDonation,
+    validate(createDonationSchema),
+    createDonation,
+  );
+donorRouter
+  .route("/:id")
+  .get(validate(getDonationByIdSchema), getDonationById)
+  .patch(validate(updateDonationSchema), updateDonation)
+  .delete(validate(onlyIdParamSchema), deleteDonation);
+
 donorRouter.patch(
   "/:id/add-pics",
   heavyRateLimiter,
@@ -67,11 +64,6 @@ donorRouter.patch(
   "/:id/remove-pics",
   validate(onlyIdParamSchema),
   removePicFromDonation,
-);
-donorRouter.delete(
-  "/:id",
-  validate(onlyIdParamSchema),
-  deleteDonation,
 );
 
 // Donation Request Routes (Donor Perspective)

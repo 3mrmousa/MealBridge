@@ -1,14 +1,18 @@
-import type { Response } from "express";
+import type { Request, Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
-import AppError from "../../utils/errors/AppError.js";
 import type {
   CreateDonationRequestBody,
   DeleteDonationRequestParams,
+  GetAllDonationsQuery,
+  GetDonationByIdParams,
   GetMyDonationRequestByIdParams,
   GetMyDonationRequestsQuery,
   UpdateDonationRequestBody,
   UpdateDonationRequestParams,
+  GetClaimsQuery,
+  GetClaimByIdParams,
+  CancleClaimParams,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
@@ -16,6 +20,11 @@ import {
   createDonationRequestService,
   updateDonationRequestService,
   deleteDonationRequestService,
+  getAllDonationsService,
+  getDonationByIdService,
+  getClaimsService,
+  getClaimByIdService,
+  cancleClaimService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -107,3 +116,81 @@ export const deleteDonationRequest = asyncHandler(
     });
   },
 );
+
+// Donations Routes (Recipient Perspective) Controllers
+
+export const getAllDonations = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { limit, page, sortBy, sortOrder } =
+      req.query as GetAllDonationsQuery;
+    const result = await getAllDonationsService({limit, page, sortBy, sortOrder});
+    res.status(200).json({
+      status: "success",
+      message: "Donations fetched successfully",
+      data: result.donations,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const getDonationById = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { id } = req.params as GetDonationByIdParams;
+    const donation = await getDonationByIdService(id);
+    res.status(200).json({
+      status: "success",
+      message: "Donation fetched successfully",
+      data: donation,
+    });
+  },
+);
+
+// Donation Claim Routes (Recipient Perspective) Controllers
+
+export const getClaims = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { limit, page, status, sortBy, sortOrder } =
+      req.query as GetClaimsQuery;
+
+    const result = await getClaimsService(recipientId, {
+      limit,
+      page,
+      status,
+      sortBy,
+      sortOrder,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Claims fetched successfully",
+      data: result.claims,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const getClaimById = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as GetClaimByIdParams;
+
+    const claim = await getClaimByIdService(recipientId, id);
+
+    res.status(200).json({
+      status: "success",
+      message: "Claim fetched successfully",
+      data: claim,
+    });
+  },
+);
+
+export const cancleClaim = asyncHandler(async (req: AuthRequest, res: Response) => {
+  const recipientId = req.user!.id;
+  const { id } = req.params as CancleClaimParams;
+  await cancleClaimService(recipientId, id);
+  res.status(200).json({
+    status: "success",
+    message: "Claim cancelled successfully",
+  });
+});

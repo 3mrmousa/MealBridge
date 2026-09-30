@@ -179,16 +179,17 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - Delivery use case diagram
   - Full Entity Relationship Diagram (ERD)
 
+- [x] **Donation Module** — CRUD for food donations
+- [x] **Request Module** — Claim workflow (request → accept → claim)
+- [x] **Notification Module** — Automated event-based alerts
+- [x] **Report Module** — User-to-admin issue reporting
+- [x] **Admin Module** — User management, logs, site settings
+- [x] **Profile Module** — Role-specific profile management
+
 ### Planned
 
-- [ ] **Donation Module** — CRUD for food donations
-- [ ] **Request Module** — Claim workflow (request → accept → claim)
 - [ ] **Delivery Module** — Volunteer pickup request system
 - [ ] **Chat Module** — Real-time messaging (Socket.io)
-- [ ] **Notification Module** — Automated event-based alerts
-- [ ] **Report Module** — User-to-admin issue reporting
-- [ ] **Admin Module** — User management, logs, site settings
-- [ ] **Profile Module** — Role-specific profile management
 - [ ] **Client App** — User-facing frontend
 - [ ] **Admin Panel** — Admin dashboard
 

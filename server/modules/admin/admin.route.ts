@@ -71,24 +71,26 @@ adminRouter.patch(
   toggleUserUnblockStatus,
 );
 
-adminRouter.get("/manager", authorizeRoles(Role.ADMIN), getAllManager);
-adminRouter.post(
-  "/manager",
-  validate(createManagerSchema),
-  authorizeRoles(Role.ADMIN),
-  createManager,
-);
-adminRouter.patch(
-  "/manager/:id",
-  validate(updateManagerSchema),
-  authorizeRoles(Role.ADMIN),
-  updateManager,
-);
-adminRouter.delete(
-  "/manager/:id",
-  validate(deleteManagerSchema),
-  authorizeRoles(Role.ADMIN),
-  deleteManager,
-);
+adminRouter
+  .route("/manager")
+  .get(authorizeRoles(Role.ADMIN), getAllManager)
+  .post(
+    validate(createManagerSchema),
+    authorizeRoles(Role.ADMIN),
+    createManager,
+  );
+
+adminRouter
+  .route("/manager/:id")
+  .patch(
+    validate(updateManagerSchema),
+    authorizeRoles(Role.ADMIN),
+    updateManager,
+  )
+  .delete(
+    validate(deleteManagerSchema),
+    authorizeRoles(Role.ADMIN),
+    deleteManager,
+  );
 
 export default adminRouter;

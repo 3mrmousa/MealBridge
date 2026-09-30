@@ -34,33 +34,28 @@ userRouter.use(protect);
 // Profile routes
 
 // patch route it for create or update
-userRouter.get("/profile", getUserProfile).patch("/profile", updateProfile);
+userRouter
+  .route("/profile")
+  .get(getUserProfile)
+  .patch(updateProfile);
 
 userRouter
+  .route("/profile/profile-picture")
   .put(
-    "/profile/profile-picture",
     heavyRateLimiter,
     uploadSingleFileForPFP,
     updateProfilePicture,
   )
-  .delete(
-    "/profile/profile-picture",
-    validate(deleteImageSchema),
-    deleteProfilePicture,
-  );
+  .delete(validate(deleteImageSchema), deleteProfilePicture);
 
 userRouter
+  .route("/profile/verification-document")
   .patch(
-    "/profile/verification-document",
     heavyRateLimiter,
     uploadMultipleFilesForVerificationDocs,
     updateVerificationDocument,
   )
-  .delete(
-    "/profile/verification-document",
-    validate(deleteImageSchema),
-    deleteVerificationDocument,
-  );
+  .delete(validate(deleteImageSchema), deleteVerificationDocument);
 
 // Change field routes
 userRouter.patch(
