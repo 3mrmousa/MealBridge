@@ -13,7 +13,7 @@ import {
   updateDonationRequestSchema,
   getClaimsSchema,
   getClaimByIdSchema,
-  cancleClaimSchema,
+  cancelClaimSchema,
 } from "./recipient.zod.js";
 import {
   createDonationRequest,
@@ -25,7 +25,7 @@ import {
   updateDonationRequest,
   getClaims,
   getClaimById,
-  cancleClaim,
+  cancelClaim,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
@@ -35,7 +35,7 @@ recipientRouter.use(authorizeRoles(Role.RECIPIENT));
 
 // Donation Request Routes (Recipient Perspective)
 recipientRouter
-  .route("/request")
+  .route("/requests")
   .get(validate(getMyDonationRequestsSchema), getMyDonationRequests)
   .post(
     heavyRateLimiter,
@@ -44,7 +44,7 @@ recipientRouter
   );
 
 recipientRouter
-  .route("/request/:id")
+  .route("/requests/:id")
   .get(validate(getMyDonationRequestByIdSchema), getMyDonationRequestById)
   .patch(
     heavyRateLimiter,
@@ -55,21 +55,26 @@ recipientRouter
 
 // Donations Routes (Recipient Perspective)
 recipientRouter.get(
-  "/donation",
+  "/donations",
   validate(getAllDonationsSchema),
   getAllDonations,
 );
 recipientRouter.get(
-  "/donation/:id",
+  "/donations/:id",
   validate(getDonationByIdSchema),
   getDonationById,
 );
 
 // Donation Claim Routes (Recipient Perspective)
-recipientRouter.get("/claim", validate(getClaimsSchema), getClaims);
+recipientRouter.get("/claims", validate(getClaimsSchema), getClaims);
 recipientRouter
-  .route("/claim/:id")
+  .route("/claims/:id")
   .get(validate(getClaimByIdSchema), getClaimById)
-  .delete(validate(cancleClaimSchema), cancleClaim);
+  .delete(validate(cancelClaimSchema), cancelClaim);
+
+// Pickup (Recipient Perspective)
+
+// recipientRouter.route("/pickups").get(getAllPickups).post();
+// recipientRouter.route("/pickups/:id").get(getPickupById).patch(updatePickup).delete(deletePickup);
 
 export default recipientRouter;

@@ -382,8 +382,14 @@ export const acceptDonationRequestService = async (
   const { donation, request } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
-    FROM "Donation"
-    WHERE id = ${donationId}
+    FROM "donation"
+    WHERE id = ${donationId}::uuid
+    FOR UPDATE`;
+
+    await tx.$queryRaw`
+    SELECT id
+    FROM "donation_request"
+    WHERE id = ${requestId}::uuid
     FOR UPDATE`;
 
     const donation = await tx.donation.findUnique({
@@ -401,7 +407,7 @@ export const acceptDonationRequestService = async (
     }
 
     if (donation.status !== DonationStatus.AVAILABLE) {
-      throw new AppError("Donation is no longer avilable", 400);
+      throw new AppError("Donation is no longer available", 400);
     }
 
     if (new Date(donation.availableUntil) < new Date()) {
@@ -522,37 +528,53 @@ export const rejectDonationRequestService = async (
   donationId: string,
   requestId: string,
 ) => {
-  const donation = await prisma.donation.findUnique({
-    where: { id: donationId, donorId },
-    include: {
-      donor: { include: { user: { select: { name: true, email: true } } } },
-    },
-  });
+  const { donation, request } = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "donation"
+    WHERE id = ${donationId}::uuid
+    FOR UPDATE`;
 
-  if (!donation) {
-    throw new AppError("Donation not found", 404);
-  }
+    await tx.$queryRaw`
+    SELECT id
+    FROM "donation_request"
+    WHERE id = ${requestId}::uuid
+    FOR UPDATE`;
 
-  const request = await prisma.donationRequest.findUnique({
-    where: { id: requestId, donationId },
-    include: {
-      recipient: {
-        include: { user: { select: { name: true, email: true } } },
+    const donation = await tx.donation.findUnique({
+      where: { id: donationId, donorId },
+      include: {
+        donor: { include: { user: { select: { name: true, email: true } } } },
       },
-    },
-  });
+    });
 
-  if (!request) {
-    throw new AppError("Request not found", 404);
-  }
+    if (!donation) {
+      throw new AppError("Donation not found", 404);
+    }
 
-  if (request.status !== DonationRequestStatus.PENDING) {
-    throw new AppError("Request is not in pending state", 400);
-  }
+    const request = await tx.donationRequest.findUnique({
+      where: { id: requestId, donationId },
+      include: {
+        recipient: {
+          include: { user: { select: { name: true, email: true } } },
+        },
+      },
+    });
 
-  await prisma.donationRequest.update({
-    where: { id: requestId, donationId },
-    data: { status: DonationRequestStatus.REJECTED },
+    if (!request) {
+      throw new AppError("Request not found", 404);
+    }
+
+    if (request.status !== DonationRequestStatus.PENDING) {
+      throw new AppError("Request is not in pending state", 400);
+    }
+
+    await tx.donationRequest.update({
+      where: { id: requestId, donationId },
+      data: { status: DonationRequestStatus.REJECTED },
+    });
+
+    return { donation, request };
   });
 
   try {

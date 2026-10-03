@@ -6,7 +6,7 @@ export const getMyDonationRequestsSchema = z.object({
     limit: z.coerce.number().optional(),
     page: z.coerce.number().optional(),
     status: z.nativeEnum(DonationRequestStatus).optional(),
-    sortBy: z.enum(["createdAt"]).optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
@@ -50,7 +50,7 @@ export const getAllDonationsSchema = z.object({
   query: z.object({
     limit: z.coerce.number().optional(),
     page: z.coerce.number().optional(),
-    sortBy: z.enum(["createdAt"]).optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
@@ -68,7 +68,7 @@ export const getClaimsSchema = z.object({
     limit: z.coerce.number().optional(),
     page: z.coerce.number().optional(),
     status: z.nativeEnum(ClaimStatus).optional(),
-    sortBy: z.enum(["createdAt"]).optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
@@ -79,11 +79,12 @@ export const getClaimByIdSchema = z.object({
   }),
 });
 
-export const cancleClaimSchema = z.object({
+export const cancelClaimSchema = z.object({
   params: z.object({
     id: z.string(),
   }),
 });
+export const cancleClaimSchema = cancelClaimSchema;
 
 export type GetMyDonationRequestsQuery = z.infer<
   typeof getMyDonationRequestsSchema
@@ -121,12 +122,9 @@ export type GetDonationByIdParams = z.infer<
 
 // Donation Claim Routes (Recipient Perspective) Types
 
-export type GetClaimsQuery = z.infer<
-  typeof getClaimsSchema
->["query"];
+export type GetClaimsQuery = z.infer<typeof getClaimsSchema>["query"];
 
-export type GetClaimByIdParams = z.infer<
-  typeof getClaimByIdSchema
->["params"];
+export type GetClaimByIdParams = z.infer<typeof getClaimByIdSchema>["params"];
 
-export type CancleClaimParams = z.infer<typeof cancleClaimSchema>["params"];
+export type CancelClaimParams = z.infer<typeof cancelClaimSchema>["params"];
+export type CancleClaimParams = CancelClaimParams;

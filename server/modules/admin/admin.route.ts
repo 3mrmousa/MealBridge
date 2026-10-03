@@ -32,47 +32,51 @@ const adminRouter = Router();
 
 adminRouter.use(protect);
 
-adminRouter.get("/user", authorizeRoles(Role.ADMIN, Role.MANAGER), getAllUsers);
 adminRouter.get(
-  "/user/with-profile",
+  "/users",
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
+  getAllUsers,
+);
+adminRouter.get(
+  "/users/with-profile",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   getAllUsersWithProfile,
 );
 adminRouter.get(
-  "/user/:id",
+  "/users/:id",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(getSingleUserByIdSchema),
   getSingleUserById,
 );
 
 adminRouter.patch(
-  "/user/:id/verify/accept",
+  "/users/:id/verify/accept",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(userAcceptVerificationStatusSchema),
   AcceptUserVerificationStatus,
 );
 adminRouter.patch(
-  "/user/:id/verify/reject",
+  "/users/:id/verify/reject",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(userRejectVerificationStatusSchema),
   RejectUserVerificationStatus,
 );
 
 adminRouter.patch(
-  "/user/:id/block",
+  "/users/:id/block",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(toggleUserBlockStatusSchema),
   toggleUserBlockStatus,
 );
 adminRouter.patch(
-  "/user/:id/unblock",
+  "/users/:id/unblock",
   authorizeRoles(Role.ADMIN),
   validate(toggleUserUnBlockStatusSchema),
   toggleUserUnblockStatus,
 );
 
 adminRouter
-  .route("/manager")
+  .route("/managers")
   .get(authorizeRoles(Role.ADMIN), getAllManager)
   .post(
     validate(createManagerSchema),
@@ -81,7 +85,7 @@ adminRouter
   );
 
 adminRouter
-  .route("/manager/:id")
+  .route("/managers/:id")
   .patch(
     validate(updateManagerSchema),
     authorizeRoles(Role.ADMIN),

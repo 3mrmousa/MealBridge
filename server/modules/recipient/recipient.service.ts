@@ -14,7 +14,7 @@ import type {
 import { createNotificationService } from "../notification/notification.service.js";
 import {
   sendCreateRequestForDonorMail,
-  sendClaimCancleForDonorMail,
+  sendClaimCancelForDonorMail,
 } from "../../utils/mail/email.service.js";
 
 export const getMyDonationRequestsService = async (
@@ -98,8 +98,8 @@ export const createDonationRequestService = async (
   const { donation, request } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT id
-      FROM "Donation"
-      WHERE id = ${donationId}
+      FROM "donation"
+      WHERE id = ${donationId}::uuid
       FOR UPDATE
     `;
 
@@ -196,8 +196,14 @@ export const updateDonationRequestService = async (
 
     await tx.$queryRaw`
     SELECT id
-    FROM "Donation"
-    WHERE id = ${donationRequest.donationId}
+    FROM "donation"
+    WHERE id = ${donationRequest.donationId}::uuid
+    FOR UPDATE
+  `;
+    await tx.$queryRaw`
+    SELECT id
+    FROM "donation_request"
+    WHERE id = ${donationRequest.id}::uuid
     FOR UPDATE
   `;
 
@@ -217,7 +223,7 @@ export const updateDonationRequestService = async (
     });
 
     if (!donation) {
-      throw new AppError("Donation not found ,Please delete the request ", 404);
+      throw new AppError("Donation not found, please delete the request", 404);
     }
 
     const data: Prisma.DonationRequestUpdateInput = {};
@@ -257,7 +263,7 @@ export const deleteDonationRequestService = async (
     throw new AppError("You can only delete pending requests", 400);
   }
 
-  const result = await prisma.donationRequest.delete({
+  const result = await prisma.donationRequest.deleteMany({
     where: {
       id: requestId,
       recipientId,
@@ -265,7 +271,7 @@ export const deleteDonationRequestService = async (
     },
   });
 
-  if (!result) {
+  if (result.count === 0) {
     throw new AppError(
       "Could not delete request, It may no longer be pending",
       400,
@@ -419,7 +425,7 @@ export const getClaimByIdService = async (
   return claim;
 };
 
-export const cancleClaimService = async (
+export const cancelClaimService = async (
   recipientId: string,
   claimId: string,
 ) => {
@@ -439,7 +445,7 @@ export const cancleClaimService = async (
     }
 
     if (claim.status !== ClaimStatus.ACTIVE) {
-      throw new AppError("You can't cancle this claim, it is not active", 400);
+      throw new AppError("You can't cancel this claim, it is not active", 400);
     }
 
     // Lock the Donation row to prevent race conditions during updates
@@ -507,7 +513,7 @@ export const cancleClaimService = async (
   }
 
   try {
-    await sendClaimCancleForDonorMail(
+    await sendClaimCancelForDonorMail(
       donation.donor.user.email,
       donation.title,
       claim.recipient?.organizationName,

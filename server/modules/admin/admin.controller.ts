@@ -31,16 +31,14 @@ import type {
   deleteManagerInput,
 } from "./admin.zod.js";
 
-export const getAllUsers = asyncHandler(
-  async (req: Request, res: Response) => {
-    const data = await getAllUsersService();
-    res.status(200).json({
-      status: "success",
-      message: "Users fetched successfully.",
-      data,
-    });
-  },
-);
+export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+  const data = await getAllUsersService();
+  res.status(200).json({
+    status: "success",
+    message: "Users fetched successfully.",
+    data,
+  });
+});
 
 export const getAllUsersWithProfile = asyncHandler(
   async (req: Request, res: Response) => {
@@ -85,8 +83,7 @@ export const AcceptUserVerificationStatus = asyncHandler(
 export const RejectUserVerificationStatus = asyncHandler(
   async (req: Request, res: Response) => {
     const { id } = req.params as userRejectVerificationStatusParams;
-    const { role, rejectReason } =
-      req.body as userRejectVerificationStatusBody;
+    const { role, rejectReason } = req.body as userRejectVerificationStatusBody;
 
     if (!role) {
       throw new AppError("Role is required to reject verification status", 400);

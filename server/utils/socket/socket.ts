@@ -1,6 +1,6 @@
 import { Server as SocketIoServer } from "socket.io";
 import { Server as HttpServer } from "http";
-import cookie from "cookie";
+import { parseCookie } from "cookie";
 import jwt from "jsonwebtoken";
 import AppError from "../errors/AppError.js";
 import prisma from "../../database/index.js";
@@ -21,7 +21,7 @@ export const initSocketServer = (httpServer: HttpServer) => {
 
   io.use((socket, next) => {
     try {
-      const cookies = cookie.parse(socket.handshake.headers.cookie || "");
+      const cookies = parseCookie(socket.handshake.headers.cookie || "");
       const token = cookies.access_token;
       if (!token) {
         throw new AppError("Unauthorized - No token provided", 401);
@@ -101,9 +101,9 @@ export const sendReportToSupportTeam = async (
   eventName: string,
   data: ReportType,
 ) => {
-    for (const [, user] of connectedUsers) {
-      if (user.role === Role.ADMIN || user.role === Role.MANAGER) {
-        io.to(user.socketId).emit(eventName, data);
-      }
+  for (const [, user] of connectedUsers) {
+    if (user.role === Role.ADMIN || user.role === Role.MANAGER) {
+      io.to(user.socketId).emit(eventName, data);
     }
+  }
 };

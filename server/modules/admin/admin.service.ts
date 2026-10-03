@@ -193,7 +193,6 @@ export const blockUserService = async (
   });
 
   await sendBlockStatusChangeMail(user.email, "Blocked", message);
-
 };
 
 export const unBlockUserService = async (

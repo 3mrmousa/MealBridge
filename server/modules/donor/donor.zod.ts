@@ -1,4 +1,9 @@
-import { ClaimStatus, DonationRequestStatus, DonationStatus, PickupMethod } from "@prisma/client";
+import {
+  ClaimStatus,
+  DonationRequestStatus,
+  DonationStatus,
+  PickupMethod,
+} from "@prisma/client";
 import z from "zod";
 
 export const getMyDonationsSchema = z.object({
@@ -7,7 +12,13 @@ export const getMyDonationsSchema = z.object({
     limit: z.coerce.number().int().optional(),
     status: z.nativeEnum(DonationStatus).optional(),
     sortBy: z
-      .enum(["createdAt", "quantity", "availableFrom", "availableUntil"])
+      .enum([
+        "createdAt",
+        "updatedAt",
+        "quantity",
+        "availableFrom",
+        "availableUntil",
+      ])
       .optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
@@ -72,7 +83,9 @@ export const getDonationRequestsSchema = z.object({
     page: z.coerce.number().int().optional(),
     limit: z.coerce.number().int().optional(),
     status: z.nativeEnum(DonationRequestStatus).optional(),
-    sortBy: z.enum(["createdAt", "quantityRequested"]).optional(),
+    sortBy: z
+      .enum(["createdAt", "updatedAt", "quantityRequested"])
+      .optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),
 });
@@ -131,7 +144,13 @@ export const getAllDonationClaimsSchema = z.object({
     status: z.nativeEnum(ClaimStatus).optional(),
     pickupMethod: z.nativeEnum(PickupMethod).optional(),
     sortBy: z
-      .enum(["createdAt", "quantityClaimed", "collectedAt", "pickupDeadline"])
+      .enum([
+        "createdAt",
+        "updatedAt",
+        "quantityClaimed",
+        "collectedAt",
+        "pickupDeadline",
+      ])
       .optional(),
     sortOrder: z.enum(["asc", "desc"]).optional(),
   }),

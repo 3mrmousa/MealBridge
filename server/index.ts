@@ -19,7 +19,7 @@ import notificationRouter from "./modules/notification/notification.route.js";
 import reportRouter from "./modules/report/report.route.js";
 import donorRouter from "./modules/donor/donor.route.js";
 import recipientRouter from "./modules/recipient/recipient.route.js";
-import pickupRouter from "./modules/pickup/pickup.route.js";
+import volunteerRouter from "./modules/volunteer/volunteer.route.js";
 
 const app = express();
 
@@ -34,13 +34,13 @@ app.use(cookieParser());
 app.use(express.json({ limit: "5mb" }));
 
 app.use("/api/auth", authRouter);
-app.use("/api/user", userRouter);
+app.use("/api/users", userRouter);
 app.use("/api/admin", adminRouter);
-app.use("/api/notification", notificationRouter);
-app.use("/api/report", reportRouter);
-app.use("/api/donor", donorRouter);
-app.use("/api/recipient", recipientRouter);
-app.use("/api/pickup-request", pickupRouter);
+app.use("/api/notifications", notificationRouter);
+app.use("/api/reports", reportRouter);
+app.use("/api/donors", donorRouter);
+app.use("/api/recipients", recipientRouter);
+app.use("/api/volunteers", volunteerRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));

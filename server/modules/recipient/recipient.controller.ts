@@ -12,7 +12,7 @@ import type {
   UpdateDonationRequestParams,
   GetClaimsQuery,
   GetClaimByIdParams,
-  CancleClaimParams,
+  CancelClaimParams,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
@@ -24,7 +24,7 @@ import {
   getDonationByIdService,
   getClaimsService,
   getClaimByIdService,
-  cancleClaimService,
+  cancelClaimService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -123,7 +123,12 @@ export const getAllDonations = asyncHandler(
   async (req: Request, res: Response) => {
     const { limit, page, sortBy, sortOrder } =
       req.query as GetAllDonationsQuery;
-    const result = await getAllDonationsService({limit, page, sortBy, sortOrder});
+    const result = await getAllDonationsService({
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+    });
     res.status(200).json({
       status: "success",
       message: "Donations fetched successfully",
@@ -185,12 +190,14 @@ export const getClaimById = asyncHandler(
   },
 );
 
-export const cancleClaim = asyncHandler(async (req: AuthRequest, res: Response) => {
-  const recipientId = req.user!.id;
-  const { id } = req.params as CancleClaimParams;
-  await cancleClaimService(recipientId, id);
-  res.status(200).json({
-    status: "success",
-    message: "Claim cancelled successfully",
-  });
-});
+export const cancelClaim = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as CancelClaimParams;
+    await cancelClaimService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Claim cancelled successfully",
+    });
+  },
+);

@@ -13,12 +13,17 @@ interface PaginationOptions {
 
 export interface SortAndPaginateOnDonations extends PaginationOptions {
   status?: DonationStatus;
-  sortBy?: "createdAt" | "quantity" | "availableFrom" | "availableUntil";
+  sortBy?:
+    | "createdAt"
+    | "updatedAt"
+    | "quantity"
+    | "availableFrom"
+    | "availableUntil";
 }
 
 export interface SortAndPaginateOnDonationRequests extends PaginationOptions {
   status?: DonationRequestStatus;
-  sortBy?: "createdAt" | "quantityRequested";
+  sortBy?: "createdAt" | "updatedAt" | "quantityRequested";
 }
 
 export interface SortAndPaginateOnDonationClaims extends PaginationOptions {
@@ -26,6 +31,7 @@ export interface SortAndPaginateOnDonationClaims extends PaginationOptions {
   pickupMethod?: PickupMethod;
   sortBy?:
     | "createdAt"
+    | "updatedAt"
     | "quantityClaimed"
     | "collectedAt"
     | "pickupDeadline";

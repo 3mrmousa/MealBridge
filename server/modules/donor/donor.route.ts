@@ -38,6 +38,7 @@ const donorRouter = Router();
 donorRouter.use(protect);
 donorRouter.use(authorizeRoles(Role.DONOR));
 
+// Donations Routes (Donor Perspective)
 donorRouter
   .route("/")
   .get(validate(getMyDonationsSchema), getMyDonations)
@@ -68,38 +69,38 @@ donorRouter.patch(
 
 // Donation Request Routes (Donor Perspective)
 donorRouter.get(
-  "/:id/request",
+  "/:id/requests",
   validate(getDonationRequestsSchema),
   getDonorDonationRequests,
 );
 
 donorRouter.get(
-  "/:id/request/:reqId",
+  "/:id/requests/:reqId",
   validate(getSingleDonationRequestSchema),
   getDonorDonationRequest,
 );
 
 donorRouter.patch(
-  "/:id/request/accept/:reqId",
+  ["/:id/requests/:reqId/accept", "/:id/requests/accept/:reqId"],
   validate(acceptRequestSchema),
   acceptDonationRequest,
 );
 
 donorRouter.patch(
-  "/:id/request/reject/:reqId",
+  ["/:id/requests/:reqId/reject", "/:id/requests/reject/:reqId"],
   validate(rejectRequestSchema),
   rejectDonationRequest,
 );
 
 // Donation Claim Routes (Donor Perspective)
 donorRouter.get(
-  "/:id/claim",
+  "/:id/claims",
   validate(getAllDonationClaimsSchema),
   getAllDonationClaims,
 );
 
 donorRouter.get(
-  "/:id/claim/:claimId",
+  "/:id/claims/:claimId",
   validate(getSingleDonationClaimSchema),
   getSingleDonationClaim,
 );

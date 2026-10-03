@@ -197,7 +197,7 @@ export const sendCreateRequestForDonorMail = async (
   }
 };
 
-export const sendClaimCancleForDonorMail = async (
+export const sendClaimCancelForDonorMail = async (
   email: string,
   donationTitle: string,
   organizationName: string | null | undefined,

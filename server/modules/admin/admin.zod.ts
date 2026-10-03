@@ -85,14 +85,30 @@ export type getSingleUserByIdInput = z.infer<
   typeof getSingleUserByIdSchema
 >["params"];
 
-export type userAcceptVerificationStatusParams = z.infer<typeof userAcceptVerificationStatusSchema>["params"];
-export type userAcceptVerificationStatusBody = z.infer<typeof userAcceptVerificationStatusSchema>["body"];
+export type userAcceptVerificationStatusParams = z.infer<
+  typeof userAcceptVerificationStatusSchema
+>["params"];
+export type userAcceptVerificationStatusBody = z.infer<
+  typeof userAcceptVerificationStatusSchema
+>["body"];
 
-export type userRejectVerificationStatusParams = z.infer<typeof userRejectVerificationStatusSchema>["params"];
-export type userRejectVerificationStatusBody = z.infer<typeof userRejectVerificationStatusSchema>["body"];
+export type userRejectVerificationStatusParams = z.infer<
+  typeof userRejectVerificationStatusSchema
+>["params"];
+export type userRejectVerificationStatusBody = z.infer<
+  typeof userRejectVerificationStatusSchema
+>["body"];
 
-export type toggleUserBlockStatusParams = z.infer<typeof toggleUserBlockStatusSchema>["params"];
-export type toggleUserBlockStatusBody = z.infer<typeof toggleUserBlockStatusSchema>["body"];
+export type toggleUserBlockStatusParams = z.infer<
+  typeof toggleUserBlockStatusSchema
+>["params"];
+export type toggleUserBlockStatusBody = z.infer<
+  typeof toggleUserBlockStatusSchema
+>["body"];
 
-export type toggleUserUnBlockStatusParams = z.infer<typeof toggleUserUnBlockStatusSchema>["params"];
-export type toggleUserUnBlockStatusBody = z.infer<typeof toggleUserUnBlockStatusSchema>["body"];
+export type toggleUserUnBlockStatusParams = z.infer<
+  typeof toggleUserUnBlockStatusSchema
+>["params"];
+export type toggleUserUnBlockStatusBody = z.infer<
+  typeof toggleUserUnBlockStatusSchema
+>["body"];
