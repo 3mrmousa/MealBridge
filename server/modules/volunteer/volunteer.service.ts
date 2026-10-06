@@ -1,17 +1,72 @@
-import { PickupRequestStatus, type Prisma } from "@prisma/client";
-import type { GetAllPickupRequestsQuery } from "./volunteer.zod.js";
+import {
+  CancelRequestStatus,
+  ClaimStatus,
+  DeliveryStatus,
+  DonationStatus,
+  Role,
+  Prisma,
+} from "@prisma/client";
+import type {
+  GetAllDeliveriesQuery,
+  GetCancelDeliveriesQuery,
+  GetDeliveryRequestsQuery,
+} from "./volunteer.zod.js";
 import prisma from "../../database/index.js";
 import AppError from "../../utils/errors/AppError.js";
 import { createNotificationService } from "../notification/notification.service.js";
 import {
-  sendAcceptPickupRequestDonorMail,
-  sendAcceptPickupRequestRecipientMail,
-  sendRejectPickupRequestRecipientMail,
+  sendAcceptDeliveryDonorMail,
+  sendAcceptDeliveryRecipientMail,
+  sendAcceptDeliveryVolunteerMail,
+  sendCompleteDeliveryDonorMail,
+  sendCompleteDeliveryRecipientMail,
+  sendCompleteDeliveryVolunteerMail,
+  sendRejectDeliveryDonorMail,
+  sendRejectDeliveryRecipientMail,
+  sendCancelDeliveryRecipientMail,
+  sendCancelDeliveryVolunteerMail,
 } from "../../utils/mail/email.service.js";
+import {
+  getWeeklyLimit,
+  setWeeklyLimit,
+} from "../../utils/redis/weeklyLimit.redis.js";
 
-export async function getAllPickupRequestsService(
+const deliveryDetailsInclude = Prisma.validator<Prisma.DeliveryInclude>()({
+  volunteer: {
+    include: {
+      user: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  },
+  donationClaim: {
+    include: {
+      recipient: {
+        include: {
+          user: {
+            select: { id: true, name: true, email: true },
+          },
+        },
+      },
+      donationRequest: true,
+      donation: {
+        include: {
+          donor: {
+            include: {
+              user: {
+                select: { id: true, name: true, email: true },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+});
+
+export async function getAllDeliveriesService(
   userId: string,
-  query: GetAllPickupRequestsQuery,
+  query: GetAllDeliveriesQuery,
 ) {
   const {
     limit = 10,
@@ -22,14 +77,13 @@ export async function getAllPickupRequestsService(
   } = query;
   const skip = (page - 1) * limit;
 
-  const where: Prisma.PickupRequestWhereInput = {
-    OR: [{ volunteerId: userId }, { volunteer: { userId } }],
+  const where: Prisma.DeliveryWhereInput = {
+    volunteer: { userId },
     ...(status ? { status } : {}),
   };
 
-
-  const [pickupRequests, totalPickupRequests] = await prisma.$transaction([
-    prisma.pickupRequest.findMany({
+  const [deliveries, totalDeliveries] = await prisma.$transaction([
+    prisma.delivery.findMany({
       where,
       take: limit,
       skip,
@@ -37,38 +91,33 @@ export async function getAllPickupRequestsService(
         [sortBy]: sortOrder,
       },
       include: {
-        recipient: true,
         donationClaim: {
           include: {
             donation: true,
+            donationRequest: true,
+            recipient: true,
           },
         },
       },
     }),
-    prisma.pickupRequest.count({ where }),
+    prisma.delivery.count({ where }),
   ]);
 
   return {
-    pickupRequests,
+    deliveries,
     pagination: {
       page,
       limit,
-      totalPickupRequests,
-      totalPages: Math.ceil(totalPickupRequests / limit),
+      totalDeliveries,
+      totalPages: Math.ceil(totalDeliveries / limit),
     },
   };
 }
 
-export async function singlePickupRequestService(id: string, userId: string) {
-  const volunteerProfile = await prisma.volunteerProfile.findUnique({
-    where: { userId },
-    select: { id: true },
-  });
-
-  const pickupRequest = await prisma.pickupRequest.findUnique({
+export async function singleDeliveryService(id: string, userId: string) {
+  const delivery = await prisma.delivery.findUnique({
     where: { id },
     include: {
-      recipient: true,
       volunteer: {
         select: {
           id: true,
@@ -78,129 +127,267 @@ export async function singlePickupRequestService(id: string, userId: string) {
       donationClaim: {
         include: {
           donation: true,
+          donationRequest: true,
+          recipient: true,
         },
       },
     },
   });
 
-  if (!pickupRequest) {
-    throw new AppError("Pickup request not found", 404);
+  if (!delivery) {
+    throw new AppError("Delivery not found", 404);
   }
 
-  const isForThisUser =
-    pickupRequest.volunteerId === userId ||
-    (volunteerProfile && pickupRequest.volunteerId === volunteerProfile.id) ||
-    pickupRequest.volunteer?.userId === userId;
+  const isForThisUser = delivery.volunteer?.userId === userId;
+
+  if (!isForThisUser) {
+    throw new AppError("You are not authorized to view this delivery", 403);
+  }
+
+  return delivery;
+}
+
+export async function getAllCancelDeliveriesService(
+  userId: string,
+  query: GetCancelDeliveriesQuery,
+) {
+  const {
+    limit = 10,
+    page = 1,
+    sortBy = "cancelRequestedAt",
+    sortOrder = "desc",
+    cancelRequestedBy,
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DeliveryWhereInput = {
+    volunteer: { userId },
+    cancelRequestedBy: cancelRequestedBy ? cancelRequestedBy : { not: null },
+  };
+
+  const [cancelDeliveries, totalCancelDeliveries] = await prisma.$transaction([
+    prisma.delivery.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
+      include: deliveryDetailsInclude,
+    }),
+    prisma.delivery.count({ where }),
+  ]);
+
+  return {
+    cancelDeliveries,
+    pagination: {
+      page,
+      limit,
+      totalCancelDeliveries,
+      totalPages: Math.ceil(totalCancelDeliveries / limit),
+    },
+  };
+}
+
+export async function singleCancelDeliveryService(id: string, userId: string) {
+  const delivery = await prisma.delivery.findUnique({
+    where: { id },
+    include: deliveryDetailsInclude,
+  });
+
+  if (!delivery) {
+    throw new AppError("Delivery not found", 404);
+  }
+
+  const isForThisUser = delivery.volunteer?.userId === userId;
 
   if (!isForThisUser) {
     throw new AppError(
-      "You are not authorized to view this pickup request",
+      "You are not authorized to view this cancellation request",
       403,
     );
   }
 
-  return pickupRequest;
+  if (!delivery.cancelRequestedBy) {
+    throw new AppError(
+      "This delivery does not have an active cancellation request",
+      400,
+    );
+  }
+
+  return delivery;
 }
 
-export async function acceptPickupRequestService(id: string, userId: string) {
-  const pickupRequest = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`
-    SELECT id
-    FROM "pickup_request"
-    WHERE id = ${id}::uuid
-    FOR UPDATE`;
+// Delivery Request Operations
 
-    const existingPickupRequest = await tx.pickupRequest.findUnique({
-      where: { id },
+export async function getDeliveryRequestsService(
+  userId: string,
+  query: GetDeliveryRequestsQuery,
+) {
+  const {
+    limit = 10,
+    page = 1,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+    status,
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DeliveryRequestWhereInput = {
+    volunteer: { userId },
+    ...(status ? { status } : {}),
+  };
+
+  const [requests, totalRequests] = await prisma.$transaction([
+    prisma.deliveryRequest.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
       include: {
-        volunteer: {
-          select: {
-            id: true,
-            userId: true,
-          },
-        },
-        recipient: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
         donationClaim: {
           include: {
-            donation: {
-              include: {
-                donor: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        name: true,
-                        email: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
+            donation: true,
+            recipient: true,
+          },
+        },
+      },
+    }),
+    prisma.deliveryRequest.count({ where }),
+  ]);
+
+  return {
+    requests,
+    pagination: {
+      page,
+      limit,
+      totalRequests,
+      totalPages: Math.ceil(totalRequests / limit),
+    },
+  };
+}
+
+export async function acceptDeliveryRequestService(
+  requestId: string,
+  userId: string,
+) {
+  const requestResult = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "delivery_request"
+    WHERE id = ${requestId}::uuid
+    FOR UPDATE`;
+
+    const existingRequest = await tx.deliveryRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        volunteer: { include: { user: true } },
+        donationClaim: {
+          include: {
+            donation: { include: { donor: { include: { user: true } } } },
+            donationRequest: true,
+            recipient: { include: { user: true } },
           },
         },
       },
     });
 
-    if (!existingPickupRequest) {
-      throw new AppError("Pickup request not found", 404);
+    if (!existingRequest) {
+      throw new AppError("Delivery request not found", 404);
     }
 
-    const volunteerProfile = await tx.volunteerProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    const isForThisUser =
-      existingPickupRequest.volunteerId === userId ||
-      (volunteerProfile &&
-        existingPickupRequest.volunteerId === volunteerProfile.id) ||
-      existingPickupRequest.volunteer?.userId === userId;
-
-    if (!isForThisUser) {
+    if (existingRequest.status !== "PENDING") {
       throw new AppError(
-        "You are not authorized to accept this pickup request",
-        403,
-      );
-    }
-
-    if (existingPickupRequest.status !== PickupRequestStatus.PENDING) {
-      throw new AppError(
-        `Pickup request is already ${existingPickupRequest.status}`,
+        `Delivery request is already ${existingRequest.status.toLowerCase()}`,
         400,
       );
     }
 
-    await tx.pickupRequest.update({
-      where: { id },
-      data: {
-        status: PickupRequestStatus.ACCEPTED,
-        acceptedAt: new Date(),
-      },
+    const isForThisUser = existingRequest.volunteer.userId === userId;
+
+    if (!isForThisUser) {
+      throw new AppError("You are not authorized to accept this request", 403);
+    }
+
+    // Check if a delivery already exists for this claim
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { donationClaimId: existingRequest.donationClaimId },
     });
 
-    return existingPickupRequest;
+    if (existingDelivery) {
+      throw new AppError("This donation claim already has an active delivery.", 400);
+    }
+
+    // Update request status
+    await tx.deliveryRequest.update({
+      where: { id: requestId },
+      data: { status: "ACCEPTED" },
+    });
+
+    // Create the actual delivery
+    const newDelivery = await tx.delivery.create({
+      data: {
+        donationClaimId: existingRequest.donationClaimId,
+        volunteerId: existingRequest.volunteerId,
+        recipientId: existingRequest.recipientId,
+        notes: existingRequest.notes,
+        status: DeliveryStatus.PENDING,
+      },
+      include: deliveryDetailsInclude,
+    });
+
+    // Optionally reject other pending requests for the same claim
+    await tx.deliveryRequest.updateMany({
+      where: {
+        donationClaimId: existingRequest.donationClaimId,
+        id: { not: requestId },
+        status: "PENDING",
+      },
+      data: { status: "REJECTED" },
+    });
+
+    return newDelivery;
   });
 
-  const recipientUser = pickupRequest.recipient.user;
-  const donorUser = pickupRequest.donationClaim.donation.donor.user;
-  const donationTitle = pickupRequest.donationClaim.donation.title;
+  const volunteerUser = requestResult.volunteer?.user;
+  const recipientUser = requestResult.donationClaim.recipient.user;
+  const donorUser = requestResult.donationClaim.donation.donor.user;
+  const donationTitle = requestResult.donationClaim.donation.title;
+
+  if (volunteerUser) {
+    try {
+      await createNotificationService(
+        volunteerUser.id,
+        "Delivery Confirmed! 🚚",
+        `You have accepted the delivery for "${donationTitle}".`,
+      );
+    } catch (error: any) {
+      console.error("Failed to notify volunteer:", error.message || error);
+    }
+
+    try {
+      await sendAcceptDeliveryVolunteerMail(
+        volunteerUser.email,
+        volunteerUser.name,
+        donationTitle,
+        requestResult.donationClaim.donation.pickupAddress,
+        requestResult.donationClaim.donationRequest.deliveryAddress,
+      );
+    } catch (error: any) {
+      console.error(
+        "Failed to send email to volunteer:",
+        error.message || error,
+      );
+    }
+  }
 
   try {
     await createNotificationService(
       recipientUser.id,
-      "Pickup Request Accepted!",
-      `A volunteer has accepted the pickup request for "${donationTitle}".`,
+      "Delivery Accepted! 🚚",
+      `A volunteer has accepted the delivery for "${donationTitle}".`,
     );
   } catch (error: any) {
     console.error("Failed to notify recipient:", error.message || error);
@@ -209,130 +396,107 @@ export async function acceptPickupRequestService(id: string, userId: string) {
   try {
     await createNotificationService(
       donorUser.id,
-      "Pickup Request Accepted!",
-      `A volunteer has accepted the pickup request for your donation "${donationTitle}".`,
+      "Delivery Accepted!",
+      `A volunteer has accepted the delivery for your donation "${donationTitle}".`,
     );
   } catch (error: any) {
     console.error("Failed to notify donor:", error.message || error);
   }
 
   try {
-    await sendAcceptPickupRequestRecipientMail(
+    await sendAcceptDeliveryRecipientMail(
       recipientUser.email,
       recipientUser.name,
       donationTitle,
-      pickupRequest.deliveryAddress,
+      requestResult.donationClaim.donationRequest.deliveryAddress,
     );
   } catch (error: any) {
     console.error("Failed to send email to recipient:", error.message || error);
   }
 
   try {
-    await sendAcceptPickupRequestDonorMail(
+    await sendAcceptDeliveryDonorMail(
       donorUser.email,
       donorUser.name,
       donationTitle,
-      pickupRequest.pickupAddress,
+      requestResult.donationClaim.donation.pickupAddress,
     );
   } catch (error: any) {
     console.error("Failed to send email to donor:", error.message || error);
   }
 
-  return pickupRequest;
+  return requestResult;
 }
 
-export async function rejectPickupRequestService(id: string, userId: string) {
-  const pickupRequest = await prisma.$transaction(async (tx) => {
+export async function rejectDeliveryRequestService(requestId: string, userId: string) {
+  const requestResult = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
-    FROM "pickup_request"
-    WHERE id = ${id}::uuid
+    FROM "delivery_request"
+    WHERE id = ${requestId}::uuid
     FOR UPDATE`;
 
-    const existingPickupRequest = await tx.pickupRequest.findUnique({
-      where: { id },
+    const existingRequest = await tx.deliveryRequest.findUnique({
+      where: { id: requestId },
       include: {
-        volunteer: {
-          select: {
-            id: true,
-            userId: true,
-          },
-        },
-        recipient: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
+        volunteer: { include: { user: true } },
         donationClaim: {
           include: {
-            donation: {
-              select: {
-                title: true,
-              },
-            },
+            donation: { include: { donor: { include: { user: true } } } },
+            recipient: { include: { user: true } },
           },
         },
       },
     });
 
-    if (!existingPickupRequest) {
-      throw new AppError("Pickup request not found", 404);
+    if (!existingRequest) {
+      throw new AppError("Delivery request not found", 404);
     }
 
-    const volunteerProfile = await tx.volunteerProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    const isForThisUser =
-      existingPickupRequest.volunteerId === userId ||
-      (volunteerProfile &&
-        existingPickupRequest.volunteerId === volunteerProfile.id) ||
-      existingPickupRequest.volunteer?.userId === userId;
+    const isForThisUser = existingRequest.volunteer.userId === userId;
 
     if (!isForThisUser) {
-      throw new AppError(
-        "You are not authorized to reject this pickup request",
-        403,
-      );
+      throw new AppError("You are not authorized to reject this request", 403);
     }
 
-    if (existingPickupRequest.status !== PickupRequestStatus.PENDING) {
-      throw new AppError(
-        `Pickup request is already ${existingPickupRequest.status}`,
-        400,
-      );
+    if (existingRequest.status !== "PENDING") {
+      throw new AppError(`Delivery request is already ${existingRequest.status}`, 400);
     }
 
-    await tx.pickupRequest.update({
-      where: { id },
-      data: { status: PickupRequestStatus.REJECTED },
+    await tx.deliveryRequest.update({
+      where: { id: requestId },
+      data: { status: "REJECTED" },
     });
 
-    return existingPickupRequest;
+    return existingRequest;
   });
 
-  const recipientUser = pickupRequest.recipient.user;
-  const donationTitle = pickupRequest.donationClaim.donation.title;
+  const recipientUser = requestResult.donationClaim.recipient.user;
+  const donorUser = requestResult.donationClaim.donation.donor.user;
+  const donationTitle = requestResult.donationClaim.donation.title;
 
   try {
     await createNotificationService(
       recipientUser.id,
-      "Pickup Request Declined",
-      `Your pickup request for "${donationTitle}" was declined by the volunteer.`,
+      "Delivery Declined",
+      `Your delivery request for "${donationTitle}" was declined by the volunteer.`,
     );
   } catch (error: any) {
     console.error("Failed to notify recipient:", error.message || error);
   }
 
   try {
-    await sendRejectPickupRequestRecipientMail(
+    await createNotificationService(
+      donorUser.id,
+      "Delivery Declined",
+      `A volunteer was unable to accept the delivery request for your donation "${donationTitle}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify donor:", error.message || error);
+  }
+
+  try {
+    await sendRejectDeliveryRecipientMail(
       recipientUser.email,
       recipientUser.name,
       donationTitle,
@@ -341,7 +505,351 @@ export async function rejectPickupRequestService(id: string, userId: string) {
     console.error("Failed to send email to recipient:", error.message || error);
   }
 
-  return pickupRequest;
+  try {
+    await sendRejectDeliveryDonorMail(
+      donorUser.email,
+      donorUser.name,
+      donationTitle,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to donor:", error.message || error);
+  }
+
+  return requestResult;
 }
 
+export async function completeDeliveryService(id: string, userId: string) {
+  const delivery = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "delivery"
+    WHERE id = ${id}::uuid
+    FOR UPDATE`;
 
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id },
+      include: deliveryDetailsInclude,
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+
+    const volunteerProfile = await tx.volunteerProfile.findUnique({
+      where: { userId },
+      select: {
+        id: true,
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+
+    if (!isForThisUser) {
+      throw new AppError(
+        "You are not authorized to complete this delivery",
+        403,
+      );
+    }
+
+    if (existingDelivery.status === DeliveryStatus.COMPLETED) {
+      throw new AppError("Delivery is already completed", 400);
+    }
+
+    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+      throw new AppError(
+        `Cannot complete delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        400,
+      );
+    }
+
+    const now = new Date();
+
+    await tx.delivery.update({
+      where: { id },
+      data: {
+        status: DeliveryStatus.COMPLETED,
+        completedAt: now,
+      },
+    });
+
+    await tx.donationClaim.update({
+      where: { id: existingDelivery.donationClaimId },
+      data: {
+        status: ClaimStatus.COMPLETED,
+        collectedAt: now,
+      },
+    });
+
+    const donation = existingDelivery.donationClaim.donation;
+    const completedClaims = await tx.donationClaim.findMany({
+      where: {
+        donationId: donation.id,
+        status: ClaimStatus.COMPLETED,
+      },
+      select: { quantityClaimed: true },
+    });
+
+    const totalQuantityCompleted = completedClaims.reduce(
+      (sum, claim) => sum + claim.quantityClaimed,
+      0,
+    );
+
+    if (totalQuantityCompleted >= donation.quantity) {
+      await tx.donation.update({
+        where: { id: donation.id },
+        data: { status: DonationStatus.COMPLETED },
+      });
+    }
+
+    const volunteerUser =
+      existingDelivery.volunteer?.user || volunteerProfile?.user;
+
+    return {
+      ...existingDelivery,
+      volunteerUser,
+    };
+  });
+
+  const volunteerUser = delivery.volunteerUser;
+  const recipientUser = delivery.donationClaim.recipient.user;
+  const donorUser = delivery.donationClaim.donation.donor.user;
+  const donationTitle = delivery.donationClaim.donation.title;
+
+  if (volunteerUser) {
+    try {
+      await createNotificationService(
+        volunteerUser.id,
+        "Delivery Completed! 🌟",
+        `You have successfully completed the delivery for "${donationTitle}". Thank you for your service!`,
+      );
+    } catch (error: any) {
+      console.error("Failed to notify volunteer:", error.message || error);
+    }
+
+    try {
+      await sendCompleteDeliveryVolunteerMail(
+        volunteerUser.email,
+        volunteerUser.name,
+        donationTitle,
+      );
+    } catch (error: any) {
+      console.error(
+        "Failed to send email to volunteer:",
+        error.message || error,
+      );
+    }
+  }
+
+  try {
+    await createNotificationService(
+      recipientUser.id,
+      "Meal Delivered! 🎉",
+      `The volunteer has successfully delivered your meal "${donationTitle}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify recipient:", error.message || error);
+  }
+
+  try {
+    await createNotificationService(
+      donorUser.id,
+      "Donation Delivered! 🎉",
+      `The volunteer has successfully delivered your donation "${donationTitle}" to the recipient.`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify donor:", error.message || error);
+  }
+
+  try {
+    await sendCompleteDeliveryRecipientMail(
+      recipientUser.email,
+      recipientUser.name,
+      donationTitle,
+      delivery.donationClaim.donationRequest.deliveryAddress,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to recipient:", error.message || error);
+  }
+
+  try {
+    await sendCompleteDeliveryDonorMail(
+      donorUser.email,
+      donorUser.name,
+      donationTitle,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to donor:", error.message || error);
+  }
+
+  return delivery;
+}
+
+export async function emergencyCancelDeliveryService(
+  id: string,
+  userId: string,
+) {
+  const delivery = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "delivery"
+    WHERE id = ${id}::uuid
+    FOR UPDATE`;
+
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id },
+      include: deliveryDetailsInclude,
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+
+    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+
+    if (!isForThisUser) {
+      throw new AppError("You are not authorized to cancel this delivery", 403);
+    }
+
+    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+      throw new AppError(
+        `Cannot cancel delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        400,
+      );
+    }
+
+    const hasCancelledThisWeek = await getWeeklyLimit(userId);
+    if (hasCancelledThisWeek !== null) {
+      throw new AppError(
+        "You have already used your 1 emergency cancellation for this week. Please contact support.",
+        403,
+      );
+    }
+    await setWeeklyLimit(userId, 1, 60 * 60 * 24 * 7);
+
+    await tx.delivery.update({
+      where: { id },
+      data: { status: DeliveryStatus.CANCELLED },
+    });
+
+    return existingDelivery;
+  });
+}
+
+export async function cancelDeliveryService(
+  deliveryId: string,
+  userRole: Role,
+  reason?: string,
+) {
+  const delivery = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id
+      FROM "delivery"
+      WHERE id = ${deliveryId}::uuid
+      FOR UPDATE`;
+
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id: deliveryId },
+      include: deliveryDetailsInclude,
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+
+    if (existingDelivery.cancelRequestedBy === Role.RECIPIENT) {
+      throw new AppError(
+        "A cancellation request has already been sent by the recipient.",
+        400,
+      );
+    }
+
+    if (existingDelivery.cancelRequestedBy === Role.VOLUNTEER) {
+      throw new AppError(
+        "You have already requested to cancel this delivery.",
+        400,
+      );
+    }
+
+    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+      throw new AppError(
+        `Cannot request cancellation for a delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        400,
+      );
+    }
+
+    if (existingDelivery.cancelRequestStatus === CancelRequestStatus.PENDING) {
+      throw new AppError("Cancellation request has already been sent.", 400);
+    }
+
+    await tx.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        cancelRequestedBy: userRole,
+        cancelRequestedAt: new Date(),
+        cancelRequestedReason: reason,
+        cancelRequestStatus: CancelRequestStatus.PENDING,
+      },
+    });
+    return existingDelivery;
+  });
+
+  const recipientUser = delivery.donationClaim.recipient.user;
+  const volunteerUser = delivery.volunteer?.user;
+  const donationTitle = delivery.donationClaim.donation.title;
+
+  try {
+    await createNotificationService(
+      recipientUser.id,
+      "Delivery Cancellation Request",
+      `The volunteer has requested to cancel the delivery for "${donationTitle}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify recipient:", error.message || error);
+  }
+
+  try {
+    await sendCancelDeliveryRecipientMail(
+      recipientUser.email,
+      recipientUser.name,
+      donationTitle,
+      reason,
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to recipient:", error.message || error);
+  }
+
+  if (volunteerUser) {
+    try {
+      await createNotificationService(
+        volunteerUser.id,
+        "Cancellation Request Sent",
+        `Your cancellation request for "${donationTitle}" has been sent.`,
+      );
+    } catch (error: any) {
+      console.error("Failed to notify volunteer:", error.message || error);
+    }
+
+    try {
+      await sendCancelDeliveryVolunteerMail(
+        volunteerUser.email,
+        volunteerUser.name,
+        donationTitle,
+        reason,
+      );
+    } catch (error: any) {
+      console.error(
+        "Failed to send email to volunteer:",
+        error.message || error,
+      );
+    }
+  }
+
+  return delivery;
+}

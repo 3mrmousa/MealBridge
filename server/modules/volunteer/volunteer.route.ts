@@ -1,15 +1,23 @@
 import { Router } from "express";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
-  acceptPickupRequest,
-  getAllPickupRequests,
-  rejectPickupRequest,
-  singlePickupRequest,
+  acceptDeliveryRequest,
+  cancelDelivery,
+  completeDelivery,
+  emergencyCancelDelivery,
+  getAllCancelDeliveries,
+  getAllDeliveries,
+  getDeliveryRequests,
+  rejectDeliveryRequest,
+  singleCancelDelivery,
+  singleDelivery,
 } from "./volunteer.controller.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
 import {
-  getAllPickupRequestsSchema,
+  getAllDeliveriesSchema,
+  getCancelDeliveriesSchema,
+  getDeliveryRequestsSchema,
   singleIdRequestSchema,
 } from "./volunteer.zod.js";
 
@@ -18,29 +26,70 @@ const volunteerRouter = Router();
 volunteerRouter.use(protect);
 volunteerRouter.use(authorizeRoles(Role.VOLUNTEER));
 
-// Pickup Routes (Volunteer Perspective)
+// Delivery Request Routes (Volunteer Perspective)
 
 volunteerRouter.get(
-  "/",
-  validate(getAllPickupRequestsSchema),
-  getAllPickupRequests,
-);
-
-volunteerRouter
-  .route("/:id")
-  .get(validate(singleIdRequestSchema), singlePickupRequest);
-
-volunteerRouter.patch(
-  "/:id/accept",
-  validate(singleIdRequestSchema),
-  acceptPickupRequest,
+  "/delivery-requests",
+  validate(getDeliveryRequestsSchema),
+  getDeliveryRequests,
 );
 
 volunteerRouter.patch(
-  "/:id/reject",
+  "/delivery-requests/:id/accept",
   validate(singleIdRequestSchema),
-  rejectPickupRequest,
+  acceptDeliveryRequest,
+);
+
+volunteerRouter.patch(
+  "/delivery-requests/:id/reject",
+  validate(singleIdRequestSchema),
+  rejectDeliveryRequest,
+);
+
+// Delivery Routes (Volunteer Perspective)
+
+volunteerRouter.get(
+  "/deliveries",
+  validate(getAllDeliveriesSchema),
+  getAllDeliveries,
+);
+
+volunteerRouter.get(
+  "/deliveries/:id",
+  validate(singleIdRequestSchema),
+  singleDelivery,
+);
+
+volunteerRouter.get(
+  "/deliveries/cancel-requests",
+  validate(getCancelDeliveriesSchema),
+  getAllCancelDeliveries,
+);
+
+volunteerRouter.get(
+  "/deliveries/:id/cancel-request",
+  validate(singleIdRequestSchema),
+  singleCancelDelivery,
+);
+
+
+
+volunteerRouter.patch(
+  "/deliveries/:id/complete",
+  validate(singleIdRequestSchema),
+  completeDelivery,
+);
+
+volunteerRouter.patch(
+  "/deliveries/:id/emergency-cancel",
+  validate(singleIdRequestSchema),
+  emergencyCancelDelivery,
+);
+
+volunteerRouter.patch(
+  "/deliveries/:id/cancel-request",
+  validate(singleIdRequestSchema),
+  cancelDelivery
 );
 
 export default volunteerRouter;
-

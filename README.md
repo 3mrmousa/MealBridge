@@ -177,8 +177,8 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - Registration & password reset OTP emails
   - Donation request accept/reject emails (recipient + donor POV)
   - Claim cancel emails
-  - **Pickup request accept emails** (recipient + donor)
-  - **Pickup request reject emails** (recipient only)
+  - **Delivery request accept emails** (recipient + donor)
+  - **Delivery request reject emails** (recipient only)
   - Admin/manager verification notifications
 
 - [x] **User Module** (`/api/users`)
@@ -233,12 +233,20 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - `GET /api/recipients/claims` — List own claims
   - `GET /api/recipients/claims/:id` — Get single claim
   - `DELETE /api/recipients/claims/:id` — Cancel a claim (with lock + status check)
+  - `GET /api/recipients/volunteers` — Browse available volunteers
+  - `GET /api/recipients/volunteers/:id` — Get volunteer details
+  - `POST /api/recipients/delivery-requests` — Request a delivery from a volunteer
+  - `GET /api/recipients/delivery-requests` — List own delivery requests
 
 - [x] **Volunteer Module** (`/api/volunteers`) — *Refactored from pickup module*
-  - `GET /api/volunteers/` — List all pickup requests assigned to this volunteer (paginated, sorted, filtered by status)
-  - `GET /api/volunteers/:id` — Get a single pickup request (ownership verified)
-  - `PATCH /api/volunteers/:id/accept` — Accept a pickup request (row-level lock + ownership check + notifications + emails)
-  - `PATCH /api/volunteers/:id/reject` — Reject a pickup request (row-level lock + ownership check + notification + email)
+  - `GET /api/volunteers/delivery-requests` — List all delivery requests assigned to this volunteer
+  - `PATCH /api/volunteers/delivery-requests/:id/accept` — Accept a delivery request (row-level lock + ownership check + emails)
+  - `PATCH /api/volunteers/delivery-requests/:id/reject` — Reject a delivery request
+  - `GET /api/volunteers/deliveries` — List active deliveries
+  - `GET /api/volunteers/deliveries/:id` — Get single delivery details
+  - `PATCH /api/volunteers/deliveries/:id/complete` — Mark delivery as completed
+  - `PATCH /api/volunteers/deliveries/:id/cancel-request` — Request cancellation of a delivery
+  - `PATCH /api/volunteers/deliveries/:id/emergency-cancel` — Emergency abort a delivery
 
 - [x] **Notification Module** (`/api/notifications`)
   - `GET /api/notifications/` — Get all notifications for the authenticated user
@@ -259,6 +267,9 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
 
 ### In Progress / Planned
 
+- [ ] **Donor**: Needs review, a way to request claim cancellation, pickup tracking, volunteer routes integration, and chat.
+- [ ] **Recipient**: Needs review, a way to request claim cancellation, and chat integration.
+- [ ] **Volunteer**: Needs review and completion of volunteer-specific routes.
 - [ ] **Chat Module** — Real-time messaging between donor, recipient, and volunteer (Socket.io infrastructure is ready)
 - [ ] **Client App** — User-facing frontend
 - [ ] **Admin Panel** — Admin dashboard
@@ -272,7 +283,7 @@ The database is designed around a **3-stage donation workflow**:
 ```
 Stage 1: DonationRequest     — Recipient requests a donation
 Stage 2: DonationClaim       — Donor accepts → Claim is created
-Stage 3: PickupRequest        — Recipient optionally requests volunteer delivery
+Stage 3: DeliveryRequest     — Recipient optionally requests volunteer delivery
 ```
 
 ### Entity Overview
@@ -286,8 +297,10 @@ erDiagram
     Donation ||--o{ DonationRequest : receives
     RecipientProfile ||--o{ DonationRequest : submits
     DonationRequest ||--o| DonationClaim : becomes
-    DonationClaim ||--o| PickupRequest : triggers
-    VolunteerProfile ||--o{ PickupRequest : accepts
+    DonationClaim ||--o{ DeliveryRequest : triggers
+    DonationClaim ||--o| Delivery : becomes
+    VolunteerProfile ||--o{ DeliveryRequest : receives
+    VolunteerProfile ||--o{ Delivery : executes
     DonationClaim ||--o{ Conversation : has
     Conversation ||--o{ Message : contains
     User ||--o{ Notification : receives
@@ -303,7 +316,9 @@ erDiagram
 | `DonationRequestStatus` | PENDING, ACCEPTED, REJECTED, CANCELLED |
 | `ClaimStatus` | ACTIVE, COMPLETED, CANCELLED |
 | `PickupMethod` | SELF, VOLUNTEER |
-| `PickupRequestStatus` | PENDING, ACCEPTED, REJECTED, CANCELLED, COMPLETED, EXPIRED |
+| `DeliveryRequestStatus` | PENDING, ACCEPTED, REJECTED, CANCELLED |
+| `DeliveryStatus` | PENDING, CANCELLED, COMPLETED |
+| `CancelRequestStatus` | PENDING, ACCEPTED, REJECTED |
 | `VolunteerType` | *(defined in schema)* |
 | `TransportType` | *(defined in schema)* |
 
@@ -388,15 +403,25 @@ erDiagram
 | `GET` | `/claims` | List own claims |
 | `GET` | `/claims/:id` | Get single claim |
 | `DELETE` | `/claims/:id` | Cancel a claim |
+| `GET` | `/volunteers` | Browse volunteers |
+| `GET` | `/volunteers/:id` | Get volunteer details |
+| `POST` | `/delivery-requests` | Request volunteer delivery |
+| `GET` | `/delivery-requests` | List own delivery requests |
 
 ### Volunteers (`/api/volunteers`) — 🔒 VOLUNTEER role
 
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `GET` | `/` | List assigned pickup requests |
-| `GET` | `/:id` | Get single pickup request |
-| `PATCH` | `/:id/accept` | Accept a pickup request |
-| `PATCH` | `/:id/reject` | Reject a pickup request |
+| `GET` | `/delivery-requests` | List assigned delivery requests |
+| `PATCH` | `/delivery-requests/:id/accept` | Accept a delivery request |
+| `PATCH` | `/delivery-requests/:id/reject` | Reject a delivery request |
+| `GET` | `/deliveries` | List active deliveries |
+| `GET` | `/deliveries/:id` | Get single delivery |
+| `GET` | `/deliveries/cancel-requests` | List cancellation requests |
+| `GET` | `/deliveries/:id/cancel-request` | Get cancellation request |
+| `PATCH` | `/deliveries/:id/complete` | Complete a delivery |
+| `PATCH` | `/deliveries/:id/emergency-cancel` | Emergency abort a delivery |
+| `PATCH` | `/deliveries/:id/cancel-request` | Request cancellation |
 
 ### Notifications (`/api/notifications`) — 🔒 All roles
 

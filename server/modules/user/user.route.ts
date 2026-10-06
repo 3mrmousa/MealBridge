@@ -34,18 +34,11 @@ userRouter.use(protect);
 // Profile routes
 
 // patch route it for create or update
-userRouter
-  .route("/profile")
-  .get(getUserProfile)
-  .patch(updateProfile);
+userRouter.route("/profile").get(getUserProfile).patch(updateProfile);
 
 userRouter
   .route("/profile/profile-picture")
-  .put(
-    heavyRateLimiter,
-    uploadSingleFileForPFP,
-    updateProfilePicture,
-  )
+  .put(heavyRateLimiter, uploadSingleFileForPFP, updateProfilePicture)
   .delete(validate(deleteImageSchema), deleteProfilePicture);
 
 userRouter

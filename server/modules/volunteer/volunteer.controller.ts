@@ -2,25 +2,34 @@ import type { Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import {
-  acceptPickupRequestService,
-  getAllPickupRequestsService,
-  rejectPickupRequestService,
-  singlePickupRequestService,
+  acceptDeliveryRequestService,
+  cancelDeliveryService,
+  completeDeliveryService,
+  emergencyCancelDeliveryService,
+  getAllCancelDeliveriesService,
+  getAllDeliveriesService,
+  getDeliveryRequestsService,
+  rejectDeliveryRequestService,
+  singleCancelDeliveryService,
+  singleDeliveryService,
 } from "./volunteer.service.js";
 import type {
-  GetAllPickupRequestsQuery,
+  CancelDeliveryBody,
+  GetAllDeliveriesQuery,
+  GetCancelDeliveriesQuery,
+  GetDeliveryRequestsQuery,
   SingleIdRequestParams,
 } from "./volunteer.zod.js";
 
-// Pickup Routes (Volunteer Perspective)
+// Delivery Routes (Volunteer Perspective)
 
-export const getAllPickupRequests = asyncHandler(
+export const getAllDeliveries = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { sortBy, sortOrder, status, limit, page } =
-      req.query as GetAllPickupRequestsQuery;
+      req.query as GetAllDeliveriesQuery;
 
-    const result = await getAllPickupRequestsService(userId, {
+    const result = await getAllDeliveriesService(userId, {
       sortBy,
       sortOrder,
       status,
@@ -30,53 +39,156 @@ export const getAllPickupRequests = asyncHandler(
 
     res.status(200).json({
       success: true,
-      message: "Pickup requests fetched successfully",
-      data: result.pickupRequests,
+      message: "Deliveries fetched successfully",
+      data: result.deliveries,
       pagination: result.pagination,
     });
   },
 );
 
-export const singlePickupRequest = asyncHandler(
+export const singleDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    const pickupRequest = await singlePickupRequestService(id, userId);
+    const delivery = await singleDeliveryService(id, userId);
 
     res.status(200).json({
       success: true,
-      message: "Pickup request fetched successfully",
-      data: pickupRequest,
+      message: "Delivery fetched successfully",
+      data: delivery,
     });
   },
 );
 
-export const acceptPickupRequest = asyncHandler(
+export const getDeliveryRequests = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { sortBy, sortOrder, status, limit, page } =
+      req.query as GetDeliveryRequestsQuery;
+
+    const result = await getDeliveryRequestsService(userId, {
+      sortBy,
+      sortOrder,
+      status,
+      limit,
+      page,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery requests fetched successfully",
+      data: result.requests,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const acceptDeliveryRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await acceptPickupRequestService(id, userId);
+    await acceptDeliveryRequestService(id, userId);
 
     res.status(200).json({
       success: true,
-      message: "Pickup request accepted successfully",
+      message: "Delivery request accepted successfully",
     });
   },
 );
 
-export const rejectPickupRequest = asyncHandler(
+export const rejectDeliveryRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await rejectPickupRequestService(id, userId);
+    await rejectDeliveryRequestService(id, userId);
 
     res.status(200).json({
       success: true,
-      message: "Pickup request rejected successfully",
+      message: "Delivery request rejected successfully",
     });
   },
 );
-
+
+export const completeDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id } = req.params as SingleIdRequestParams;
+
+    await completeDeliveryService(id, userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery completed successfully",
+    });
+  },
+);
+
+export const emergencyCancelDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id } = req.params as SingleIdRequestParams;
+
+    await emergencyCancelDeliveryService(id, userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery cancelled successfully",
+    });
+  },
+);
+
+export const getAllCancelDeliveries = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { sortBy, sortOrder, cancelRequestedBy, limit, page } =
+      req.query as GetCancelDeliveriesQuery;
+
+    const result = await getAllCancelDeliveriesService(userId, {
+      sortBy,
+      sortOrder,
+      cancelRequestedBy,
+      limit,
+      page,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery cancellation requests fetched successfully",
+      data: result.cancelDeliveries,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const singleCancelDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id } = req.params as SingleIdRequestParams;
+
+    const delivery = await singleCancelDeliveryService(id, userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery cancellation request fetched successfully",
+      data: delivery,
+    });
+  },
+);
+
+export const cancelDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userRole = req.user!.role;
+    const { id } = req.params as SingleIdRequestParams;
+    const { reason } = req.body as CancelDeliveryBody;
+
+    await cancelDeliveryService(id, userRole, reason);
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery cancellation request submitted successfully",
+    });
+  },
+);

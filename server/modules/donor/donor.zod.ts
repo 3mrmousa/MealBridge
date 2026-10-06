@@ -37,7 +37,7 @@ export const createDonationSchema = z.object({
     foodType: z.string().min(1, "Food Type is required"),
     quantity: z.number().min(1, "Quantity is required"),
     unit: z.string().min(1, "Unit is required"),
-    address: z.string().min(1, "Address is required"),
+    pickupAddress: z.string().min(1, "Pickup Address is required"),
     availableFrom: z.coerce.date({ error: "availableFrom Date is required" }),
     availableUntil: z.coerce.date({ error: "availableTo Date is required" }),
   }),
@@ -59,7 +59,7 @@ export const updateDonationSchema = z.object({
     foodType: z.string().min(1, "Food Type is required").optional(),
     quantity: z.number().min(1, "Quantity is required").optional(),
     unit: z.string().min(1, "Unit is required").optional(),
-    address: z.string().min(1, "Address is required").optional(),
+    pickupAddress: z.string().min(1, "Pickup Address is required").optional(),
     availableFrom: z.coerce
       .date({ error: "availableFrom Date is required" })
       .optional(),

@@ -1,10 +1,9 @@
 import { ReportStatus } from "@prisma/client";
 import prisma from "../../database/index.js";
 import AppError from "../../utils/errors/AppError.js";
-import {
-  sendNotificationToUser,
-  sendReportToSupportTeam,
-} from "../../utils/socket/socket.js";
+import { sendReportToSupportTeam } from "../../utils/socket/socket.js";
+import { createNotificationService } from "../notification/notification.service.js";
+import { includes } from "zod";
 
 export const createReportService = async (
   reporterId: string,
@@ -31,25 +30,12 @@ export const createReportService = async (
     description,
   });
 
-  await prisma.notification.create({
-    data: {
-      userId: reporterId,
-      sourceReportId: report.id,
-      title: "Report submitted successfully",
-      message:
-        "Your report has been submitted successfully and will be reviewed by our support team.",
-      isRead: false,
-    },
-  });
-
-  sendNotificationToUser(reporterId, "new-notification", {
-    userId: reporterId,
-    sourceReportId: report.id,
-    title: "Report submitted successfully",
-    message:
-      "Your report has been submitted successfully and will be reviewed by our support team.",
-    isRead: false,
-  });
+  await createNotificationService(
+    reporterId,
+    "Report submitted successfully",
+    "Your report has been submitted successfully and will be reviewed by our support team.",
+    report.id,
+  );
 };
 
 export const getAllReportsService = async () => {
@@ -102,26 +88,12 @@ export const handleReportService = async (
   });
 
   if (status === ReportStatus.REJECTED || status === ReportStatus.RESOLVED) {
-    await prisma.notification.create({
-      data: {
-        userId: report.reporterId,
-        sourceReportId: report.id,
-        title: `About your report`,
-        message:
-          message ||
-          `Your report has been ${status === ReportStatus.REJECTED ? "Rejected" : "Resolved"}`,
-        isRead: false,
-      },
-    });
-
-    sendNotificationToUser(report.reporterId, "new-notification", {
-      userId: report.reporterId,
-      sourceReportId: report.id,
-      title: `About your report`,
-      message:
-        message ||
+    await createNotificationService(
+      report.reporterId,
+      `About your report`,
+      message ||
         `Your report has been ${status === ReportStatus.REJECTED ? "Rejected" : "Resolved"}`,
-      isRead: false,
-    });
+      report.id,
+    );
   }
 };

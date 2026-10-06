@@ -11,7 +11,7 @@ import type {
   UpdateVolunteerInput,
 } from "./user.zod.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
-import type { Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import {
   comparePassword,
   hashPassword,
@@ -20,7 +20,7 @@ import {
   deleteOtpSession,
   getOtpSession,
   setOtpSession,
-} from "../../utils/otp/otp.redis.js";
+} from "../../utils/redis/otp.redis.js";
 import type { OtpSessionDatachangeEmailRequest } from "./user.otp.store.js";
 import { generateOtp, verifyOtp } from "../../utils/otp/generateOtp.js";
 import { sendChangeEmailOtpMail } from "../../utils/mail/email.service.js";
@@ -46,8 +46,12 @@ export const updateDonorProfileService = async (
 ) => {
   const { name, phone, ...profileData } = data;
 
-  if (!profileData.address) {
-    throw new AppError("Address is required", 400);
+  const existingProfile = await prisma.donorProfile.findUnique({
+    where: { userId },
+  });
+
+  if (!existingProfile &&  !profileData.address) {
+    throw new AppError("Address is required to complete your profile setup", 400);
   }
 
   await prisma.user.update({
@@ -60,7 +64,7 @@ export const updateDonorProfileService = async (
           update: profileData,
           create: {
             ...profileData,
-            address: profileData.address,
+            address: profileData.address!,
           },
         },
       },
@@ -74,8 +78,12 @@ export const updateRecipientProfileService = async (
 ) => {
   const { name, phone, ...profileData } = data;
 
-  if (!profileData.address) {
-    throw new AppError("Address is required", 400);
+  const existingProfile = await prisma.recipientProfile.findUnique({
+    where: { userId },
+  });
+
+  if (!existingProfile && !profileData.address) {
+    throw new AppError("Address is required to complete your profile setup", 400);
   }
 
   await prisma.user.update({
@@ -88,7 +96,7 @@ export const updateRecipientProfileService = async (
           update: profileData,
           create: {
             ...profileData,
-            address: profileData.address,
+            address: profileData.address!,
           },
         },
       },
@@ -102,16 +110,14 @@ export const updateVolunteerProfileService = async (
 ) => {
   const { name, phone, ...profileData } = data;
 
-  if (!profileData.address) {
-    throw new AppError("Address is required", 400);
-  }
+  const existingProfile = await prisma.volunteerProfile.findUnique({
+    where: { userId },
+  });
 
-  if (!profileData.type) {
-    throw new AppError("Type is required", 400);
-  }
-
-  if (!profileData.transportType) {
-    throw new AppError("Transport Type is required", 400);
+  if (!existingProfile) {
+    if (!profileData.address) throw new AppError("Address is required to complete your profile setup", 400);
+    if (!profileData.type) throw new AppError("Type is required to complete your profile setup", 400);
+    if (!profileData.transportType) throw new AppError("Transport Type is required to complete your profile setup", 400);
   }
 
   await prisma.user.update({
@@ -124,9 +130,9 @@ export const updateVolunteerProfileService = async (
           update: profileData,
           create: {
             ...profileData,
-            address: profileData.address,
-            type: profileData.type,
-            transportType: profileData.transportType,
+            address: profileData.address!,
+            type: profileData.type!,
+            transportType: profileData.transportType!,
           },
         },
       },
@@ -149,11 +155,11 @@ export const updateProfilePictureService = async (
   });
 
   let currentPic: any = null;
-  if (role === "DONOR")
+  if (role === Role.DONOR)
     currentPic = existingProfile?.donorProfile?.profilePicture;
-  if (role === "RECIPIENT")
+  if (role === Role.RECIPIENT)
     currentPic = existingProfile?.recipientProfile?.profilePicture;
-  if (role === "VOLUNTEER")
+  if (role === Role.VOLUNTEER)
     currentPic = existingProfile?.volunteerProfile?.profilePicture;
 
   const uploadResult = await uploadPFPToCloudinary(fileBuffer);
@@ -164,17 +170,17 @@ export const updateProfilePictureService = async (
   };
 
   try {
-    if (role === "DONOR") {
+    if (role === Role.DONOR) {
       await prisma.donorProfile.update({
         where: { userId },
         data: { profilePicture: profilePictureJson },
       });
-    } else if (role === "RECIPIENT") {
+    } else if (role === Role.RECIPIENT) {
       await prisma.recipientProfile.update({
         where: { userId },
         data: { profilePicture: profilePictureJson },
       });
-    } else if (role === "VOLUNTEER") {
+    } else if (role === Role.VOLUNTEER) {
       await prisma.volunteerProfile.update({
         where: { userId },
         data: { profilePicture: profilePictureJson },
@@ -184,6 +190,12 @@ export const updateProfilePictureService = async (
     }
   } catch (error: any) {
     await deleteFromCloudinary(profilePictureJson.public_id);
+    if (error.code === "P2025") {
+      throw new AppError(
+        "Profile not found. Please complete your profile first.",
+        404,
+      );
+    }
     throw new AppError(
       `Failed to update profile picture because of : ${error.message ? error.message : error}`,
       500,
@@ -193,12 +205,6 @@ export const updateProfilePictureService = async (
   if (currentPic && currentPic.public_id) {
     await deleteFromCloudinary(currentPic.public_id);
   }
-
-  if (currentPic && currentPic.public_id) {
-    await deleteFromCloudinary(currentPic.public_id);
-  }
-
-  return profilePictureJson;
 };
 
 export const deleteProfilePictureService = async (
@@ -216,11 +222,11 @@ export const deleteProfilePictureService = async (
   });
 
   let currentPic: any = null;
-  if (role === "DONOR")
+  if (role === Role.DONOR)
     currentPic = existingProfile?.donorProfile?.profilePicture;
-  if (role === "RECIPIENT")
+  if (role === Role.RECIPIENT)
     currentPic = existingProfile?.recipientProfile?.profilePicture;
-  if (role === "VOLUNTEER")
+  if (role === Role.VOLUNTEER)
     currentPic = existingProfile?.volunteerProfile?.profilePicture;
 
   if (
@@ -232,17 +238,17 @@ export const deleteProfilePictureService = async (
   }
 
   try {
-    if (role === "DONOR") {
+    if (role === Role.DONOR) {
       await prisma.donorProfile.update({
         where: { userId },
         data: { profilePicture: Prisma.DbNull },
       });
-    } else if (role === "RECIPIENT") {
+    } else if (role === Role.RECIPIENT) {
       await prisma.recipientProfile.update({
         where: { userId },
         data: { profilePicture: Prisma.DbNull },
       });
-    } else if (role === "VOLUNTEER") {
+    } else if (role === Role.VOLUNTEER) {
       await prisma.volunteerProfile.update({
         where: { userId },
         data: { profilePicture: Prisma.DbNull },
@@ -278,11 +284,11 @@ export const updateVerificationDocumentService = async (
   });
 
   let currentDocs: any = null;
-  if (role === "DONOR")
+  if (role === Role.DONOR)
     currentDocs = existingProfile?.donorProfile?.verificationDocuments;
-  if (role === "RECIPIENT")
+  if (role === Role.RECIPIENT)
     currentDocs = existingProfile?.recipientProfile?.verificationDocuments;
-  if (role === "VOLUNTEER")
+  if (role === Role.VOLUNTEER)
     currentDocs = existingProfile?.volunteerProfile?.verificationDocuments;
 
   const existingDocs = Array.isArray(currentDocs) ? currentDocs : [];
@@ -310,17 +316,17 @@ export const updateVerificationDocumentService = async (
   ];
 
   try {
-    if (role === "DONOR") {
+    if (role === Role.DONOR) {
       await prisma.donorProfile.update({
         where: { userId },
         data: { verificationDocuments: updatedVerificationDocuments },
       });
-    } else if (role === "RECIPIENT") {
+    } else if (role === Role.RECIPIENT) {
       await prisma.recipientProfile.update({
         where: { userId },
         data: { verificationDocuments: updatedVerificationDocuments },
       });
-    } else if (role === "VOLUNTEER") {
+    } else if (role === Role.VOLUNTEER) {
       await prisma.volunteerProfile.update({
         where: { userId },
         data: { verificationDocuments: updatedVerificationDocuments },
@@ -348,7 +354,7 @@ export const deleteVerificationDocumentService = async (
   role: Role,
   public_id: string,
 ) => {
-  if (role !== "DONOR" && role !== "RECIPIENT" && role !== "VOLUNTEER") {
+  if (role !== Role.DONOR && role !== Role.RECIPIENT && role !== Role.VOLUNTEER) {
     throw new AppError("Not allowed operation", 404);
   }
 
@@ -362,11 +368,11 @@ export const deleteVerificationDocumentService = async (
   });
 
   let currentDocs: any = null;
-  if (role === "DONOR")
+  if (role === Role.DONOR)
     currentDocs = existingProfile?.donorProfile?.verificationDocuments;
-  if (role === "RECIPIENT")
+  if (role === Role.RECIPIENT)
     currentDocs = existingProfile?.recipientProfile?.verificationDocuments;
-  if (role === "VOLUNTEER")
+  if (role === Role.VOLUNTEER)
     currentDocs = existingProfile?.volunteerProfile?.verificationDocuments;
 
   if (!currentDocs || currentDocs.length === 0 || !Array.isArray(currentDocs)) {
@@ -383,17 +389,17 @@ export const deleteVerificationDocumentService = async (
   }
 
   try {
-    if (role === "DONOR") {
+    if (role === Role.DONOR) {
       await prisma.donorProfile.update({
         where: { userId },
         data: { verificationDocuments: filteredDocs },
       });
-    } else if (role === "RECIPIENT") {
+    } else if (role === Role.RECIPIENT) {
       await prisma.recipientProfile.update({
         where: { userId },
         data: { verificationDocuments: filteredDocs },
       });
-    } else if (role === "VOLUNTEER") {
+    } else if (role === Role.VOLUNTEER) {
       await prisma.volunteerProfile.update({
         where: { userId },
         data: { verificationDocuments: filteredDocs },

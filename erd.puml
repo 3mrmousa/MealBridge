@@ -99,13 +99,23 @@ enum PickupMethod {
     VOLUNTEER
 }
 
-enum PickupRequestStatus {
+enum DeliveryRequestStatus {
     PENDING
     ACCEPTED
     REJECTED
     CANCELLED
+}
+
+enum DeliveryStatus {
+    PENDING
+    CANCELLED
     COMPLETED
-    EXPIRED
+}
+
+enum CancelRequestStatus {
+    PENDING
+    ACCEPTED
+    REJECTED
 }
 
 enum ConversationType {
@@ -192,7 +202,7 @@ entity Donation {
     foodType : String
     quantity : Int
     unit : String
-    address : String
+    pickupAddress : String
     availableFrom : DateTime
     availableUntil : DateTime
     status : DonationStatus
@@ -207,7 +217,8 @@ entity DonationRequest {
     donationId : UUID <<FK>>
     recipientId : UUID <<FK>>
     quantityRequested : Int
-    message : String <<NULLABLE>>
+    deliveryAddress : String
+    message : String
     status : DonationRequestStatus
     createdAt : DateTime
     updatedAt : DateTime
@@ -222,25 +233,40 @@ entity DonationClaim {
     quantityClaimed : Int
     pickupDeadline : DateTime
     pickupMethod : PickupMethod default(SELF)
+
     collectedAt : DateTime <<NULLABLE>>
     status : ClaimStatus
     createdAt : DateTime
     updatedAt : DateTime
 }
 
-entity PickupRequest {
+entity Delivery {
     * id : UUID <<PK>>
     --
     donationClaimId : UUID <<FK, UNIQUE>>
+    volunteerId : UUID <<FK>>
     recipientId : UUID <<FK>>
-    volunteerId : UUID <<FK, NULLABLE>>
-    pickupAddress : String
-    deliveryAddress : String
-    message : String <<NULLABLE>>
-    requestedAt : DateTime
-    acceptedAt : DateTime <<NULLABLE>>
+
+    notes : String <<NULLABLE>>
     completedAt : DateTime <<NULLABLE>>
-    status : PickupRequestStatus
+    status : DeliveryStatus
+    cancelRequestedBy : Role <<NULLABLE>>
+    cancelRequestedAt : DateTime <<NULLABLE>>
+    cancelRequestedReason : String <<NULLABLE>>
+    cancelRequestStatus : CancelRequestStatus <<NULLABLE>>
+    createdAt : DateTime
+    updatedAt : DateTime
+}
+
+entity DeliveryRequest {
+    * id : UUID <<PK>>
+    --
+    donationClaimId : UUID <<FK>>
+    recipientId : UUID <<FK>>
+    volunteerId : UUID <<FK>>
+    status : DeliveryRequestStatus default(PENDING)
+
+    notes : String <<NULLABLE>>
     createdAt : DateTime
     updatedAt : DateTime
 }
@@ -342,11 +368,17 @@ Donation ||--o{ DonationClaim
 
 RecipientProfile ||--o{ DonationClaim
 
-DonationClaim ||--o| PickupRequest
+DonationClaim ||--o| Delivery
 
-RecipientProfile ||--o{ PickupRequest
+RecipientProfile ||--o{ Delivery
 
-VolunteerProfile ||--o{ PickupRequest
+VolunteerProfile ||--o{ Delivery
+
+DonationClaim ||--o{ DeliveryRequest
+
+RecipientProfile ||--o{ DeliveryRequest
+
+VolunteerProfile ||--o{ DeliveryRequest
 
 DonationClaim ||--o| Conversation
 
@@ -384,7 +416,8 @@ RecipientProfile -[hidden]right- VolunteerProfile
 ' Donation workflow
 Donation -[hidden]down- DonationRequest
 DonationRequest -[hidden]down- DonationClaim
-DonationClaim -[hidden]down- PickupRequest
+DonationClaim -[hidden]down- DeliveryRequest
+DeliveryRequest -[hidden]down- Delivery
 
 ' Chat
 Conversation -[hidden]right- ConversationParticipant

@@ -2,6 +2,7 @@ import {
   ClaimStatus,
   DonationRequestStatus,
   DonationStatus,
+  PickupMethod,
   Prisma,
   type Donation,
 } from "@prisma/client";
@@ -18,14 +19,13 @@ import { createNotificationService } from "../notification/notification.service.
 import {
   sendAcceptDonationRequestDonorPovMail,
   sendAcceptDonationRequestRecipientPovMail,
-  sendChangeEmailOtpMail,
   sendRejectDonationRequestDonorPovMail,
   sendRejectDonationRequestRecipientPovMail,
 } from "../../utils/mail/email.service.js";
 
 export const getMyDonationsService = async (
   donorId: string,
-  options: SortAndPaginateOnDonations,
+  query: SortAndPaginateOnDonations,
 ) => {
   const {
     page = 1,
@@ -33,7 +33,7 @@ export const getMyDonationsService = async (
     status,
     sortBy = "createdAt",
     sortOrder = "desc",
-  } = options;
+  } = query;
 
   const skip = (page - 1) * limit;
 
@@ -105,7 +105,7 @@ export const createDonationService = async (
         foodType: donationData.foodType,
         quantity: donationData.quantity,
         unit: donationData.unit,
-        address: donationData.address,
+        pickupAddress: donationData.pickupAddress,
         availableFrom: donationData.availableFrom,
         availableUntil: donationData.availableUntil,
         status: DonationStatus.AVAILABLE,
@@ -123,25 +123,46 @@ export const createDonationService = async (
 
 export const updateDonationService = async (
   donorId: string,
+  donationId: string,
   donationData: Partial<
-    Omit<Donation, "createdAt" | "updatedAt" | "donorId" | "status" | "images">
+    Omit<
+      Donation,
+      "id" | "createdAt" | "updatedAt" | "donorId" | "status" | "images"
+    >
   >,
 ) => {
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT id
       FROM "Donation"
-      WHERE id = ${donationData.id}
+      WHERE id = ${donationId}
       FOR UPDATE
     `;
 
     const donation = await tx.donation.findUnique({
-      where: { donorId, id: donationData.id },
+      where: { donorId, id: donationId },
       include: { donationRequests: true, donationClaims: true },
     });
 
     if (!donation) {
       throw new AppError("Donation not found", 404);
+    }
+
+    if (donationData.pickupAddress && donationData.pickupAddress !== donation.pickupAddress) {
+      const hasAddressLock =
+        donation.donationClaims.some((d) => d.status === ClaimStatus.ACTIVE) ||
+        donation.donationRequests.some(
+          (r) =>
+            r.status === DonationRequestStatus.PENDING ||
+            r.status === DonationRequestStatus.ACCEPTED,
+        );
+
+      if (hasAddressLock) {
+        throw new AppError(
+          "Can't change pickup address once there is a pending/accepted request or active claim",
+          400,
+        );
+      }
     }
 
     const hasActiveInteractions =
@@ -166,7 +187,7 @@ export const updateDonationService = async (
     if (donationData.quantity)
       donationDataToSend.quantity = donationData.quantity;
     if (donationData.unit) donationDataToSend.unit = donationData.unit;
-    if (donationData.address) donationDataToSend.address = donationData.address;
+    if (donationData.pickupAddress) donationDataToSend.pickupAddress = donationData.pickupAddress;
     if (donationData.availableFrom)
       donationDataToSend.availableFrom = donationData.availableFrom;
     if (donationData.availableUntil)
@@ -177,7 +198,7 @@ export const updateDonationService = async (
     }
 
     await tx.donation.update({
-      where: { donorId, id: donationData.id },
+      where: { donorId, id: donationId },
       data: { ...donationDataToSend },
     });
   });
@@ -261,7 +282,7 @@ export const removePicFromDonationService = async (
   await deleteFromCloudinary(publicId);
 };
 
-export const deleteDonationService = async (
+export const cancelDonationService = async (
   donorId: string,
   donationId: string,
 ) => {
@@ -287,8 +308,11 @@ export const deleteDonationService = async (
     );
   }
 
-  await prisma.donation.delete({
+  await prisma.donation.update({
     where: { donorId, id: donationId },
+    data: {
+      status: DonationStatus.CANCELLED,
+    },
   });
 
   if (donation.images && Array.isArray(donation.images)) {
@@ -302,7 +326,7 @@ export const deleteDonationService = async (
 export const getDonorDonationRequestsService = async (
   donorId: string,
   donationId: string,
-  options: SortAndPaginateOnDonationRequests,
+  query: SortAndPaginateOnDonationRequests,
 ) => {
   const {
     limit = 10,
@@ -310,7 +334,7 @@ export const getDonorDonationRequestsService = async (
     status,
     sortBy = "createdAt",
     sortOrder = "desc",
-  } = options;
+  } = query;
   const skip = (page - 1) * limit;
   const where: Prisma.DonationRequestWhereInput = {
     donationId,
@@ -445,13 +469,14 @@ export const acceptDonationRequestService = async (
     });
 
     try {
-      await tx.donationClaim.create({
+      const claim = await tx.donationClaim.create({
         data: {
           donationId: donationId,
           donationRequestId: requestId,
           recipientId: request.recipientId,
           quantityClaimed: request.quantityRequested,
           pickupDeadline: donation.availableUntil,
+          pickupMethod: PickupMethod.SELF,
           status: ClaimStatus.ACTIVE,
         },
       });

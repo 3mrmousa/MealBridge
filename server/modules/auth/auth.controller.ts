@@ -83,8 +83,9 @@ export const logout = asyncHandler(async (req: Request, res: Response) => {
 
 export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
   const id = req.user!.id;
+  const role = req.user!.role;
 
-  const user = await meService(id);
+  const user = await meService(id, role);
 
   res.status(200).json({
     status: "success",

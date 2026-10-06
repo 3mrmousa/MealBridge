@@ -62,10 +62,11 @@ model RecipientProfile {
   createdAt             DateTime                   @default(now()) @map("created_at")
   updatedAt             DateTime                   @updatedAt @map("updated_at")
 
-  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
-  requests DonationRequest[] @relation("RecipientRequests")
-  claims   DonationClaim[]   @relation("RecipientClaims")
-  pickups  PickupRequest[]   @relation("RecipientPickups")
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requests         DonationRequest[] @relation("RecipientRequests")
+  claims           DonationClaim[]   @relation("RecipientClaims")
+  deliveryRequests DeliveryRequest[] @relation("RecipientDeliveryRequests")
+  deliveries       Delivery[]        @relation("RecipientDelivery")
 
   @@map("recipient_profiles")
 }
@@ -83,8 +84,9 @@ model VolunteerProfile {
   createdAt             DateTime      @default(now()) @map("created_at")
   updatedAt             DateTime      @updatedAt @map("updated_at")
 
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  pickupRequests PickupRequest[] @relation("VolunteerPickup")
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries       Delivery[]        @relation("VolunteerDelivery")
+  deliveryRequests DeliveryRequest[] @relation("VolunteerDeliveryRequests")
 
   @@map("volunteer_profiles")
 }

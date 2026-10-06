@@ -4,7 +4,7 @@ import type { AuthRequest } from "../auth/auth.types.js";
 import {
   addPicsToDonationService,
   createDonationService,
-  deleteDonationService,
+  cancelDonationService,
   getDonationByIdService,
   getMyDonationsService,
   removePicFromDonationService,
@@ -77,7 +77,7 @@ export const createDonation = asyncHandler(
       foodType,
       quantity,
       unit,
-      address,
+      pickupAddress,
       availableFrom,
       availableUntil,
     } = req.body as CreateDonationBody;
@@ -88,6 +88,10 @@ export const createDonation = asyncHandler(
       throw new AppError("Please upload at least one donation picture", 400);
     }
 
+    if (donationPictures.length > 5) {
+      throw new AppError("Please upload at most 5 donation pictures", 400);
+    }
+
     await createDonationService(
       userId!,
       {
@@ -96,7 +100,7 @@ export const createDonation = asyncHandler(
         foodType,
         quantity,
         unit,
-        address,
+        pickupAddress,
         availableFrom,
         availableUntil,
       },
@@ -120,18 +124,17 @@ export const updateDonation = asyncHandler(
       foodType,
       quantity,
       unit,
-      address,
+      pickupAddress,
       availableFrom,
       availableUntil,
     } = req.body as UpdateDonationBody;
-    await updateDonationService(userId!, {
-      id: donationId,
+    await updateDonationService(userId!, donationId, {
       title,
       description,
       foodType,
       quantity,
       unit,
-      address,
+      pickupAddress,
       availableFrom,
       availableUntil,
     });
@@ -178,14 +181,14 @@ export const removePicFromDonation = asyncHandler(
   },
 );
 
-export const deleteDonation = asyncHandler(
+export const cancelDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
-    await deleteDonationService(userId!, donationId);
+    await cancelDonationService(userId!, donationId);
     res.status(200).json({
       status: "success",
-      message: "Donation deleted successfully",
+      message: "Donation cancelled successfully",
     });
   },
 );

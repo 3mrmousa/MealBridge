@@ -30,11 +30,12 @@ import {
   type UpdateRecipientInput,
   type UpdateVolunteerInput,
 } from "./user.zod.js";
+import { Role } from "@prisma/client";
 
 export const getUserProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
-    const data = await getUserProfileService(userId.toString());
+    const data = await getUserProfileService(userId);
 
     res.status(200).json({
       status: "success",
@@ -49,7 +50,7 @@ export const updateProfile = asyncHandler(
     const userId = req.user!.id;
     const role = req.user!.role;
 
-    if (role === "DONOR") {
+    if (role === Role.DONOR) {
       const {
         name,
         phone,
@@ -69,7 +70,7 @@ export const updateProfile = asyncHandler(
         },
       });
       await updateDonorProfileService(userId, validatedData.body);
-    } else if (role === "RECIPIENT") {
+    } else if (role === Role.RECIPIENT) {
       const {
         name,
         phone,
@@ -89,7 +90,7 @@ export const updateProfile = asyncHandler(
         },
       });
       await updateRecipientProfileService(userId, validatedData.body);
-    } else if (role === "VOLUNTEER") {
+    } else if (role === Role.VOLUNTEER) {
       const {
         name,
         phone,
@@ -132,18 +133,11 @@ export const updateProfilePicture = asyncHandler(
       throw new AppError("Please upload an image", 400);
     }
 
-    const imageUrl = await updateProfilePictureService(
-      userId,
-      role,
-      file.buffer,
-    );
+    await updateProfilePictureService(userId, role, file.buffer);
 
     res.status(200).json({
       status: "success",
       message: "Profile Picture Updated.",
-      data: {
-        profilePicture: imageUrl,
-      },
     });
   },
 );
@@ -223,10 +217,7 @@ export const changePassword = asyncHandler(
 export const changeEmailRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { newEmail } = req.body as ChangeEmailRequestInput;
-    if (!req.user || !req.user.email) {
-      throw new AppError("Login or Register first!", 404);
-    }
-    const currentEmail = req.user.email;
+    const currentEmail = req.user!.email;
 
     await changeEmailRequestService(currentEmail, newEmail);
 
@@ -241,10 +232,7 @@ export const changeEmailRequest = asyncHandler(
 export const currentEmailOtpVerification = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { otp } = req.body as OtpInput;
-    if (!req.user || !req.user.email) {
-      throw new AppError("Login or Register first!", 404);
-    }
-    const currentEmail = req.user.email;
+    const currentEmail = req.user!.email;
 
     await currentEmailOtpVerificationService(currentEmail, otp);
 
@@ -259,10 +247,7 @@ export const currentEmailOtpVerification = asyncHandler(
 export const newEmailOtpVerificationAndChange = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { otp } = req.body as OtpInput;
-    if (!req.user || !req.user.email) {
-      throw new AppError("Login or Register first!", 404);
-    }
-    const currentEmail = req.user.email;
+    const currentEmail = req.user!.email;
 
     await newEmailOtpVerificationAndChangeService(currentEmail, otp);
 

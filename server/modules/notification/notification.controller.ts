@@ -32,6 +32,7 @@ export const markAsRead = asyncHandler(
 
     res.status(200).json({
       status: "success",
+      message: "Notification marked as read successfully",
     });
   },
 );

@@ -7,7 +7,7 @@ import {
   getMyDonations,
   removePicFromDonation,
   updateDonation,
-  deleteDonation,
+  cancelDonation,
   getDonorDonationRequests,
   getDonorDonationRequest,
   acceptDonationRequest,
@@ -52,7 +52,7 @@ donorRouter
   .route("/:id")
   .get(validate(getDonationByIdSchema), getDonationById)
   .patch(validate(updateDonationSchema), updateDonation)
-  .delete(validate(onlyIdParamSchema), deleteDonation);
+  .delete(validate(onlyIdParamSchema), cancelDonation);
 
 donorRouter.patch(
   "/:id/add-pics",
@@ -104,5 +104,8 @@ donorRouter.get(
   validate(getSingleDonationClaimSchema),
   getSingleDonationClaim,
 );
+
+// Pickup Routes (Donor Perspective)
+
 
 export default donorRouter;

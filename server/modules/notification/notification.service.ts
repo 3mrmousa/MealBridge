@@ -1,3 +1,4 @@
+import type { Prisma } from "@prisma/client";
 import prisma from "../../database/index.js";
 import AppError from "../../utils/errors/AppError.js";
 import { sendNotificationToUser } from "../../utils/socket/socket.js";
@@ -20,13 +21,26 @@ export const createNotificationService = async (
     throw new AppError("Message is required", 400);
   }
 
-  await prisma.notification.create({
-    data: {
-      userId,
-      title,
-      message,
-      sourceReportId,
+  const data: Prisma.NotificationCreateInput = {
+    user: {
+      connect: {
+        id: userId,
+      },
     },
+    title,
+    message,
+  };
+
+  if (sourceReportId) {
+    data.sourceReport = {
+      connect: {
+        id: sourceReportId,
+      },
+    };
+  }
+
+  await prisma.notification.create({
+    data,
   });
 
   sendNotificationToUser(userId, "new-notification", {
@@ -42,6 +56,9 @@ export const getUserNotificationsService = async (userId: string) => {
   return await prisma.notification.findMany({
     where: {
       userId,
+    },
+    include: {
+      sourceReport: true,
     },
     orderBy: {
       createdAt: "desc",

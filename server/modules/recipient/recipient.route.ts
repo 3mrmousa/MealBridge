@@ -5,7 +5,7 @@ import { Role } from "@prisma/client";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
   createDonationRequestSchema,
-  deleteDonationRequestSchema,
+  cancelDonationRequestSchema,
   getAllDonationsSchema,
   getDonationByIdSchema,
   getMyDonationRequestByIdSchema,
@@ -14,10 +14,14 @@ import {
   getClaimsSchema,
   getClaimByIdSchema,
   cancelClaimSchema,
+  createDeliveryRequestSchema,
+  getDeliveryRequestsSchema,
+  getVolunteersSchema,
+  getVolunteerByIdSchema,
 } from "./recipient.zod.js";
 import {
   createDonationRequest,
-  deleteDonationRequest,
+  cancelDonationRequest,
   getAllDonations,
   getDonationById,
   getMyDonationRequestById,
@@ -26,6 +30,10 @@ import {
   getClaims,
   getClaimById,
   cancelClaim,
+  createDeliveryRequest,
+  getDeliveryRequests,
+  getAllVolunteers,
+  getVolunteerById,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
@@ -51,7 +59,7 @@ recipientRouter
     validate(updateDonationRequestSchema),
     updateDonationRequest,
   )
-  .delete(validate(deleteDonationRequestSchema), deleteDonationRequest);
+  .delete(validate(cancelDonationRequestSchema), cancelDonationRequest);
 
 // Donations Routes (Recipient Perspective)
 recipientRouter.get(
@@ -72,9 +80,23 @@ recipientRouter
   .get(validate(getClaimByIdSchema), getClaimById)
   .delete(validate(cancelClaimSchema), cancelClaim);
 
-// Pickup (Recipient Perspective)
+// Volunteer Listing Routes (Recipient Perspective)
+recipientRouter.get(
+  "/volunteers",
+  validate(getVolunteersSchema),
+  getAllVolunteers,
+);
 
-// recipientRouter.route("/pickups").get(getAllPickups).post();
-// recipientRouter.route("/pickups/:id").get(getPickupById).patch(updatePickup).delete(deletePickup);
+recipientRouter.get(
+  "/volunteers/:id",
+  validate(getVolunteerByIdSchema),
+  getVolunteerById,
+);
+
+// Delivery Request Routes (Recipient Perspective)
+recipientRouter
+  .route("/delivery-requests")
+  .post(validate(createDeliveryRequestSchema), createDeliveryRequest)
+  .get(validate(getDeliveryRequestsSchema), getDeliveryRequests);
 
 export default recipientRouter;

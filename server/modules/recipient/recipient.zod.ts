@@ -21,7 +21,8 @@ export const createDonationRequestSchema = z.object({
   body: z.object({
     donationId: z.uuid(),
     quantityRequested: z.number().min(1, "Quantity requested is required"),
-    message: z.string().optional(),
+    deliveryAddress: z.string().min(1, "Delivery address is required"),
+    message: z.string().min(1, "Message is required"),
   }),
 });
 
@@ -34,11 +35,12 @@ export const updateDonationRequestSchema = z.object({
       .number()
       .min(1, "Quantity requested is required")
       .optional(),
+    deliveryAddress: z.string().min(1, "Delivery address is required").optional(),
     message: z.string().optional(),
   }),
 });
 
-export const deleteDonationRequestSchema = z.object({
+export const cancelDonationRequestSchema = z.object({
   params: z.object({
     id: z.string(),
   }),
@@ -86,6 +88,25 @@ export const cancelClaimSchema = z.object({
 });
 export const cancleClaimSchema = cancelClaimSchema;
 
+// Delivery Request Routes (Recipient Perspective) Schemas
+
+export const createDeliveryRequestSchema = z.object({
+  body: z.object({
+    donationClaimId: z.string().uuid("Invalid donation claim ID"),
+    volunteerId: z.string().uuid("Invalid volunteer ID"),
+    notes: z.string().optional(),
+  }),
+});
+
+export const getDeliveryRequestsSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().optional(),
+    page: z.coerce.number().optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+  }),
+});
+
 export type GetMyDonationRequestsQuery = z.infer<
   typeof getMyDonationRequestsSchema
 >["query"];
@@ -106,8 +127,8 @@ export type UpdateDonationRequestParams = z.infer<
   typeof updateDonationRequestSchema
 >["params"];
 
-export type DeleteDonationRequestParams = z.infer<
-  typeof deleteDonationRequestSchema
+export type CancelDonationRequestParams = z.infer<
+  typeof cancelDonationRequestSchema
 >["params"];
 
 // Donations Routes (Recipient Perspective) Types
@@ -122,9 +143,32 @@ export type GetDonationByIdParams = z.infer<
 
 // Donation Claim Routes (Recipient Perspective) Types
 
+export const getVolunteersSchema = z.object({
+  query: z.object({
+    limit: z.coerce.number().optional(),
+    page: z.coerce.number().optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
+    sortOrder: z.enum(["asc", "desc"]).optional(),
+  }),
+});
+
+export const getVolunteerByIdSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid volunteer ID"),
+  }),
+});
+
 export type GetClaimsQuery = z.infer<typeof getClaimsSchema>["query"];
 
 export type GetClaimByIdParams = z.infer<typeof getClaimByIdSchema>["params"];
 
 export type CancelClaimParams = z.infer<typeof cancelClaimSchema>["params"];
 export type CancleClaimParams = CancelClaimParams;
+
+// Delivery Request Routes (Recipient Perspective) Types
+
+export type CreateDeliveryRequestBody = z.infer<typeof createDeliveryRequestSchema>["body"];
+export type GetDeliveryRequestsQuery = z.infer<typeof getDeliveryRequestsSchema>["query"];
+
+export type GetVolunteersQuery = z.infer<typeof getVolunteersSchema>["query"];
+export type GetVolunteerByIdParams = z.infer<typeof getVolunteerByIdSchema>["params"];

@@ -12,7 +12,7 @@ export const sendAcceptDonationRequestRecipientPovMail = async (
     `
       <p style="margin-top: 0;">Hello ${recipientName},</p>
       <p>Great news! Your request for the donation "<strong>${donationName}</strong>" (ID: <strong>${donationId}</strong>) has been accepted by the donor.</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #d1fae5; border: 1px dashed #34d399; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #10b981;">
           A claim has been created.
         </span>
@@ -51,7 +51,7 @@ export const sendRejectDonationRequestRecipientPovMail = async (
     `
       <p style="margin-top: 0;">Hello ${recipientName},</p>
       <p>We're writing to let you know that your request for the donation "<strong>${donationName}</strong>" (ID: <strong>${donationId}</strong>) was unfortunately rejected by the donor.</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
           Request Rejected
         </span>
@@ -90,7 +90,7 @@ export const sendAcceptDonationRequestDonorPovMail = async (
     `
       <p style="margin-top: 0;">Hello ${donorName},</p>
       <p>This is a confirmation that you have successfully accepted a request (ID: <strong>${requestId}</strong>) for your donation "<strong>${donationName}</strong>".</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #d1fae5; border: 1px dashed #34d399; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #10b981;">
           A claim has been created.
         </span>
@@ -129,7 +129,7 @@ export const sendRejectDonationRequestDonorPovMail = async (
     `
       <p style="margin-top: 0;">Hello ${donorName},</p>
       <p>This is a confirmation that you have rejected a request (ID: <strong>${requestId}</strong>) for your donation "<strong>${donationName}</strong>".</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
           Request Rejected
         </span>
@@ -169,7 +169,7 @@ export const sendCreateRequestForDonorMail = async (
     `
       <p style="margin-top: 0;">Hello Donor,</p>
       <p>Great news! Someone has made a request for your donation "<strong>${donationTitle}</strong>".</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #d1fae5; border: 1px dashed #34d399; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #10b981;">
           ${quantityRequested} unit(s) requested
         </span>
@@ -207,7 +207,7 @@ export const sendClaimCancelForDonorMail = async (
     `
       <p style="margin-top: 0;">Hello,</p>
       <p>This is to notify you that the claim on your donation "<strong>${donationTitle}</strong>" has been cancelled by ${organizationName ? `<strong>${organizationName}</strong>` : "the recipient"}.</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
           Claim Cancelled
         </span>

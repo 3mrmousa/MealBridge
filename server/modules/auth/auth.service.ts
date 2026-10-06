@@ -11,7 +11,7 @@ import {
   deleteOtpSession,
   getOtpSession,
   setOtpSession,
-} from "../../utils/otp/otp.redis.js";
+} from "../../utils/redis/otp.redis.js";
 import {
   comparePassword,
   hashPassword,
@@ -28,7 +28,7 @@ import type {
   RegisterRequestInput,
   RegisterValidateInput,
 } from "./auth.zod.js";
-import type { Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 
 export const registerRequestService = async (data: RegisterRequestInput) => {
   const { name, email, password, phone, role } = data;
@@ -46,7 +46,7 @@ export const registerRequestService = async (data: RegisterRequestInput) => {
   }
 
   if (existingUser) {
-    throw new AppError("Email already used!", 400);
+    throw new AppError("Email address is already registered.", 400);
   }
 
   const phoneNumber = formatPhoneNumber(phone);
@@ -152,7 +152,7 @@ export const loginService = async (data: LoginInput) => {
   return { id: user.id, tokenVersion: user.tokenVersion };
 };
 
-export const meService = async (id: string) => {
+export const meService = async (id: string, role: Role) => {
   const user = await prisma.user.findUnique({
     where: {
       id,
@@ -167,6 +167,9 @@ export const meService = async (id: string) => {
       isBlocked: true,
       createdAt: true,
       updatedAt: true,
+      donorProfile: role === Role.DONOR ? true : false,
+      recipientProfile: role === Role.RECIPIENT ? true : false,
+      volunteerProfile: role === Role.VOLUNTEER ? true : false,
     },
   });
 

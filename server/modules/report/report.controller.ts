@@ -3,7 +3,6 @@ import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import type {
   CreateReportInput,
-  HandleReportInput,
   HandleReportParams,
   HandleReportBody,
   SingleReportIdInput,
@@ -14,7 +13,6 @@ import {
   getSingleReportService,
   handleReportService,
 } from "./report.service.js";
-import AppError from "../../utils/errors/AppError.js";
 
 export const createReport = asyncHandler(
   async (req: AuthRequest, res: Response) => {

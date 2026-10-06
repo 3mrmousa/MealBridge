@@ -3,7 +3,7 @@ import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import type {
   CreateDonationRequestBody,
-  DeleteDonationRequestParams,
+  CancelDonationRequestParams,
   GetAllDonationsQuery,
   GetDonationByIdParams,
   GetMyDonationRequestByIdParams,
@@ -13,18 +13,26 @@ import type {
   GetClaimsQuery,
   GetClaimByIdParams,
   CancelClaimParams,
+  CreateDeliveryRequestBody,
+  GetDeliveryRequestsQuery,
+  GetVolunteersQuery,
+  GetVolunteerByIdParams,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
   getMyDonationRequestsService,
   createDonationRequestService,
   updateDonationRequestService,
-  deleteDonationRequestService,
+  cancelDonationRequestService,
   getAllDonationsService,
   getDonationByIdService,
   getClaimsService,
   getClaimByIdService,
   cancelClaimService,
+  createDeliveryRequestService,
+  getDeliveryRequestsService,
+  getAllVolunteersService,
+  getVolunteerByIdService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -67,13 +75,14 @@ export const getMyDonationRequestById = asyncHandler(
 export const createDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const recipientId = req.user!.id;
-    const { donationId, quantityRequested, message } =
+    const { donationId, quantityRequested, deliveryAddress, message } =
       req.body as CreateDonationRequestBody;
 
     await createDonationRequestService(
       recipientId,
       donationId,
       quantityRequested,
+      deliveryAddress,
       message,
     );
 
@@ -88,13 +97,14 @@ export const updateDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const recipientId = req.user!.id;
     const { id } = req.params as UpdateDonationRequestParams;
-    const { quantityRequested, message } =
+    const { quantityRequested, deliveryAddress, message } =
       req.body as UpdateDonationRequestBody;
 
     await updateDonationRequestService(
       recipientId,
       id,
       quantityRequested,
+      deliveryAddress,
       message,
     );
 
@@ -105,14 +115,14 @@ export const updateDonationRequest = asyncHandler(
   },
 );
 
-export const deleteDonationRequest = asyncHandler(
+export const cancelDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const recipientId = req.user!.id;
-    const { id } = req.params as DeleteDonationRequestParams;
-    await deleteDonationRequestService(recipientId, id);
+    const { id } = req.params as CancelDonationRequestParams;
+    await cancelDonationRequestService(recipientId, id);
     res.status(200).json({
       status: "success",
-      message: "Donation request deleted successfully",
+      message: "Donation request cancelled successfully",
     });
   },
 );
@@ -198,6 +208,78 @@ export const cancelClaim = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Claim cancelled successfully",
+    });
+  },
+);
+
+// Delivery Request Operations
+
+export const createDeliveryRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    // Assuming the route is /delivery-requests with body { donationClaimId, volunteerId, notes }
+    const { donationClaimId, volunteerId, notes } = req.body as CreateDeliveryRequestBody;
+
+    const request = await createDeliveryRequestService(recipientId, donationClaimId, volunteerId, notes);
+
+    res.status(201).json({
+      status: "success",
+      message: "Delivery request created successfully",
+      data: request,
+    });
+  },
+);
+
+export const getDeliveryRequests = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { limit, page, sortBy, sortOrder } = req.query as GetDeliveryRequestsQuery;
+
+    const result = await getDeliveryRequestsService(recipientId, {
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Delivery requests fetched successfully",
+      data: result.requests,
+      pagination: result.pagination,
+    });
+  },
+);
+
+// Volunteer Listing Routes (Recipient Perspective) Controllers
+
+export const getAllVolunteers = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { limit, page, sortBy, sortOrder } =
+      req.query as GetVolunteersQuery;
+    const result = await getAllVolunteersService({
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Volunteers fetched successfully",
+      data: result.volunteers,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const getVolunteerById = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { id } = req.params as GetVolunteerByIdParams;
+    const volunteer = await getVolunteerByIdService(id);
+    res.status(200).json({
+      status: "success",
+      message: "Volunteer fetched successfully",
+      data: volunteer,
     });
   },
 );

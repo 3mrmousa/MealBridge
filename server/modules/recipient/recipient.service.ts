@@ -2,6 +2,8 @@ import {
   ClaimStatus,
   DonationRequestStatus,
   DonationStatus,
+  PickupMethod,
+  DeliveryStatus,
   type Prisma,
 } from "@prisma/client";
 import prisma from "../../database/index.js";
@@ -10,6 +12,8 @@ import type {
   GetAllDonationsQuery,
   GetMyDonationRequestsQuery,
   GetClaimsQuery,
+  GetVolunteersQuery,
+  GetDeliveryRequestsQuery,
 } from "./recipient.zod.js";
 import { createNotificationService } from "../notification/notification.service.js";
 import {
@@ -93,7 +97,8 @@ export const createDonationRequestService = async (
   recipientId: string,
   donationId: string,
   quantityRequested: number,
-  message?: string,
+  deliveryAddress: string,
+  message: string,
 ) => {
   const { donation, request } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -134,6 +139,7 @@ export const createDonationRequestService = async (
         recipientId,
         donationId,
         quantityRequested,
+        deliveryAddress,
         message,
         status: DonationRequestStatus.PENDING,
       },
@@ -180,6 +186,7 @@ export const updateDonationRequestService = async (
   recipientId: string,
   requestId: string,
   quantityRequested?: number,
+  deliveryAddress?: string,
   message?: string,
 ) => {
   await prisma.$transaction(async (tx) => {
@@ -239,6 +246,10 @@ export const updateDonationRequestService = async (
       data.message = message;
     }
 
+    if (deliveryAddress) {
+      data.deliveryAddress = deliveryAddress;
+    }
+
     await tx.donationRequest.update({
       where: { recipientId, id: requestId },
       data: { ...data, status: DonationRequestStatus.PENDING },
@@ -246,7 +257,7 @@ export const updateDonationRequestService = async (
   });
 };
 
-export const deleteDonationRequestService = async (
+export const cancelDonationRequestService = async (
   recipientId: string,
   requestId: string,
 ) => {
@@ -260,20 +271,23 @@ export const deleteDonationRequestService = async (
   }
 
   if (donationRequest.status !== DonationRequestStatus.PENDING) {
-    throw new AppError("You can only delete pending requests", 400);
+    throw new AppError("You can only cancel pending requests", 400);
   }
 
-  const result = await prisma.donationRequest.deleteMany({
+  const result = await prisma.donationRequest.update({
     where: {
       id: requestId,
       recipientId,
       status: DonationRequestStatus.PENDING,
     },
+    data: {
+      status: DonationRequestStatus.CANCELLED,
+    },
   });
 
-  if (result.count === 0) {
+  if (!result) {
     throw new AppError(
-      "Could not delete request, It may no longer be pending",
+      "Could not cancel request, it may no longer be pending",
       400,
     );
   }
@@ -448,7 +462,6 @@ export const cancelClaimService = async (
       throw new AppError("You can't cancel this claim, it is not active", 400);
     }
 
-    // Lock the Donation row to prevent race conditions during updates
     await tx.$queryRaw`
       SELECT id
       FROM "donation"
@@ -521,4 +534,174 @@ export const cancelClaimService = async (
   } catch (error: any) {
     console.error("Error sending email:", error.message || error);
   }
+};
+
+// Delivery Request Operations
+
+export const createDeliveryRequestService = async (
+  recipientId: string,
+  claimId: string,
+  volunteerId: string,
+  notes?: string,
+) => {
+  const deliveryRequest = await prisma.$transaction(async (tx) => {
+    const claim = await tx.donationClaim.findFirst({
+      where: { id: claimId, recipientId },
+      include: {
+        donation: true,
+        recipient: true,
+      },
+    });
+
+    if (!claim) {
+      throw new AppError("Donation claim not found", 404);
+    }
+
+    if (claim.status !== ClaimStatus.ACTIVE) {
+      throw new AppError("Only active claims can request delivery", 400);
+    }
+
+    // Check if the claim already has an active Delivery
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { donationClaimId: claimId },
+    });
+
+    if (existingDelivery) {
+      throw new AppError("This claim already has an active delivery.", 400);
+    }
+
+    // Check if there is already a PENDING request for this volunteer
+    const existingRequest = await tx.deliveryRequest.findFirst({
+      where: {
+        donationClaimId: claimId,
+        volunteerId,
+        status: "PENDING",
+      },
+    });
+
+    if (existingRequest) {
+      throw new AppError(
+        "A pending request already exists for this volunteer.",
+        400,
+      );
+    }
+
+    const volunteer = await tx.volunteerProfile.findUnique({
+      where: { id: volunteerId },
+    });
+
+    if (!volunteer) {
+      throw new AppError("Volunteer not found", 404);
+    }
+
+    if (!volunteer.availabilityStatus) {
+      throw new AppError("Volunteer is not currently available", 400);
+    }
+
+    const newRequest = await tx.deliveryRequest.create({
+      data: {
+        donationClaimId: claimId,
+        recipientId,
+        volunteerId,
+        notes,
+      },
+    });
+
+    return newRequest;
+  });
+
+  return deliveryRequest;
+};
+
+export const getDeliveryRequestsService = async (
+  recipientId: string,
+  query: GetDeliveryRequestsQuery,
+) => {
+  const {
+    limit = 10,
+    page = 1,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DeliveryRequestWhereInput = {
+    recipientId,
+  };
+
+  const [requests, totalRequests] = await prisma.$transaction([
+    prisma.deliveryRequest.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        volunteer: { select: { user: { select: { name: true } } } },
+        donationClaim: { select: { donation: { select: { title: true } } } },
+      },
+    }),
+    prisma.deliveryRequest.count({ where }),
+  ]);
+
+  return {
+    requests,
+    pagination: {
+      page,
+      limit,
+      totalRequests,
+      totalPages: Math.ceil(totalRequests / limit),
+    },
+  };
+};
+
+export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
+  const {
+    limit = 10,
+    page = 1,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.VolunteerProfileWhereInput = {
+    availabilityStatus: true,
+  };
+
+  const [volunteers, totalVolunteers] = await prisma.$transaction([
+    prisma.volunteerProfile.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+      },
+    }),
+    prisma.volunteerProfile.count({ where }),
+  ]);
+
+  return {
+    volunteers,
+    pagination: {
+      page,
+      limit,
+      totalVolunteers,
+      totalPages: Math.ceil(totalVolunteers / limit),
+    },
+  };
+};
+
+export const getVolunteerByIdService = async (volunteerId: string) => {
+  const volunteer = await prisma.volunteerProfile.findUnique({
+    where: { id: volunteerId },
+    include: {
+      user: { select: { name: true, email: true, phone: true } },
+    },
+  });
+
+  if (!volunteer) {
+    throw new AppError("Volunteer not found", 404);
+  }
+
+  return volunteer;
 };

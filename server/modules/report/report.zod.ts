@@ -38,7 +38,9 @@ export const handleReportSchema = z.object({
 });
 
 export type CreateReportInput = z.infer<typeof createReportSchema>["body"];
-export type SingleReportIdInput = z.infer<typeof singleReportIdSchema>["params"];
+export type SingleReportIdInput = z.infer<
+  typeof singleReportIdSchema
+>["params"];
 export type HandleReportParams = z.infer<typeof handleReportSchema>["params"];
 export type HandleReportBody = z.infer<typeof handleReportSchema>["body"];
 export type HandleReportInput = HandleReportParams & HandleReportBody;

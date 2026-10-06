@@ -75,7 +75,7 @@ export const sendWelcomeMail = async (
     `
       <p style="margin-top: 0;">Hello ${name},</p>
       <p>Welcome to MealBridge! We are excited to have you on board as a <strong>${role}</strong>.</p>
-      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+      <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #a855f7;">
           Your account is ready!
         </span>

@@ -87,15 +87,29 @@ enum PickupMethod {
   @@map("pickup_method")
 }
 
-enum PickupRequestStatus {
+enum DeliveryRequestStatus {
   PENDING
   ACCEPTED
   REJECTED
   CANCELLED
-  COMPLETED
-  EXPIRED
 
-  @@map("pickup_request_status")
+  @@map("delivery_request_status")
+}
+
+enum DeliveryStatus {
+  PENDING
+  CANCELLED
+  COMPLETED
+
+  @@map("delivery_status")
+}
+
+enum CancelRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+
+  @@map("cancel_request_status")
 }
 
 // Last added
