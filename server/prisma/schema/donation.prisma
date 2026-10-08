@@ -53,9 +53,12 @@ model DonationClaim {
   quantityClaimed   Int         @map("quantity_claimed")
   status            ClaimStatus @map("status")
 
-  pickupDeadline  DateTime     @map("pickup_deadline")
-  pickupMethod    PickupMethod @default(SELF) @map("pickup_method")
-  collectedAt     DateTime?    @map("collected_at")
+  pickupDeadline DateTime     @map("pickup_deadline")
+  pickupMethod   PickupMethod @default(SELF) @map("pickup_method")
+  collectedAt    DateTime?    @map("collected_at")
+
+  canceledBy     Role?   @map("canceled_by")
+  canceledReason String? @map("canceled_reason")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -76,15 +79,14 @@ model Delivery {
   volunteerId     String @map("volunteer_id") @db.Uuid
   recipientId     String @map("recipient_id") @db.Uuid
 
-  notes           String? @map("notes")
+  notes String? @map("notes")
 
   completedAt DateTime?      @map("completed_at")
-  status      DeliveryStatus @map("status")
+  status      DeliveryStatus @default(PENDING) @map("status")
 
-  cancelRequestedBy     Role?                @map("cancel_requested_by")
-  cancelRequestedAt     DateTime?            @map("cancel_requested_at")
-  cancelRequestedReason String?              @map("cancel_requested_reason")
-  cancelRequestStatus   CancelRequestStatus? @map("cancel_request_status")
+  canceledBy     Role?     @map("canceled_by")
+  canceledAt     DateTime? @map("canceled_at")
+  canceledReason String?   @map("canceled_reason")
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")

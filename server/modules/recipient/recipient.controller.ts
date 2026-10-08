@@ -13,10 +13,17 @@ import type {
   GetClaimsQuery,
   GetClaimByIdParams,
   CancelClaimParams,
+  CancelClaimBody,
   CreateDeliveryRequestBody,
   GetDeliveryRequestsQuery,
   GetVolunteersQuery,
   GetVolunteerByIdParams,
+  GetSingleDeliveryRequestParams,
+  CancelDeliveryRequestParams,
+  GetDeliveriesQuery,
+  GetSingleDeliveryParams,
+  CancelDeliveryParams,
+  CancelDeliveryBody,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
@@ -33,6 +40,13 @@ import {
   getDeliveryRequestsService,
   getAllVolunteersService,
   getVolunteerByIdService,
+  getSingleDeliveryRequestService,
+  cancelDeliveryRequestService,
+  getDeliveriesService,
+  getSingleDeliveriesService,
+  markDeliveryAsReceivedService,
+  cancelDeliveryService,
+  isDonationClaimHasDeliveryService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -82,8 +96,8 @@ export const createDonationRequest = asyncHandler(
       recipientId,
       donationId,
       quantityRequested,
-      deliveryAddress,
       message,
+      deliveryAddress,
     );
 
     res.status(201).json({
@@ -204,7 +218,8 @@ export const cancelClaim = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const recipientId = req.user!.id;
     const { id } = req.params as CancelClaimParams;
-    await cancelClaimService(recipientId, id);
+    const { reason } = req.body as CancelClaimBody;
+    await cancelClaimService(recipientId, id, reason);
     res.status(200).json({
       status: "success",
       message: "Claim cancelled successfully",
@@ -212,51 +227,11 @@ export const cancelClaim = asyncHandler(
   },
 );
 
-// Delivery Request Operations
-
-export const createDeliveryRequest = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const recipientId = req.user!.id;
-    // Assuming the route is /delivery-requests with body { donationClaimId, volunteerId, notes }
-    const { donationClaimId, volunteerId, notes } = req.body as CreateDeliveryRequestBody;
-
-    const request = await createDeliveryRequestService(recipientId, donationClaimId, volunteerId, notes);
-
-    res.status(201).json({
-      status: "success",
-      message: "Delivery request created successfully",
-      data: request,
-    });
-  },
-);
-
-export const getDeliveryRequests = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const recipientId = req.user!.id;
-    const { limit, page, sortBy, sortOrder } = req.query as GetDeliveryRequestsQuery;
-
-    const result = await getDeliveryRequestsService(recipientId, {
-      limit,
-      page,
-      sortBy,
-      sortOrder,
-    });
-
-    res.status(200).json({
-      status: "success",
-      message: "Delivery requests fetched successfully",
-      data: result.requests,
-      pagination: result.pagination,
-    });
-  },
-);
-
-// Volunteer Listing Routes (Recipient Perspective) Controllers
+// Delivery & Volunteer Controllers
 
 export const getAllVolunteers = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const { limit, page, sortBy, sortOrder } =
-      req.query as GetVolunteersQuery;
+    const { limit, page, sortBy, sortOrder } = req.query as GetVolunteersQuery;
     const result = await getAllVolunteersService({
       limit,
       page,
@@ -280,6 +255,145 @@ export const getVolunteerById = asyncHandler(
       status: "success",
       message: "Volunteer fetched successfully",
       data: volunteer,
+    });
+  },
+);
+
+export const getDeliveryRequests = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { limit, page, sortBy, sortOrder } =
+      req.query as GetDeliveryRequestsQuery;
+
+    const result = await getDeliveryRequestsService(recipientId, {
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+    });
+
+    res.status(200).json({
+      status: "success",
+      message: "Delivery requests fetched successfully",
+      data: result.requests,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const getSingleDeliveryRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as GetSingleDeliveryRequestParams;
+
+    const request = await getSingleDeliveryRequestService(recipientId, id);
+
+    res.status(200).json({
+      status: "success",
+      message: "Delivery request fetched successfully",
+      data: request,
+    });
+  },
+);
+
+export const createDeliveryRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { donationClaimId, volunteerId, notes } =
+      req.body as CreateDeliveryRequestBody;
+
+    await createDeliveryRequestService(
+      recipientId,
+      donationClaimId,
+      volunteerId,
+      notes,
+    );
+
+    res.status(201).json({
+      status: "success",
+      message: "Delivery request created successfully",
+    });
+  },
+);
+
+export const cancelDeliveryRequest = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as CancelDeliveryRequestParams;
+    await cancelDeliveryRequestService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Delivery request cancelled successfully",
+    });
+  },
+);
+
+export const getDeliveries = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { limit, page, sortBy, sortOrder, status } =
+      req.query as GetDeliveriesQuery;
+    const result = await getDeliveriesService(req.user!.id, {
+      limit,
+      page,
+      sortBy,
+      sortOrder,
+      status,
+    });
+    res.status(200).json({
+      status: "success",
+      message: "Deliveries fetched successfully",
+      data: result.deliveries,
+      pagination: result.pagination,
+    });
+  },
+);
+
+export const getSingleDeliveries = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const { id } = req.params as GetSingleDeliveryParams;
+    const delivery = await getSingleDeliveriesService(req.user!.id, id);
+    res.status(200).json({
+      status: "success",
+      message: "Delivery fetched successfully",
+      data: delivery,
+    });
+  },
+);
+
+export const isDonationClaimHasDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as GetSingleDeliveryParams;
+    const result = await isDonationClaimHasDeliveryService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Donation claim has delivery fetched successfully",
+      data: result,
+    });
+  },
+);
+
+export const markDeliveryAsReceived = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as GetSingleDeliveryParams;
+    await markDeliveryAsReceivedService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Delivery marked as received successfully",
+    });
+  },
+);
+
+export const cancelDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as CancelDeliveryParams;
+    const { reason } = req.body as CancelDeliveryBody;
+    await cancelDeliveryService(recipientId, id, reason);
+    res.status(200).json({
+      status: "success",
+      message: "Delivery cancelled successfully",
     });
   },
 );

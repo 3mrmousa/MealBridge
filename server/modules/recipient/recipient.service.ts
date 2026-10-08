@@ -1,9 +1,11 @@
 import {
   ClaimStatus,
+  DeliveryRequestStatus,
+  DeliveryStatus,
   DonationRequestStatus,
   DonationStatus,
   PickupMethod,
-  DeliveryStatus,
+  Role,
   type Prisma,
 } from "@prisma/client";
 import prisma from "../../database/index.js";
@@ -14,11 +16,15 @@ import type {
   GetClaimsQuery,
   GetVolunteersQuery,
   GetDeliveryRequestsQuery,
+  GetDeliveriesQuery,
 } from "./recipient.zod.js";
 import { createNotificationService } from "../notification/notification.service.js";
 import {
   sendCreateRequestForDonorMail,
   sendClaimCancelForDonorMail,
+  sendClaimCancelForVolunteerMail,
+  sendCreateDeliveryRequestVolunteerMail,
+  sendCancelDeliveryRequestVolunteerMail,
 } from "../../utils/mail/email.service.js";
 
 export const getMyDonationRequestsService = async (
@@ -97,8 +103,8 @@ export const createDonationRequestService = async (
   recipientId: string,
   donationId: string,
   quantityRequested: number,
-  deliveryAddress: string,
   message: string,
+  deliveryAddress?: string,
 ) => {
   const { donation, request } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -107,6 +113,15 @@ export const createDonationRequestService = async (
       WHERE id = ${donationId}::uuid
       FOR UPDATE
     `;
+
+    const recipient = await tx.recipientProfile.findUnique({
+      where: { userId: recipientId },
+      include: { user: { select: { email: true } } },
+    });
+
+    if (!recipient) {
+      throw new AppError("Recipient not found", 404);
+    }
 
     const donation = await tx.donation.findUnique({
       where: { id: donationId },
@@ -134,12 +149,14 @@ export const createDonationRequestService = async (
       throw new AppError("You have already requested this donation", 400);
     }
 
+    const finalDeliveryAddress = deliveryAddress || recipient.address;
+
     const request = await tx.donationRequest.create({
       data: {
         recipientId,
         donationId,
         quantityRequested,
-        deliveryAddress,
+        deliveryAddress: finalDeliveryAddress,
         message,
         status: DonationRequestStatus.PENDING,
       },
@@ -263,7 +280,11 @@ export const cancelDonationRequestService = async (
 ) => {
   const donationRequest = await prisma.donationRequest.findUnique({
     where: { id: requestId, recipientId },
-    include: { donation: { select: { donorId: true, title: true } } },
+    include: {
+      donation: {
+        select: { donor: { select: { userId: true } }, title: true },
+      },
+    },
   });
 
   if (!donationRequest) {
@@ -294,7 +315,7 @@ export const cancelDonationRequestService = async (
 
   try {
     await createNotificationService(
-      donationRequest.donation.donorId,
+      donationRequest.donation.donor.userId,
       "Donation Request Withdrawn",
       `A pending request for your donation "${donationRequest.donation.title}" has been withdrawn by the recipient.`,
     );
@@ -442,8 +463,9 @@ export const getClaimByIdService = async (
 export const cancelClaimService = async (
   recipientId: string,
   claimId: string,
+  reason: string,
 ) => {
-  const [donation, claim] = await prisma.$transaction(async (tx) => {
+  const [donation, claim, delivery] = await prisma.$transaction(async (tx) => {
     const claim = await tx.donationClaim.findFirst({
       where: {
         id: claimId,
@@ -451,6 +473,7 @@ export const cancelClaimService = async (
       },
       include: {
         recipient: true,
+        deliveryRequests: true,
       },
     });
 
@@ -471,7 +494,11 @@ export const cancelClaimService = async (
 
     await tx.donationClaim.update({
       where: { id: claimId },
-      data: { status: ClaimStatus.CANCELLED },
+      data: {
+        status: ClaimStatus.CANCELLED,
+        canceledBy: Role.RECIPIENT,
+        canceledReason: reason,
+      },
     });
 
     await tx.donationRequest.update({
@@ -500,159 +527,103 @@ export const cancelClaimService = async (
         ...(shouldMakeAvailable ? { status: DonationStatus.AVAILABLE } : {}),
       },
       include: {
-        donor: { select: { user: { select: { email: true } } } },
+        donor: { select: { userId: true, user: { select: { email: true } } } },
       },
     });
-    return [lastDonation, claim];
+
+    await tx.deliveryRequest.updateMany({
+      where: {
+        id: {
+          in: claim.deliveryRequests.map((req) => req.id),
+        },
+      },
+      data: { status: DeliveryRequestStatus.CANCELLED },
+    });
+
+    var delivery;
+    if (claim.pickupMethod === PickupMethod.VOLUNTEER) {
+      const existingDelivery = await tx.delivery.findUnique({
+        where: { donationClaimId: claimId },
+      });
+
+      if (existingDelivery) {
+        delivery = await tx.delivery.update({
+          where: { id: existingDelivery.id },
+          data: { status: DeliveryStatus.CANCELLED },
+          include: {
+            volunteer: {
+              select: { userId: true, user: { select: { email: true } } },
+            },
+          },
+        });
+
+        await tx.volunteerProfile.update({
+          where: { userId: delivery.volunteerId },
+          data: { availabilityStatus: true },
+        });
+      }
+    }
+
+    return [lastDonation, claim, delivery];
   });
 
   try {
     await createNotificationService(
-      recipientId,
-      `Claim on ${donation.title} cancelled successfully`,
-      `Your claim on ${donation.title} has been cancelled successfully by you on ${new Date(Date.now()).toLocaleString()}`,
+      donation.donor.userId,
+      `Claim on ${donation.title} cancelled by recipient`,
+      `Claim on "${donation.title}" has been cancelled by the recipient on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to donor:", e.message || e);
+  }
+  try {
+    await createNotificationService(
+      claim.recipient.userId,
+      `Claim on ${donation.title} cancelled by you`,
+      `Your claim on ${donation.title} has been cancelled by you on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
     );
   } catch (e: any) {
     console.error("Error sending notification to recipient:", e.message || e);
   }
-  try {
-    await createNotificationService(
-      donation.donorId,
-      `Claim on ${donation.title} has been cancelled`,
-      `Claim on ${donation.title} has been cancelled by ${claim.recipient?.organizationName} on ${new Date(Date.now()).toLocaleString()}`,
-    );
-  } catch (e: any) {
-    console.error("Error sending notification:", e.message || e);
+
+  if (delivery) {
+    try {
+      await createNotificationService(
+        delivery.volunteer.userId,
+        `Claim on ${donation.title} cancelled by recipient`,
+        `Claim on "${donation.title}" has been cancelled by recipient on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
+      );
+    } catch (e: any) {
+      console.error("Error sending notification to volunteer:", e.message || e);
+    }
   }
 
   try {
     await sendClaimCancelForDonorMail(
       donation.donor.user.email,
       donation.title,
-      claim.recipient?.organizationName,
+      claim.recipient.organizationName,
+      reason,
     );
   } catch (error: any) {
     console.error("Error sending email:", error.message || error);
   }
-};
 
-// Delivery Request Operations
-
-export const createDeliveryRequestService = async (
-  recipientId: string,
-  claimId: string,
-  volunteerId: string,
-  notes?: string,
-) => {
-  const deliveryRequest = await prisma.$transaction(async (tx) => {
-    const claim = await tx.donationClaim.findFirst({
-      where: { id: claimId, recipientId },
-      include: {
-        donation: true,
-        recipient: true,
-      },
-    });
-
-    if (!claim) {
-      throw new AppError("Donation claim not found", 404);
-    }
-
-    if (claim.status !== ClaimStatus.ACTIVE) {
-      throw new AppError("Only active claims can request delivery", 400);
-    }
-
-    // Check if the claim already has an active Delivery
-    const existingDelivery = await tx.delivery.findUnique({
-      where: { donationClaimId: claimId },
-    });
-
-    if (existingDelivery) {
-      throw new AppError("This claim already has an active delivery.", 400);
-    }
-
-    // Check if there is already a PENDING request for this volunteer
-    const existingRequest = await tx.deliveryRequest.findFirst({
-      where: {
-        donationClaimId: claimId,
-        volunteerId,
-        status: "PENDING",
-      },
-    });
-
-    if (existingRequest) {
-      throw new AppError(
-        "A pending request already exists for this volunteer.",
-        400,
+  if (delivery && delivery.volunteer) {
+    try {
+      await sendClaimCancelForVolunteerMail(
+        delivery.volunteer.user.email,
+        donation.title,
+        claim.recipient.organizationName || "the recipient",
+        reason,
       );
+    } catch (e: any) {
+      console.error("Error sending email to volunteer:", e.message || e);
     }
-
-    const volunteer = await tx.volunteerProfile.findUnique({
-      where: { id: volunteerId },
-    });
-
-    if (!volunteer) {
-      throw new AppError("Volunteer not found", 404);
-    }
-
-    if (!volunteer.availabilityStatus) {
-      throw new AppError("Volunteer is not currently available", 400);
-    }
-
-    const newRequest = await tx.deliveryRequest.create({
-      data: {
-        donationClaimId: claimId,
-        recipientId,
-        volunteerId,
-        notes,
-      },
-    });
-
-    return newRequest;
-  });
-
-  return deliveryRequest;
+  }
 };
 
-export const getDeliveryRequestsService = async (
-  recipientId: string,
-  query: GetDeliveryRequestsQuery,
-) => {
-  const {
-    limit = 10,
-    page = 1,
-    sortBy = "createdAt",
-    sortOrder = "desc",
-  } = query;
-  const skip = (page - 1) * limit;
-
-  const where: Prisma.DeliveryRequestWhereInput = {
-    recipientId,
-  };
-
-  const [requests, totalRequests] = await prisma.$transaction([
-    prisma.deliveryRequest.findMany({
-      where,
-      take: limit,
-      skip,
-      orderBy: { [sortBy]: sortOrder },
-      include: {
-        volunteer: { select: { user: { select: { name: true } } } },
-        donationClaim: { select: { donation: { select: { title: true } } } },
-      },
-    }),
-    prisma.deliveryRequest.count({ where }),
-  ]);
-
-  return {
-    requests,
-    pagination: {
-      page,
-      limit,
-      totalRequests,
-      totalPages: Math.ceil(totalRequests / limit),
-    },
-  };
-};
+// Delivery & Volunteer Services
 
 export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
   const {
@@ -704,4 +675,442 @@ export const getVolunteerByIdService = async (volunteerId: string) => {
   }
 
   return volunteer;
+};
+
+export const getDeliveryRequestsService = async (
+  recipientId: string,
+  query: GetDeliveryRequestsQuery,
+) => {
+  const {
+    limit = 10,
+    page = 1,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DeliveryRequestWhereInput = {
+    recipientId,
+  };
+
+  const [requests, totalRequests] = await prisma.$transaction([
+    prisma.deliveryRequest.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        volunteer: { select: { user: { select: { name: true } } } },
+        donationClaim: { select: { donation: { select: { title: true } } } },
+      },
+    }),
+    prisma.deliveryRequest.count({ where }),
+  ]);
+
+  return {
+    requests,
+    pagination: {
+      page,
+      limit,
+      totalRequests,
+      totalPages: Math.ceil(totalRequests / limit),
+    },
+  };
+};
+
+export const getSingleDeliveryRequestService = async (
+  recipientId: string,
+  requestId: string,
+) => {
+  const request = await prisma.deliveryRequest.findUnique({
+    where: { id: requestId, recipientId },
+    include: {
+      volunteer: { select: { user: { select: { name: true } } } },
+      donationClaim: { select: { donation: { select: { title: true } } } },
+    },
+  });
+
+  if (!request) {
+    throw new AppError("Delivery request not found", 404);
+  }
+
+  return request;
+};
+
+export const createDeliveryRequestService = async (
+  recipientId: string,
+  claimId: string,
+  volunteerId: string,
+  notes?: string,
+) => {
+  const deliveryRequest = await prisma.$transaction(async (tx) => {
+    const claim = await tx.donationClaim.findFirst({
+      where: { id: claimId, recipientId },
+      include: {
+        donation: true,
+        recipient: true,
+      },
+    });
+
+    if (!claim) {
+      throw new AppError("Donation claim not found", 404);
+    }
+
+    if (claim.status !== ClaimStatus.ACTIVE) {
+      throw new AppError("Only active claims can request delivery", 400);
+    }
+
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { donationClaimId: claimId },
+    });
+
+    if (existingDelivery) {
+      throw new AppError("This claim already has an active delivery.", 400);
+    }
+
+    const existingRequest = await tx.deliveryRequest.findFirst({
+      where: {
+        donationClaimId: claimId,
+        volunteerId,
+        status: "PENDING",
+      },
+    });
+
+    if (existingRequest) {
+      throw new AppError(
+        "A pending request already exists for this volunteer.",
+        400,
+      );
+    }
+
+    const volunteer = await tx.volunteerProfile.findUnique({
+      where: { id: volunteerId },
+    });
+
+    if (!volunteer) {
+      throw new AppError("Volunteer not found", 404);
+    }
+
+    if (!volunteer.availabilityStatus) {
+      throw new AppError("Volunteer is not currently available", 400);
+    }
+
+    const newRequest = await tx.deliveryRequest.create({
+      data: {
+        donationClaimId: claimId,
+        recipientId,
+        volunteerId,
+        notes,
+      },
+      include: {
+        donationClaim: { include: { donation: true } },
+        volunteer: { select: { userId: true, user: { select: { email: true, name: true } } } },
+      },
+    });
+
+    return newRequest;
+  });
+
+  try {
+    await createNotificationService(
+      deliveryRequest.volunteer.userId,
+      "Delivery request received",
+      `Delivery request for ${deliveryRequest.donationClaim.donation.title} received`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to volunteer:", e.message || e);
+  }
+
+  try {
+    await sendCreateDeliveryRequestVolunteerMail(
+      deliveryRequest.volunteer.user.email,
+      deliveryRequest.volunteer.user.name,
+      deliveryRequest.donationClaim.donation.title,
+    );
+  } catch (e: any) {
+    console.error("Error sending email to volunteer:", e.message || e);
+  }
+};
+
+export const cancelDeliveryRequestService = async (
+  recipientId: string,
+  requestId: string,
+) => {
+  const deliveryRequest = await prisma.$transaction(async (tx) => {
+    const result: any = await tx.$queryRaw`
+      SELECT id, status 
+      FROM "delivery_request" 
+      WHERE id = ${requestId}::uuid 
+        AND recipient_id = ${recipientId}::uuid 
+      FOR UPDATE
+    `;
+    const request = result[0];
+    if (!request) {
+      throw new AppError("Delivery request not found", 404);
+    }
+    if (request.status !== "PENDING") {
+      throw new AppError("Delivery request cannot be cancelled", 400);
+    }
+    const updatedRequest = await tx.deliveryRequest.update({
+      where: { id: requestId },
+      data: { status: "CANCELLED" },
+      include: {
+        volunteer: { select: { userId: true, user: { select: { email: true, name: true } } } },
+        donationClaim: { include: { donation: { select: { title: true } } } },
+      }
+    });
+
+    return updatedRequest;
+  });
+
+  try {
+    await createNotificationService(
+      deliveryRequest.volunteer.userId,
+      "Delivery Request Withdrawn",
+      `A pending delivery request for "${deliveryRequest.donationClaim.donation.title}" has been withdrawn by the recipient.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to volunteer:", e.message || e);
+  }
+
+  try {
+    await sendCancelDeliveryRequestVolunteerMail(
+      deliveryRequest.volunteer.user.email,
+      deliveryRequest.volunteer.user.name,
+      deliveryRequest.donationClaim.donation.title,
+    );
+  } catch (e: any) {
+    console.error("Error sending email to volunteer:", e.message || e);
+  }
+};
+
+export const getDeliveriesService = async (
+  recipientId: string,
+  query: GetDeliveriesQuery,
+) => {
+  const {
+    limit = 10,
+    page = 1,
+    status,
+    sortBy = "createdAt",
+    sortOrder = "desc",
+  } = query;
+
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.DeliveryWhereInput = {
+    recipientId,
+    ...(status ? { status } : {}),
+  };
+
+  const [deliveries, totalDeliveries] = await prisma.$transaction([
+    prisma.delivery.findMany({
+      where,
+      take: limit,
+      skip,
+      orderBy: { [sortBy]: sortOrder },
+      include: {
+        volunteer: {
+          select: { user: { select: { name: true, phone: true } } },
+        },
+        donationClaim: {
+          select: {
+            donation: { select: { title: true, pickupAddress: true } },
+          },
+        },
+      },
+    }),
+    prisma.delivery.count({ where }),
+  ]);
+
+  return {
+    deliveries,
+    pagination: {
+      page,
+      limit,
+      totalDeliveries,
+      totalPages: Math.ceil(totalDeliveries / limit),
+    },
+  };
+};
+
+export const getSingleDeliveriesService = async (
+  recipientId: string,
+  deliveryId: string,
+) => {
+  const delivery = await prisma.delivery.findUnique({
+    where: {
+      id: deliveryId,
+      recipientId,
+    },
+    include: {
+      volunteer: {
+        select: { user: { select: { name: true, phone: true, email: true } } },
+      },
+      donationClaim: {
+        include: { donation: { include: { donor: true } } },
+      },
+    },
+  });
+
+  if (!delivery) {
+    throw new AppError("Delivery not found", 404);
+  }
+
+  return delivery;
+};
+
+export const isDonationClaimHasDeliveryService = async (
+  recipientId: string,
+  donationClaimId: string,
+) => {
+  const existingDelivery = await prisma.delivery.findUnique({
+    where: { donationClaimId, recipientId },
+  });
+
+  return !!existingDelivery;
+};
+
+export const markDeliveryAsReceivedService = async (
+  recipientId: string,
+  deliveryId: string,
+) => {
+  const existingDelivery = await prisma.$transaction(async (tx) => {
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id: deliveryId, recipientId },
+      include: {
+        donationClaim: { include: { donation: true } },
+        volunteer: { include: { user: true } },
+      },
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+    if (existingDelivery.status === DeliveryStatus.COMPLETED) {
+      throw new AppError("Delivery is already marked as completed", 400);
+    }
+    if (existingDelivery.status === DeliveryStatus.CANCELLED) {
+      throw new AppError("Cannot complete a cancelled delivery", 400);
+    }
+
+    const now = new Date();
+
+    await tx.delivery.update({
+      where: { id: deliveryId },
+      data: { status: DeliveryStatus.COMPLETED, completedAt: now },
+    });
+
+    await tx.donationClaim.update({
+      where: { id: existingDelivery.donationClaimId },
+      data: { status: ClaimStatus.COMPLETED, collectedAt: now },
+    });
+
+    return existingDelivery;
+  });
+
+  try {
+    await createNotificationService(
+      existingDelivery.volunteerId,
+      "Delivery Completed",
+      `You have successfully delivered the ${existingDelivery.donationClaim.donation.title}.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to volunteer:", e.message || e);
+  }
+  try {
+    await createNotificationService(
+      existingDelivery.recipientId,
+      "Delivery Completed",
+      `You have successfully received the ${existingDelivery.donationClaim.donation.title}.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to recipient:", e.message || e);
+  }
+  try {
+    await createNotificationService(
+      existingDelivery.donationClaim.donation.donorId,
+      "Delivery Completed",
+      `Your donation ${existingDelivery.donationClaim.donation.title} has been successfully received by the recipient throgh volunteer ${existingDelivery.volunteer.user.name}.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to donor:", e.message || e);
+  }
+};
+
+export const cancelDeliveryService = async (
+  recipientId: string,
+  deliveryId: string,
+  reason: string,
+) => {
+  const existingDelivery = await prisma.$transaction(async (tx) => {
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id: deliveryId, recipientId },
+      include: {
+        volunteer: { include: { user: true } },
+        donationClaim: { include: { donation: true } },
+        recipient: { include: { user: true } },
+      },
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+    if (
+      existingDelivery.status === DeliveryStatus.COMPLETED ||
+      existingDelivery.status === DeliveryStatus.CANCELLED ||
+      existingDelivery.status === DeliveryStatus.PICKED_UP
+    ) {
+      throw new AppError(
+        `Cannot cancel delivery that is ${existingDelivery.status}`,
+        400,
+      );
+    }
+
+    await tx.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        status: DeliveryStatus.CANCELLED,
+        canceledBy: Role.RECIPIENT,
+        canceledAt: new Date(),
+        canceledReason: reason,
+      },
+    });
+
+    await tx.volunteerProfile.update({
+      where: { userId: existingDelivery.volunteerId },
+      data: { availabilityStatus: true },
+    });
+    return existingDelivery;
+  });
+
+  try {
+    await createNotificationService(
+      existingDelivery.volunteerId,
+      "Delivery Cancelled",
+      `The recipient has cancelled the delivery for ${existingDelivery.donationClaim.donation.title}. You are now available for other deliveries.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to volunteer:", e.message || e);
+  }
+  try {
+    await createNotificationService(
+      existingDelivery.recipientId,
+      "Delivery Cancelled",
+      `You cancelled the delivery for ${existingDelivery.donationClaim.donation.title}.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to recipient:", e.message || e);
+  }
+
+  try {
+    await sendClaimCancelForVolunteerMail(
+      existingDelivery.volunteer!.user.email,
+      existingDelivery.donationClaim.donation.title,
+      existingDelivery.recipient.user.name,
+      "The recipient has cancelled the delivery.",
+    );
+  } catch (e: any) {
+    console.error("Error sending email to volunteer:", e.message || e);
+  }
 };

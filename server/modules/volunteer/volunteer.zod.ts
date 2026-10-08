@@ -29,15 +29,7 @@ export const singleIdRequestSchema = z.object({
   }),
 });
 
-export const getCancelDeliveriesSchema = z.object({
-  query: z.object({
-    sortBy: z.enum(["createdAt", "updatedAt", "cancelRequestedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
-    cancelRequestedBy: z.nativeEnum(Role).optional(),
-    limit: z.coerce.number().int().positive().optional(),
-    page: z.coerce.number().int().positive().optional(),
-  }),
-});
+
 
 export const cancelDeliverySchema = z.object({
   body: z.object({
@@ -60,9 +52,6 @@ export type GetDeliveryRequestsQuery = z.infer<
 export type SingleIdRequestParams = z.infer<
   typeof singleIdRequestSchema
 >["params"];
-export type GetCancelDeliveriesQuery = z.infer<
-  typeof getCancelDeliveriesSchema
->["query"];
 export type CancelDeliveryBody = z.infer<typeof cancelDeliverySchema>["body"];
 export type CancelDeliveryIdParams = z.infer<
   typeof cancelDeliverySchema

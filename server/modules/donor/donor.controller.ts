@@ -9,12 +9,13 @@ import {
   getMyDonationsService,
   removePicFromDonationService,
   updateDonationService,
-  getDonorDonationRequestsService,
-  getDonorDonationRequestService,
   acceptDonationRequestService,
   rejectDonationRequestService,
   getAllDonationClaimsService,
   getSingleDonationClaimService,
+  getDonationRequestsService,
+  getSingleDonationRequestService,
+  cancelClaimService,
 } from "./donor.service.js";
 import type {
   CreateDonationBody,
@@ -31,6 +32,8 @@ import type {
   GetAllDonationClaimsParams,
   GetAllDonationClaimsQuery,
   GetSingleDonationClaimParams,
+  CancelClaimParams,
+  CancelClaimBody,
 } from "./donor.zod.js";
 import AppError from "../../utils/errors/AppError.js";
 
@@ -193,14 +196,14 @@ export const cancelDonation = asyncHandler(
   },
 );
 
-export const getDonorDonationRequests = asyncHandler(
+export const getDonationRequests = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id: donationId } = req.params as GetDonationRequestsParams;
     const { limit, page, status, sortBy, sortOrder } =
       req.query as GetDonationRequestsQuery;
 
-    const result = await getDonorDonationRequestsService(userId!, donationId, {
+    const result = await getDonationRequestsService(userId!, donationId, {
       limit,
       page,
       status,
@@ -217,13 +220,13 @@ export const getDonorDonationRequests = asyncHandler(
   },
 );
 
-export const getDonorDonationRequest = asyncHandler(
+export const getSingleDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const { id: donationId, reqId } =
       req.params as GetSingleDonationRequestParams;
 
-    const request = await getDonorDonationRequestService(
+    const request = await getSingleDonationRequestService(
       userId!,
       donationId,
       reqId,
@@ -301,6 +304,21 @@ export const getSingleDonationClaim = asyncHandler(
       status: "success",
       message: "Donation claim fetched successfully",
       data: claim,
+    });
+  },
+);
+
+export const cancelClaim = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { claimId } = req.params as CancelClaimParams;
+    const { reason } = req.body as CancelClaimBody;
+
+    await cancelClaimService(userId, claimId, reason);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donation claim cancelled successfully",
     });
   },
 );

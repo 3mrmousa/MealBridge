@@ -201,12 +201,13 @@ export const sendClaimCancelForDonorMail = async (
   email: string,
   donationTitle: string,
   organizationName: string | null | undefined,
+  message: string,
 ) => {
   const html = baseEmailLayout(
     `Claim Cancelled for Your Donation`,
     `
       <p style="margin-top: 0;">Hello,</p>
-      <p>This is to notify you that the claim on your donation "<strong>${donationTitle}</strong>" has been cancelled by ${organizationName ? `<strong>${organizationName}</strong>` : "the recipient"}.</p>
+      <p>This is to notify you that the claim on your donation "<strong>${donationTitle}</strong>" has been cancelled by ${organizationName ? `<strong>${organizationName}</strong>` : "the recipient"}${message ? ` with the following reason: "${message}"` : ""}.</p>
       <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
         <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
           Claim Cancelled
@@ -229,6 +230,84 @@ export const sendClaimCancelForDonorMail = async (
   } catch (error: any) {
     throw new AppError(
       error?.message || "Failed to send claim cancellation email to donor",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+
+export const sendClaimCancelForRecipientMail = async (
+  email: string,
+  donationTitle: string,
+  organizationName: string,
+  message: string,
+) => {
+  const html = baseEmailLayout(
+    `Claim Cancelled for Your Donation Request`,
+    `
+      <p style="margin-top: 0;">Hello,</p>
+      <p>This is to notify you that your request for the donation "<strong>${donationTitle}</strong>" has been cancelled by the donor, <strong>${organizationName}</strong>${message ? ` with the following reason: "${message}"` : ""}.</p>
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
+          Request Cancelled
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          Don't worry, there are many other donations available on MealBridge. We encourage you to explore and request other meals!
+        </p>
+      </div>
+      <p style="margin-bottom: 0;">If you have any questions, please contact our support team.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Update: Donation Request Cancelled - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send claim cancellation email to recipient",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+
+export const sendClaimCancelForVolunteerMail = async (
+  email: string,
+  donationTitle: string,
+  organizationName: string,
+  message: string,
+) => {
+  const html = baseEmailLayout(
+    `Delivery Cancelled for Claimed Donation`,
+    `
+      <p style="margin-top: 0;">Hello,</p>
+      <p>This is to notify you that the delivery assignment for "<strong>${donationTitle}</strong>" has been cancelled by <strong>${organizationName}</strong>${message ? ` with the following reason: "${message}"` : ""}.</p>
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
+          Delivery Cancelled
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          Your delivery assignment has been cancelled. You are now available for other deliveries on MealBridge!
+        </p>
+      </div>
+      <p style="margin-bottom: 0;">Thank you for your time and willingness to help!</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Update: Delivery Cancelled - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send claim cancellation email to volunteer",
       error?.code || error?.statusCode || 500,
       error,
     );

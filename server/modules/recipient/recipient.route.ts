@@ -18,6 +18,11 @@ import {
   getDeliveryRequestsSchema,
   getVolunteersSchema,
   getVolunteerByIdSchema,
+  getSingleDeliveryRequestSchema,
+  cancelDeliveryRequestSchema,
+  getDeliveriesSchema,
+  getSingleDeliverySchema,
+  cancelDeliverySchema,
 } from "./recipient.zod.js";
 import {
   createDonationRequest,
@@ -34,6 +39,13 @@ import {
   getDeliveryRequests,
   getAllVolunteers,
   getVolunteerById,
+  getSingleDeliveryRequest,
+  cancelDeliveryRequest,
+  getDeliveries,
+  getSingleDeliveries,
+  markDeliveryAsReceived,
+  cancelDelivery,
+  isDonationClaimHasDelivery,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
@@ -58,8 +70,13 @@ recipientRouter
     heavyRateLimiter,
     validate(updateDonationRequestSchema),
     updateDonationRequest,
-  )
-  .delete(validate(cancelDonationRequestSchema), cancelDonationRequest);
+  );
+
+recipientRouter.patch(
+  "/donation-requests/:id/cancel",
+  validate(cancelDonationRequestSchema),
+  cancelDonationRequest,
+);
 
 // Donations Routes (Recipient Perspective)
 recipientRouter.get(
@@ -77,10 +94,22 @@ recipientRouter.get(
 recipientRouter.get("/claims", validate(getClaimsSchema), getClaims);
 recipientRouter
   .route("/claims/:id")
-  .get(validate(getClaimByIdSchema), getClaimById)
-  .delete(validate(cancelClaimSchema), cancelClaim);
+  .get(validate(getClaimByIdSchema), getClaimById);
 
-// Volunteer Listing Routes (Recipient Perspective)
+recipientRouter.patch(
+  "/claims/:id/cancel",
+  validate(cancelClaimSchema),
+  cancelClaim,
+);
+
+// Take the claim route
+// recipientRouter.patch(
+//   "/claims/:id/self-pickup",
+//   validate(selfPickupClaimSchema),
+//   selfPickupClaim,
+// );
+
+// Delivery & Volunteer Routes (Recipient Perspective)
 recipientRouter.get(
   "/volunteers",
   validate(getVolunteersSchema),
@@ -93,10 +122,42 @@ recipientRouter.get(
   getVolunteerById,
 );
 
-// Delivery Request Routes (Recipient Perspective)
 recipientRouter
   .route("/delivery-requests")
   .post(validate(createDeliveryRequestSchema), createDeliveryRequest)
   .get(validate(getDeliveryRequestsSchema), getDeliveryRequests);
+
+recipientRouter
+  .route("/delivery-requests/:id")
+  .get(validate(getSingleDeliveryRequestSchema), getSingleDeliveryRequest);
+
+recipientRouter.patch(
+  "/delivery-requests/:id/cancel",
+  validate(cancelDeliveryRequestSchema),
+  cancelDeliveryRequest,
+);
+
+recipientRouter.get(
+  "/delivery-requests/:id/has-delivery",
+  validate(getSingleDeliverySchema),
+  isDonationClaimHasDelivery,
+);
+
+recipientRouter.get(
+  "/deliveries",
+  validate(getDeliveriesSchema),
+  getDeliveries,
+);
+
+recipientRouter
+  .route("/deliveries/:id")
+  .get(validate(getSingleDeliverySchema), getSingleDeliveries)
+  .patch(validate(getSingleDeliverySchema), markDeliveryAsReceived);
+
+recipientRouter.patch(
+  "/deliveries/:id/cancel",
+  validate(cancelDeliverySchema),
+  cancelDelivery,
+);
 
 export default recipientRouter;

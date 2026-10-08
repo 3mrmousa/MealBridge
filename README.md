@@ -212,7 +212,7 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - `POST /api/donors/` — Create a donation (with Cloudinary image upload)
   - `GET /api/donors/:id` — Get single donation
   - `PATCH /api/donors/:id` — Update donation
-  - `DELETE /api/donors/:id` — Delete donation
+  - `PATCH /api/donors/:id/cancel` — Cancel donation
   - `PATCH /api/donors/:id/add-pics` — Add images to donation
   - `PATCH /api/donors/:id/remove-pics` — Remove images from donation
   - `GET /api/donors/:id/requests` — List all requests on a donation
@@ -227,12 +227,12 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - `POST /api/recipients/requests` — Create a donation request (with `FOR UPDATE` lock on donation)
   - `GET /api/recipients/requests/:id` — Get single request
   - `PATCH /api/recipients/requests/:id` — Update request (locks donation + request rows)
-  - `DELETE /api/recipients/requests/:id` — Delete request (`deleteMany` + count check)
+  - `PATCH /api/recipients/donation-requests/:id/cancel` — Cancel request (`deleteMany` + count check)
   - `GET /api/recipients/donations` — Browse available donations
   - `GET /api/recipients/donations/:id` — Get donation details
   - `GET /api/recipients/claims` — List own claims
   - `GET /api/recipients/claims/:id` — Get single claim
-  - `DELETE /api/recipients/claims/:id` — Cancel a claim (with lock + status check)
+  - `PATCH /api/recipients/claims/:id/cancel` — Cancel a claim (with lock + status check)
   - `GET /api/recipients/volunteers` — Browse available volunteers
   - `GET /api/recipients/volunteers/:id` — Get volunteer details
   - `POST /api/recipients/delivery-requests` — Request a delivery from a volunteer
@@ -244,9 +244,9 @@ MealBridge supports **5 distinct user roles**, each with specific permissions:
   - `PATCH /api/volunteers/delivery-requests/:id/reject` — Reject a delivery request
   - `GET /api/volunteers/deliveries` — List active deliveries
   - `GET /api/volunteers/deliveries/:id` — Get single delivery details
+  - `PATCH /api/volunteers/deliveries/:id/pickup` — Mark delivery as picked up
   - `PATCH /api/volunteers/deliveries/:id/complete` — Mark delivery as completed
-  - `PATCH /api/volunteers/deliveries/:id/cancel-request` — Request cancellation of a delivery
-  - `PATCH /api/volunteers/deliveries/:id/emergency-cancel` — Emergency abort a delivery
+  - `PATCH /api/volunteers/deliveries/:id/cancel` — Emergency abort a delivery
 
 - [x] **Notification Module** (`/api/notifications`)
   - `GET /api/notifications/` — Get all notifications for the authenticated user
@@ -317,8 +317,7 @@ erDiagram
 | `ClaimStatus` | ACTIVE, COMPLETED, CANCELLED |
 | `PickupMethod` | SELF, VOLUNTEER |
 | `DeliveryRequestStatus` | PENDING, ACCEPTED, REJECTED, CANCELLED |
-| `DeliveryStatus` | PENDING, CANCELLED, COMPLETED |
-| `CancelRequestStatus` | PENDING, ACCEPTED, REJECTED |
+| `DeliveryStatus` | PENDING, PICKED_UP, CANCELLED, COMPLETED |
 | `VolunteerType` | *(defined in schema)* |
 | `TransportType` | *(defined in schema)* |
 
@@ -379,7 +378,7 @@ erDiagram
 | `POST` | `/` | Create a donation (with images) |
 | `GET` | `/:id` | Get single donation |
 | `PATCH` | `/:id` | Update donation |
-| `DELETE` | `/:id` | Delete donation |
+| `PATCH` | `/:id/cancel` | Cancel donation |
 | `PATCH` | `/:id/add-pics` | Add images |
 | `PATCH` | `/:id/remove-pics` | Remove images |
 | `GET` | `/:id/requests` | List requests on a donation |
@@ -397,12 +396,12 @@ erDiagram
 | `POST` | `/requests` | Create a donation request |
 | `GET` | `/requests/:id` | Get single request |
 | `PATCH` | `/requests/:id` | Update a request |
-| `DELETE` | `/requests/:id` | Delete a request |
+| `PATCH` | `/donation-requests/:id/cancel` | Cancel a request |
 | `GET` | `/donations` | Browse available donations |
 | `GET` | `/donations/:id` | Get donation details |
 | `GET` | `/claims` | List own claims |
 | `GET` | `/claims/:id` | Get single claim |
-| `DELETE` | `/claims/:id` | Cancel a claim |
+| `PATCH` | `/claims/:id/cancel` | Cancel a claim |
 | `GET` | `/volunteers` | Browse volunteers |
 | `GET` | `/volunteers/:id` | Get volunteer details |
 | `POST` | `/delivery-requests` | Request volunteer delivery |
@@ -417,11 +416,9 @@ erDiagram
 | `PATCH` | `/delivery-requests/:id/reject` | Reject a delivery request |
 | `GET` | `/deliveries` | List active deliveries |
 | `GET` | `/deliveries/:id` | Get single delivery |
-| `GET` | `/deliveries/cancel-requests` | List cancellation requests |
-| `GET` | `/deliveries/:id/cancel-request` | Get cancellation request |
+| `PATCH` | `/deliveries/:id/pickup` | Mark delivery as picked up |
 | `PATCH` | `/deliveries/:id/complete` | Complete a delivery |
-| `PATCH` | `/deliveries/:id/emergency-cancel` | Emergency abort a delivery |
-| `PATCH` | `/deliveries/:id/cancel-request` | Request cancellation |
+| `PATCH` | `/deliveries/:id/cancel` | Emergency abort a delivery |
 
 ### Notifications (`/api/notifications`) — 🔒 All roles
 

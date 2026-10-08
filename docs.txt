@@ -36,7 +36,7 @@ Can update global site settings.
 Can view all system reports and analytics.
 Donor
 Verification Requirements: Must upload a Health Department Inspection Certificate, Food Handling Permit, or Business License. Account must be approved by an Admin before they can post donations.
-Can create, edit, or delete a donation only if no volunteer or recipient has entered the process yet.
+Can create, edit, or cancel a donation only if no volunteer or recipient has entered the process yet.
 Emergency Cancel: Can cancel an active donation if food spoils, which automatically alerts the Admin and connected users.
 Can view the status of all their donations.
 Can chat with the connected recipient or volunteer (once a request is issued).
@@ -57,4 +57,5 @@ Can view delivery requests issued by recipients and choose to accept or deny the
 When accepting a request, two new chats are created in their inbox: one with the Donor (for pickup) and one with the Recipient (for drop-off).
 Can edit their own profile information.
 Can report issues (e.g., Donor no-show, Recipient unavailable, or system error) directly to the Admin.
-Can only have one process at time
+Emergency Cancel: Can use 1 emergency cancellation per week to abort an active delivery, automatically notifying the Donor and Recipient.
+Can only have one active delivery process at a time.

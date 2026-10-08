@@ -1,9 +1,12 @@
 import {
   ClaimStatus,
+  DeliveryRequestStatus,
+  DeliveryStatus,
   DonationRequestStatus,
   DonationStatus,
   PickupMethod,
   Prisma,
+  Role,
   type Donation,
 } from "@prisma/client";
 import prisma from "../../database/index.js";
@@ -19,6 +22,8 @@ import { createNotificationService } from "../notification/notification.service.
 import {
   sendAcceptDonationRequestDonorPovMail,
   sendAcceptDonationRequestRecipientPovMail,
+  sendClaimCancelForRecipientMail,
+  sendClaimCancelForVolunteerMail,
   sendRejectDonationRequestDonorPovMail,
   sendRejectDonationRequestRecipientPovMail,
 } from "../../utils/mail/email.service.js";
@@ -83,10 +88,26 @@ export const createDonationService = async (
   donorId: string,
   donationData: Omit<
     Donation,
-    "id" | "createdAt" | "updatedAt" | "donorId" | "status" | "images"
-  >,
+    | "id"
+    | "createdAt"
+    | "updatedAt"
+    | "donorId"
+    | "status"
+    | "images"
+    | "pickupAddress"
+  > & { pickupAddress?: string },
   images: Express.Multer.File[],
 ) => {
+  const donorProfile = await prisma.donorProfile.findUnique({
+    where: { userId: donorId },
+  });
+
+  if (!donorProfile) {
+    throw new AppError("Donor profile not found", 404);
+  }
+
+  const finalPickupAddress = donationData.pickupAddress || donorProfile.address;
+
   const uploadPromises = images.map(async (image) => {
     const uploadResult = await uploadDonationPicsToCloudinary(image.buffer);
     return {
@@ -99,13 +120,13 @@ export const createDonationService = async (
   try {
     await prisma.donation.create({
       data: {
-        donorId,
+        donorId: donorProfile.id,
         title: donationData.title,
         description: donationData.description,
         foodType: donationData.foodType,
         quantity: donationData.quantity,
         unit: donationData.unit,
-        pickupAddress: donationData.pickupAddress,
+        pickupAddress: finalPickupAddress,
         availableFrom: donationData.availableFrom,
         availableUntil: donationData.availableUntil,
         status: DonationStatus.AVAILABLE,
@@ -148,28 +169,22 @@ export const updateDonationService = async (
       throw new AppError("Donation not found", 404);
     }
 
-    if (donationData.pickupAddress && donationData.pickupAddress !== donation.pickupAddress) {
-      const hasAddressLock =
-        donation.donationClaims.some((d) => d.status === ClaimStatus.ACTIVE) ||
-        donation.donationRequests.some(
-          (r) =>
-            r.status === DonationRequestStatus.PENDING ||
-            r.status === DonationRequestStatus.ACCEPTED,
-        );
-
-      if (hasAddressLock) {
-        throw new AppError(
-          "Can't change pickup address once there is a pending/accepted request or active claim",
-          400,
-        );
-      }
-    }
-
     const hasActiveInteractions =
       donation.donationClaims.some((d) => d.status === ClaimStatus.ACTIVE) ||
       donation.donationRequests.some(
         (r) => r.status === DonationRequestStatus.PENDING,
       );
+    if (
+      donationData.pickupAddress &&
+      donationData.pickupAddress !== donation.pickupAddress
+    ) {
+      if (hasActiveInteractions) {
+        throw new AppError(
+          "Can't change pickup address once there is a pending request or active claim",
+          400,
+        );
+      }
+    }
 
     if (hasActiveInteractions) {
       throw new AppError(
@@ -187,7 +202,8 @@ export const updateDonationService = async (
     if (donationData.quantity)
       donationDataToSend.quantity = donationData.quantity;
     if (donationData.unit) donationDataToSend.unit = donationData.unit;
-    if (donationData.pickupAddress) donationDataToSend.pickupAddress = donationData.pickupAddress;
+    if (donationData.pickupAddress)
+      donationDataToSend.pickupAddress = donationData.pickupAddress;
     if (donationData.availableFrom)
       donationDataToSend.availableFrom = donationData.availableFrom;
     if (donationData.availableUntil)
@@ -323,7 +339,7 @@ export const cancelDonationService = async (
   }
 };
 
-export const getDonorDonationRequestsService = async (
+export const getDonationRequestsService = async (
   donorId: string,
   donationId: string,
   query: SortAndPaginateOnDonationRequests,
@@ -355,7 +371,7 @@ export const getDonorDonationRequestsService = async (
       take: limit,
       skip,
       orderBy: { [sortBy]: sortOrder },
-      include: { recipient: true },
+      include: { recipient: { include: { user: true } } },
     }),
     prisma.donationRequest.count({
       where,
@@ -373,7 +389,7 @@ export const getDonorDonationRequestsService = async (
   };
 };
 
-export const getDonorDonationRequestService = async (
+export const getSingleDonationRequestService = async (
   donorId: string,
   donationId: string,
   requestId: string,
@@ -388,7 +404,7 @@ export const getDonorDonationRequestService = async (
 
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId, donationId },
-    include: { recipient: true },
+    include: { recipient: { include: { user: true } } },
   });
 
   if (!request) {
@@ -469,10 +485,10 @@ export const acceptDonationRequestService = async (
     });
 
     try {
-      const claim = await tx.donationClaim.create({
+      await tx.donationClaim.create({
         data: {
-          donationId: donationId,
           donationRequestId: requestId,
+          donationId: donationId,
           recipientId: request.recipientId,
           quantityClaimed: request.quantityRequested,
           pickupDeadline: donation.availableUntil,
@@ -517,7 +533,7 @@ export const acceptDonationRequestService = async (
 
   try {
     await createNotificationService(
-      request.recipientId,
+      request.recipient.userId,
       "Donation Request Accepted!",
       `Your request for "${donation.title}" has been accepted. A claim has been created.`,
     );
@@ -604,7 +620,7 @@ export const rejectDonationRequestService = async (
 
   try {
     await createNotificationService(
-      request.recipientId,
+      request.recipient.userId,
       "Donation Request Rejected!",
       `Your request for "${donation.title}" has been rejected.`,
     );
@@ -704,4 +720,163 @@ export const getSingleDonationClaimService = async (
   }
 
   return claim;
+};
+
+export const cancelClaimService = async (
+  donorId: string,
+  claimId: string,
+  reason: string,
+) => {
+  const [donation, claim, delivery] = await prisma.$transaction(async (tx) => {
+    const claim = await tx.donationClaim.findFirst({
+      where: {
+        id: claimId,
+        donation: {
+          donorId: donorId,
+        },
+      },
+      include: {
+        donation: {
+          include: { donor: true },
+        },
+        recipient: {
+          select: { organizationName: true, userId: true, user: { select: { email: true } } },
+        },
+        deliveryRequests: true,
+      },
+    });
+
+    if (!claim) {
+      throw new AppError("Claim not found or you don't have permission", 404);
+    }
+
+    if (claim.status !== ClaimStatus.ACTIVE) {
+      throw new AppError("You can't cancel this claim, it is not active", 400);
+    }
+
+    await tx.$queryRaw`
+      SELECT id
+      FROM "donation"
+      WHERE id = ${claim.donationId}::uuid
+      FOR UPDATE
+    `;
+
+    await tx.donationClaim.update({
+      where: { id: claimId },
+      data: {
+        status: ClaimStatus.CANCELLED,
+        canceledBy: Role.DONOR,
+        canceledReason: reason,
+      },
+    });
+
+    await tx.donationRequest.update({
+      where: { id: claim.donationRequestId },
+      data: { status: DonationRequestStatus.CANCELLED },
+    });
+
+    const shouldMakeAvailable =
+      claim.donation.status !== DonationStatus.EXPIRED &&
+      claim.donation.status !== DonationStatus.CANCELLED;
+
+    const lastDonation = await tx.donation.update({
+      where: { id: claim.donationId },
+      data: {
+        quantity: {
+          increment: claim.quantityClaimed,
+        },
+        ...(shouldMakeAvailable ? { status: DonationStatus.AVAILABLE } : {}),
+      },
+    });
+
+    await tx.deliveryRequest.updateMany({
+      where: {
+        id: {
+          in: claim.deliveryRequests.map(
+            (deliveryRequest) => deliveryRequest.id,
+          ),
+        },
+      },
+      data: { status: DeliveryRequestStatus.CANCELLED },
+    });
+
+    var delivery;
+    if (claim.pickupMethod === PickupMethod.VOLUNTEER) {
+      delivery = await tx.delivery.update({
+        where: {
+          donationClaimId: claimId,
+        },
+        data: { status: DeliveryStatus.CANCELLED },
+        include: {
+          volunteer: { select: { userId: true, user: { select: { email: true } } } },
+        },
+      });
+
+      await tx.volunteerProfile.update({
+        where: {
+          userId: delivery.volunteerId,
+        },
+        data: {
+          availabilityStatus: true,
+        },
+      });
+    }
+
+    return [lastDonation, claim, delivery];
+  });
+
+  try {
+    await createNotificationService(
+      claim.recipient.userId,
+      `Claim on ${donation.title} cancelled by donor`,
+      `Your claim on ${donation.title} has been cancelled by the donor on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to recipient:", e.message || e);
+  }
+  try {
+    await createNotificationService(
+      claim.donation.donor.userId,
+      `Claim on ${donation.title} cancelled by you`,
+      `Claim on "${donation.title}" has been cancelled by you on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to donor:", e.message || e);
+  }
+
+  if (delivery) {
+    try {
+      await createNotificationService(
+        delivery.volunteer.userId,
+        `Claim on ${donation.title} cancelled by donor`,
+        `Claim on "${donation.title}" has been cancelled by donor on ${new Date(Date.now()).toLocaleString()}. Reason: ${reason}`,
+      );
+    } catch (e: any) {
+      console.error("Error sending notification to volunteer:", e.message || e);
+    }
+  }
+
+  try {
+    await sendClaimCancelForRecipientMail(
+      claim.recipient.user.email,
+      donation.title,
+      claim.donation.donor.organizationName || "the donor",
+      reason,
+    );
+  } catch (e: any) {
+    console.error("Error sending email to recipient:", e.message || e);
+  }
+
+  if (delivery && delivery.volunteer) {
+    try {
+      await sendClaimCancelForVolunteerMail(
+        delivery.volunteer.user.email,
+        donation.title,
+        claim.donation.donor.organizationName || "the donor",
+        reason,
+      );
+    } catch (e: any) {
+      console.error("Error sending email to volunteer:", e.message || e);
+    }
+  }
 };

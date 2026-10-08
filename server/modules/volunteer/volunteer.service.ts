@@ -1,5 +1,4 @@
 import {
-  CancelRequestStatus,
   ClaimStatus,
   DeliveryStatus,
   DonationStatus,
@@ -8,7 +7,6 @@ import {
 } from "@prisma/client";
 import type {
   GetAllDeliveriesQuery,
-  GetCancelDeliveriesQuery,
   GetDeliveryRequestsQuery,
 } from "./volunteer.zod.js";
 import prisma from "../../database/index.js";
@@ -25,6 +23,7 @@ import {
   sendRejectDeliveryRecipientMail,
   sendCancelDeliveryRecipientMail,
   sendCancelDeliveryVolunteerMail,
+  sendCancelDeliveryDonorMail,
 } from "../../utils/mail/email.service.js";
 import {
   getWeeklyLimit,
@@ -147,77 +146,6 @@ export async function singleDeliveryService(id: string, userId: string) {
   return delivery;
 }
 
-export async function getAllCancelDeliveriesService(
-  userId: string,
-  query: GetCancelDeliveriesQuery,
-) {
-  const {
-    limit = 10,
-    page = 1,
-    sortBy = "cancelRequestedAt",
-    sortOrder = "desc",
-    cancelRequestedBy,
-  } = query;
-  const skip = (page - 1) * limit;
-
-  const where: Prisma.DeliveryWhereInput = {
-    volunteer: { userId },
-    cancelRequestedBy: cancelRequestedBy ? cancelRequestedBy : { not: null },
-  };
-
-  const [cancelDeliveries, totalCancelDeliveries] = await prisma.$transaction([
-    prisma.delivery.findMany({
-      where,
-      take: limit,
-      skip,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-      include: deliveryDetailsInclude,
-    }),
-    prisma.delivery.count({ where }),
-  ]);
-
-  return {
-    cancelDeliveries,
-    pagination: {
-      page,
-      limit,
-      totalCancelDeliveries,
-      totalPages: Math.ceil(totalCancelDeliveries / limit),
-    },
-  };
-}
-
-export async function singleCancelDeliveryService(id: string, userId: string) {
-  const delivery = await prisma.delivery.findUnique({
-    where: { id },
-    include: deliveryDetailsInclude,
-  });
-
-  if (!delivery) {
-    throw new AppError("Delivery not found", 404);
-  }
-
-  const isForThisUser = delivery.volunteer?.userId === userId;
-
-  if (!isForThisUser) {
-    throw new AppError(
-      "You are not authorized to view this cancellation request",
-      403,
-    );
-  }
-
-  if (!delivery.cancelRequestedBy) {
-    throw new AppError(
-      "This delivery does not have an active cancellation request",
-      400,
-    );
-  }
-
-  return delivery;
-}
-
 // Delivery Request Operations
 
 export async function getDeliveryRequestsService(
@@ -317,7 +245,10 @@ export async function acceptDeliveryRequestService(
     });
 
     if (existingDelivery) {
-      throw new AppError("This donation claim already has an active delivery.", 400);
+      throw new AppError(
+        "This donation claim already has an active delivery.",
+        400,
+      );
     }
 
     // Update request status
@@ -428,7 +359,10 @@ export async function acceptDeliveryRequestService(
   return requestResult;
 }
 
-export async function rejectDeliveryRequestService(requestId: string, userId: string) {
+export async function rejectDeliveryRequestService(
+  requestId: string,
+  userId: string,
+) {
   const requestResult = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
@@ -460,7 +394,10 @@ export async function rejectDeliveryRequestService(requestId: string, userId: st
     }
 
     if (existingRequest.status !== "PENDING") {
-      throw new AppError(`Delivery request is already ${existingRequest.status}`, 400);
+      throw new AppError(
+        `Delivery request is already ${existingRequest.status}`,
+        400,
+      );
     }
 
     await tx.deliveryRequest.update({
@@ -562,9 +499,9 @@ export async function completeDeliveryService(id: string, userId: string) {
       throw new AppError("Delivery is already completed", 400);
     }
 
-    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+    if (existingDelivery.status !== DeliveryStatus.PICKED_UP) {
       throw new AppError(
-        `Cannot complete delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        `Cannot complete delivery that is ${existingDelivery.status}. It must be PICKED_UP first.`,
         400,
       );
     }
@@ -694,6 +631,7 @@ export async function completeDeliveryService(id: string, userId: string) {
 export async function emergencyCancelDeliveryService(
   id: string,
   userId: string,
+  reason?: string,
 ) {
   const delivery = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -717,9 +655,12 @@ export async function emergencyCancelDeliveryService(
       throw new AppError("You are not authorized to cancel this delivery", 403);
     }
 
-    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+    if (
+      existingDelivery.status !== DeliveryStatus.PENDING &&
+      existingDelivery.status !== DeliveryStatus.PICKED_UP
+    ) {
       throw new AppError(
-        `Cannot cancel delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        `Cannot cancel delivery that is ${existingDelivery.status}.`,
         400,
       );
     }
@@ -735,68 +676,19 @@ export async function emergencyCancelDeliveryService(
 
     await tx.delivery.update({
       where: { id },
-      data: { status: DeliveryStatus.CANCELLED },
-    });
-
-    return existingDelivery;
-  });
-}
-
-export async function cancelDeliveryService(
-  deliveryId: string,
-  userRole: Role,
-  reason?: string,
-) {
-  const delivery = await prisma.$transaction(async (tx) => {
-    await tx.$queryRaw`
-      SELECT id
-      FROM "delivery"
-      WHERE id = ${deliveryId}::uuid
-      FOR UPDATE`;
-
-    const existingDelivery = await tx.delivery.findUnique({
-      where: { id: deliveryId },
-      include: deliveryDetailsInclude,
-    });
-
-    if (!existingDelivery) {
-      throw new AppError("Delivery not found", 404);
-    }
-
-    if (existingDelivery.cancelRequestedBy === Role.RECIPIENT) {
-      throw new AppError(
-        "A cancellation request has already been sent by the recipient.",
-        400,
-      );
-    }
-
-    if (existingDelivery.cancelRequestedBy === Role.VOLUNTEER) {
-      throw new AppError(
-        "You have already requested to cancel this delivery.",
-        400,
-      );
-    }
-
-    if (existingDelivery.status !== DeliveryStatus.PENDING) {
-      throw new AppError(
-        `Cannot request cancellation for a delivery that is ${existingDelivery.status}. It must be PENDING first.`,
-        400,
-      );
-    }
-
-    if (existingDelivery.cancelRequestStatus === CancelRequestStatus.PENDING) {
-      throw new AppError("Cancellation request has already been sent.", 400);
-    }
-
-    await tx.delivery.update({
-      where: { id: deliveryId },
       data: {
-        cancelRequestedBy: userRole,
-        cancelRequestedAt: new Date(),
-        cancelRequestedReason: reason,
-        cancelRequestStatus: CancelRequestStatus.PENDING,
+        status: DeliveryStatus.CANCELLED,
+        canceledBy: Role.VOLUNTEER,
+        canceledAt: new Date(),
+        canceledReason: reason,
       },
     });
+
+    await tx.volunteerProfile.update({
+      where: { id: existingDelivery.volunteerId },
+      data: { availabilityStatus: true },
+    });
+
     return existingDelivery;
   });
 
@@ -807,8 +699,8 @@ export async function cancelDeliveryService(
   try {
     await createNotificationService(
       recipientUser.id,
-      "Delivery Cancellation Request",
-      `The volunteer has requested to cancel the delivery for "${donationTitle}".`,
+      "Delivery Cancelled",
+      `The volunteer has had an emergency and cancelled the delivery for "${donationTitle}".`,
     );
   } catch (error: any) {
     console.error("Failed to notify recipient:", error.message || error);
@@ -819,7 +711,7 @@ export async function cancelDeliveryService(
       recipientUser.email,
       recipientUser.name,
       donationTitle,
-      reason,
+      "Volunteer Emergency Cancellation",
     );
   } catch (error: any) {
     console.error("Failed to send email to recipient:", error.message || error);
@@ -829,8 +721,8 @@ export async function cancelDeliveryService(
     try {
       await createNotificationService(
         volunteerUser.id,
-        "Cancellation Request Sent",
-        `Your cancellation request for "${donationTitle}" has been sent.`,
+        "Delivery Cancelled",
+        `You have used your emergency cancellation for "${donationTitle}".`,
       );
     } catch (error: any) {
       console.error("Failed to notify volunteer:", error.message || error);
@@ -841,7 +733,7 @@ export async function cancelDeliveryService(
         volunteerUser.email,
         volunteerUser.name,
         donationTitle,
-        reason,
+        "Volunteer Emergency Cancellation",
       );
     } catch (error: any) {
       console.error(
@@ -851,5 +743,86 @@ export async function cancelDeliveryService(
     }
   }
 
-  return delivery;
+  const donorUser = delivery.donationClaim.donation.donor.user;
+  try {
+    await createNotificationService(
+      donorUser.id,
+      "Delivery Cancelled",
+      `The volunteer has had an emergency and cancelled the delivery for "${donationTitle}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify donor:", error.message || error);
+  }
+
+  try {
+    await sendCancelDeliveryDonorMail(
+      donorUser.email,
+      donorUser.name,
+      donationTitle,
+      "Volunteer Emergency Cancellation",
+    );
+  } catch (error: any) {
+    console.error("Failed to send email to donor:", error.message || error);
+  }
+}
+
+export async function pickupDeliveryService(userId: string, id: string) {
+  const existingDelivery = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+    SELECT id
+    FROM "delivery"
+    WHERE id = ${id}::uuid
+    FOR UPDATE`;
+
+    const existingDelivery = await tx.delivery.findUnique({
+      where: { id },
+      include: deliveryDetailsInclude,
+    });
+
+    if (!existingDelivery) {
+      throw new AppError("Delivery not found", 404);
+    }
+
+    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+
+    if (!isForThisUser) {
+      throw new AppError("You are not authorized to update this delivery", 403);
+    }
+
+    if (existingDelivery.status !== DeliveryStatus.PENDING) {
+      throw new AppError(
+        `Cannot mark as picked up delivery that is ${existingDelivery.status}. It must be PENDING first.`,
+        400,
+      );
+    }
+
+    const updated = await tx.delivery.update({
+      where: { id },
+      data: {
+        status: DeliveryStatus.PICKED_UP,
+      },
+      include: deliveryDetailsInclude,
+    });
+
+    return updated;
+  });
+
+  try {
+    await createNotificationService(
+      existingDelivery.donationClaim.recipient.userId,
+      "Delivery Picked Up! 🚚",
+      `The volunteer has picked up your meal "${existingDelivery.donationClaim.donation.title}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify recipient:", error.message || error);
+  }
+  try {
+    await createNotificationService(
+      existingDelivery.donationClaim.donation.donor.userId,
+      "Delivery Picked Up! 🚚",
+      `The volunteer has picked up your meal "${existingDelivery.donationClaim.donation.title}".`,
+    );
+  } catch (error: any) {
+    console.error("Failed to notify donor:", error.message || error);
+  }
 }

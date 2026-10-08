@@ -8,12 +8,13 @@ import {
   removePicFromDonation,
   updateDonation,
   cancelDonation,
-  getDonorDonationRequests,
-  getDonorDonationRequest,
+  getDonationRequests,
+  getSingleDonationRequest,
   acceptDonationRequest,
   rejectDonationRequest,
   getAllDonationClaims,
   getSingleDonationClaim,
+  cancelClaim,
 } from "./donor.controller.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
@@ -30,6 +31,7 @@ import {
   rejectRequestSchema,
   getAllDonationClaimsSchema,
   getSingleDonationClaimSchema,
+  cancelClaimSchema,
 } from "./donor.zod.js";
 import { uploadMultipleFilesForDonation } from "../../middlewares/multer.middleware.js";
 
@@ -51,8 +53,13 @@ donorRouter
 donorRouter
   .route("/:id")
   .get(validate(getDonationByIdSchema), getDonationById)
-  .patch(validate(updateDonationSchema), updateDonation)
-  .delete(validate(onlyIdParamSchema), cancelDonation);
+  .patch(validate(updateDonationSchema), updateDonation);
+
+donorRouter.patch(
+  "/:id/cancel",
+  validate(onlyIdParamSchema),
+  cancelDonation,
+);
 
 donorRouter.patch(
   "/:id/add-pics",
@@ -71,13 +78,13 @@ donorRouter.patch(
 donorRouter.get(
   "/:id/requests",
   validate(getDonationRequestsSchema),
-  getDonorDonationRequests,
+  getDonationRequests,
 );
 
 donorRouter.get(
   "/:id/requests/:reqId",
   validate(getSingleDonationRequestSchema),
-  getDonorDonationRequest,
+  getSingleDonationRequest,
 );
 
 donorRouter.patch(
@@ -103,6 +110,12 @@ donorRouter.get(
   "/:id/claims/:claimId",
   validate(getSingleDonationClaimSchema),
   getSingleDonationClaim,
+);
+
+donorRouter.patch(
+  "/:id/claims/:claimId/cancel",
+  validate(cancelClaimSchema),
+  cancelClaim,
 );
 
 // Pickup Routes (Donor Perspective)

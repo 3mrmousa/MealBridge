@@ -288,9 +288,9 @@ export const sendCancelDeliveryRecipientMail = async (
     `Delivery Cancellation Request`,
     `
       <p style="margin-top: 0;">Hello ${recipientName},</p>
-      <p>The volunteer has requested to cancel the delivery for "<strong>${donationTitle}</strong>".</p>
+      <p>The volunteer has had an emergency and cancelled the delivery for "<strong>${donationTitle}</strong>".</p>
       ${reason ? `<p>Reason: ${reason}</p>` : ""}
-      <p>Your donation claim remains active. You can request another volunteer or arrange self-pickup once it is fully cancelled.</p>
+      <p>Your donation claim remains active. You can request another volunteer or arrange self-pickup.</p>
     `,
   );
 
@@ -310,6 +310,38 @@ export const sendCancelDeliveryRecipientMail = async (
   }
 };
 
+export const sendCancelDeliveryDonorMail = async (
+  email: string,
+  donorName: string,
+  donationTitle: string,
+  reason?: string,
+) => {
+  const html = baseEmailLayout(
+    `Delivery Cancellation Submitted`,
+    `
+      <p style="margin-top: 0;">Hello ${donorName},</p>
+      <p>The volunteer has had an emergency and cancelled the delivery for "<strong>${donationTitle}</strong>".</p>
+      ${reason ? `<p>Reason: ${reason}</p>` : ""}
+      <p>The donation claim remains active. The recipient may arrange self-pickup or request another volunteer.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Delivery Cancellation - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send delivery cancellation email to donor",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+
 export const sendCancelDeliveryVolunteerMail = async (
   email: string,
   volunteerName: string,
@@ -320,7 +352,7 @@ export const sendCancelDeliveryVolunteerMail = async (
     `Delivery Cancellation Submitted`,
     `
       <p style="margin-top: 0;">Hello ${volunteerName},</p>
-      <p>Your request to cancel the delivery for "<strong>${donationTitle}</strong>" has been submitted.</p>
+      <p>You have used your emergency cancellation to cancel the delivery for "<strong>${donationTitle}</strong>".</p>
       ${reason ? `<p>Reason provided: ${reason}</p>` : ""}
     `,
   );
@@ -340,3 +372,78 @@ export const sendCancelDeliveryVolunteerMail = async (
     );
   }
 };
+
+export const sendCreateDeliveryRequestVolunteerMail = async (
+  email: string,
+  volunteerName: string,
+  donationTitle: string,
+) => {
+  const html = baseEmailLayout(
+    `New Delivery Request!`,
+    `
+      <p style="margin-top: 0;">Hello ${volunteerName},</p>
+      <p>A recipient has requested your help to deliver "<strong>${donationTitle}</strong>".</p>
+      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #3b82f6;">
+          New Request
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          Please check your dashboard to accept or reject this request.
+        </p>
+      </div>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "New Delivery Request - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send delivery request email to volunteer",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+
+export const sendCancelDeliveryRequestVolunteerMail = async (
+  email: string,
+  volunteerName: string,
+  donationTitle: string,
+) => {
+  const html = baseEmailLayout(
+    `Delivery Request Withdrawn`,
+    `
+      <p style="margin-top: 0;">Hello ${volunteerName},</p>
+      <p>The pending delivery request for "<strong>${donationTitle}</strong>" has been withdrawn by the recipient.</p>
+      <div style="background-color: #f3f4f6; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #6b7280;">
+          Request Cancelled
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          You do not need to take any further action.
+        </p>
+      </div>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: "Delivery Request Withdrawn - MealBridge",
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send delivery request cancellation email to volunteer",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+

@@ -37,7 +37,7 @@ export const createDonationSchema = z.object({
     foodType: z.string().min(1, "Food Type is required"),
     quantity: z.number().min(1, "Quantity is required"),
     unit: z.string().min(1, "Unit is required"),
-    pickupAddress: z.string().min(1, "Pickup Address is required"),
+    pickupAddress: z.string().optional(),
     availableFrom: z.coerce.date({ error: "availableFrom Date is required" }),
     availableUntil: z.coerce.date({ error: "availableTo Date is required" }),
   }),
@@ -163,6 +163,16 @@ export const getSingleDonationClaimSchema = z.object({
   }),
 });
 
+export const cancelClaimSchema = z.object({
+  params: z.object({
+    id: z.string(),
+    claimId: z.string(),
+  }),
+  body: z.object({
+    reason: z.string().min(1, "Reason is required"),
+  }),
+});
+
 export type GetAllDonationClaimsParams = z.infer<
   typeof getAllDonationClaimsSchema
 >["params"];
@@ -172,3 +182,5 @@ export type GetAllDonationClaimsQuery = z.infer<
 export type GetSingleDonationClaimParams = z.infer<
   typeof getSingleDonationClaimSchema
 >["params"];
+export type CancelClaimParams = z.infer<typeof cancelClaimSchema>["params"];
+export type CancelClaimBody = z.infer<typeof cancelClaimSchema>["body"];

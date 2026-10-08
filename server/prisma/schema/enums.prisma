@@ -35,6 +35,7 @@ enum DonorOrganizationType {
   HOTEL
   CATERING
   GOVERNMENT
+  INDIVIDUAL
   OTHER
 
   @@map("donor_organization_type")
@@ -45,6 +46,7 @@ enum RecipientOrganizationType {
   COMMUNITY_CENTER
   CHARITY
   GOVERNMENT
+  INDIVIDUAL
   OTHER
 
   @@map("recipient_organization_type")
@@ -98,18 +100,11 @@ enum DeliveryRequestStatus {
 
 enum DeliveryStatus {
   PENDING
+  PICKED_UP
   CANCELLED
   COMPLETED
 
   @@map("delivery_status")
-}
-
-enum CancelRequestStatus {
-  PENDING
-  ACCEPTED
-  REJECTED
-
-  @@map("cancel_request_status")
 }
 
 // Last added

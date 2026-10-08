@@ -112,11 +112,7 @@ enum DeliveryStatus {
     COMPLETED
 }
 
-enum CancelRequestStatus {
-    PENDING
-    ACCEPTED
-    REJECTED
-}
+
 
 enum ConversationType {
     DONOR_RECIPIENT
@@ -236,6 +232,8 @@ entity DonationClaim {
 
     collectedAt : DateTime <<NULLABLE>>
     status : ClaimStatus
+    canceledBy : Role <<NULLABLE>>
+    canceledReason : String <<NULLABLE>>
     createdAt : DateTime
     updatedAt : DateTime
 }
@@ -250,10 +248,9 @@ entity Delivery {
     notes : String <<NULLABLE>>
     completedAt : DateTime <<NULLABLE>>
     status : DeliveryStatus
-    cancelRequestedBy : Role <<NULLABLE>>
-    cancelRequestedAt : DateTime <<NULLABLE>>
-    cancelRequestedReason : String <<NULLABLE>>
-    cancelRequestStatus : CancelRequestStatus <<NULLABLE>>
+    canceledBy : Role <<NULLABLE>>
+    canceledAt : DateTime <<NULLABLE>>
+    canceledReason : String <<NULLABLE>>
     createdAt : DateTime
     updatedAt : DateTime
 }

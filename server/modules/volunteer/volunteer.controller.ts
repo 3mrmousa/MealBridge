@@ -3,20 +3,16 @@ import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { AuthRequest } from "../auth/auth.types.js";
 import {
   acceptDeliveryRequestService,
-  cancelDeliveryService,
   completeDeliveryService,
   emergencyCancelDeliveryService,
-  getAllCancelDeliveriesService,
   getAllDeliveriesService,
   getDeliveryRequestsService,
+  pickupDeliveryService,
   rejectDeliveryRequestService,
-  singleCancelDeliveryService,
   singleDeliveryService,
 } from "./volunteer.service.js";
 import type {
-  CancelDeliveryBody,
   GetAllDeliveriesQuery,
-  GetCancelDeliveriesQuery,
   GetDeliveryRequestsQuery,
   SingleIdRequestParams,
 } from "./volunteer.zod.js";
@@ -140,55 +136,33 @@ export const emergencyCancelDelivery = asyncHandler(
   },
 );
 
-export const getAllCancelDeliveries = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { sortBy, sortOrder, cancelRequestedBy, limit, page } =
-      req.query as GetCancelDeliveriesQuery;
 
-    const result = await getAllCancelDeliveriesService(userId, {
-      sortBy,
-      sortOrder,
-      cancelRequestedBy,
-      limit,
-      page,
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Delivery cancellation requests fetched successfully",
-      data: result.cancelDeliveries,
-      pagination: result.pagination,
-    });
-  },
-);
-
-export const singleCancelDelivery = asyncHandler(
-  async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
-    const { id } = req.params as SingleIdRequestParams;
-
-    const delivery = await singleCancelDeliveryService(id, userId);
-
-    res.status(200).json({
-      success: true,
-      message: "Delivery cancellation request fetched successfully",
-      data: delivery,
-    });
-  },
-);
 
 export const cancelDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userRole = req.user!.role;
+    const userId = req.user!.id;
     const { id } = req.params as SingleIdRequestParams;
-    const { reason } = req.body as CancelDeliveryBody;
-
-    await cancelDeliveryService(id, userRole, reason);
+    const { reason } = req.body as { reason?: string };
+    await emergencyCancelDeliveryService(id, userId, reason);
 
     res.status(200).json({
       success: true,
-      message: "Delivery cancellation request submitted successfully",
+      message: "Emergency delivery cancellation submitted successfully",
+    });
+  },
+);
+
+export const pickupDelivery = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id } = req.params as SingleIdRequestParams;
+
+    const delivery = await pickupDeliveryService(userId, id);
+
+    res.status(200).json({
+      success: true,
+      message: "Delivery marked as picked up successfully",
+      data: delivery,
     });
   },
 );

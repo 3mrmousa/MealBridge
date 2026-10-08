@@ -4,19 +4,16 @@ import {
   acceptDeliveryRequest,
   cancelDelivery,
   completeDelivery,
-  emergencyCancelDelivery,
-  getAllCancelDeliveries,
   getAllDeliveries,
   getDeliveryRequests,
   rejectDeliveryRequest,
-  singleCancelDelivery,
   singleDelivery,
+  pickupDelivery,
 } from "./volunteer.controller.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
 import {
   getAllDeliveriesSchema,
-  getCancelDeliveriesSchema,
   getDeliveryRequestsSchema,
   singleIdRequestSchema,
 } from "./volunteer.zod.js";
@@ -60,19 +57,11 @@ volunteerRouter.get(
   singleDelivery,
 );
 
-volunteerRouter.get(
-  "/deliveries/cancel-requests",
-  validate(getCancelDeliveriesSchema),
-  getAllCancelDeliveries,
-);
-
-volunteerRouter.get(
-  "/deliveries/:id/cancel-request",
+volunteerRouter.patch(
+  "/deliveries/:id/pickup",
   validate(singleIdRequestSchema),
-  singleCancelDelivery,
+  pickupDelivery,
 );
-
-
 
 volunteerRouter.patch(
   "/deliveries/:id/complete",
@@ -81,13 +70,7 @@ volunteerRouter.patch(
 );
 
 volunteerRouter.patch(
-  "/deliveries/:id/emergency-cancel",
-  validate(singleIdRequestSchema),
-  emergencyCancelDelivery,
-);
-
-volunteerRouter.patch(
-  "/deliveries/:id/cancel-request",
+  "/deliveries/:id/cancel",
   validate(singleIdRequestSchema),
   cancelDelivery
 );
