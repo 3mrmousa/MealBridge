@@ -6,9 +6,16 @@ import {
   DonationStatus,
   PickupMethod,
   Role,
+  type DonationClaim,
   type Prisma,
 } from "@prisma/client";
 import prisma from "../../database/index.js";
+import {
+  donorWithUser,
+  recipientOnly,
+  recipientWithUser,
+  volunteerWithUser,
+} from "../../database/selectors.js";
 import AppError from "../../utils/errors/AppError.js";
 import type {
   GetAllDonationsQuery,
@@ -374,9 +381,7 @@ export const getDonationByIdService = async (donationId: string) => {
     },
     include: {
       donor: {
-        include: {
-          user: true,
-        },
+        select: donorWithUser,
       },
     },
   });
@@ -472,7 +477,9 @@ export const cancelClaimService = async (
         recipientId,
       },
       include: {
-        recipient: true,
+        recipient: {
+          select: recipientOnly,
+        },
         deliveryRequests: true,
       },
     });
@@ -558,7 +565,7 @@ export const cancelClaimService = async (
         });
 
         await tx.volunteerProfile.update({
-          where: { userId: delivery.volunteerId },
+          where: { id: delivery.volunteerId },
           data: { availabilityStatus: true },
         });
       }
@@ -623,6 +630,81 @@ export const cancelClaimService = async (
   }
 };
 
+export const selfPickupClaimService = async (
+  recipientId: string,
+  claimId: string,
+) => {
+  const existingClaim = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "donation_claim"
+      WHERE id = ${claimId}::uuid
+      FOR UPDATE
+    `;
+
+    const claim = await tx.donationClaim.findUnique({
+      where: { id: claimId },
+      include: {
+        recipient: {
+          select: { userId: true },
+        },
+      },
+    });
+
+    if (!claim) {
+      throw new AppError("Claim not found", 404);
+    }
+    if (
+      claim.recipientId !== recipientId &&
+      claim.recipient.userId !== recipientId
+    ) {
+      throw new AppError("Unauthorized", 401);
+    }
+    if (claim.status !== ClaimStatus.ACTIVE) {
+      throw new AppError(
+        "Claim is not active, you can't pick up this donation",
+        400,
+      );
+    }
+    if (claim.pickupMethod !== PickupMethod.SELF) {
+      throw new AppError(
+        "You can't pick up this donation, it is not a self-pickup",
+        400,
+      );
+    }
+    if (claim.pickupDeadline && claim.pickupDeadline < new Date(Date.now())) {
+      throw new AppError("Pickup deadline has passed", 400);
+    }
+
+    const updatedClaim = await tx.donationClaim.update({
+      where: { id: claimId },
+      data: { status: ClaimStatus.COMPLETED },
+    });
+
+    const pendingClaimsCount = await tx.donationClaim.count({
+      where: {
+        donationId: claim.donationId,
+        status: { not: ClaimStatus.COMPLETED },
+      },
+    });
+
+    const donation = await tx.donation.findUnique({
+      where: { id: claim.donationId },
+      select: { quantity: true },
+    });
+
+    if (donation && donation.quantity === 0 && pendingClaimsCount === 0) {
+      await tx.donation.update({
+        where: { id: claim.donationId },
+        data: { status: DonationStatus.COMPLETED },
+      });
+    }
+
+    return updatedClaim;
+  });
+
+  return existingClaim;
+};
+
 // Delivery & Volunteer Services
 
 export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
@@ -636,6 +718,7 @@ export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
 
   const where: Prisma.VolunteerProfileWhereInput = {
     availabilityStatus: true,
+    verificationStatus: true,
   };
 
   const [volunteers, totalVolunteers] = await prisma.$transaction([
@@ -644,9 +727,7 @@ export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
       take: limit,
       skip,
       orderBy: { [sortBy]: sortOrder },
-      include: {
-        user: { select: { name: true, email: true, phone: true } },
-      },
+      select: volunteerWithUser,
     }),
     prisma.volunteerProfile.count({ where }),
   ]);
@@ -663,11 +744,9 @@ export const getAllVolunteersService = async (query: GetVolunteersQuery) => {
 };
 
 export const getVolunteerByIdService = async (volunteerId: string) => {
-  const volunteer = await prisma.volunteerProfile.findUnique({
-    where: { id: volunteerId },
-    include: {
-      user: { select: { name: true, email: true, phone: true } },
-    },
+  const volunteer = await prisma.volunteerProfile.findFirst({
+    where: { id: volunteerId, verificationStatus: true },
+    select: volunteerWithUser,
   });
 
   if (!volunteer) {
@@ -748,7 +827,9 @@ export const createDeliveryRequestService = async (
       where: { id: claimId, recipientId },
       include: {
         donation: true,
-        recipient: true,
+        recipient: {
+          select: recipientOnly,
+        },
       },
     });
 
@@ -791,6 +872,10 @@ export const createDeliveryRequestService = async (
       throw new AppError("Volunteer not found", 404);
     }
 
+    if (!volunteer.verificationStatus) {
+      throw new AppError("Volunteer is not verified", 400);
+    }
+
     if (!volunteer.availabilityStatus) {
       throw new AppError("Volunteer is not currently available", 400);
     }
@@ -804,7 +889,12 @@ export const createDeliveryRequestService = async (
       },
       include: {
         donationClaim: { include: { donation: true } },
-        volunteer: { select: { userId: true, user: { select: { email: true, name: true } } } },
+        volunteer: {
+          select: {
+            userId: true,
+            user: { select: { email: true, name: true } },
+          },
+        },
       },
     });
 
@@ -855,9 +945,14 @@ export const cancelDeliveryRequestService = async (
       where: { id: requestId },
       data: { status: "CANCELLED" },
       include: {
-        volunteer: { select: { userId: true, user: { select: { email: true, name: true } } } },
+        volunteer: {
+          select: {
+            userId: true,
+            user: { select: { email: true, name: true } },
+          },
+        },
         donationClaim: { include: { donation: { select: { title: true } } } },
-      }
+      },
     });
 
     return updatedRequest;
@@ -948,7 +1043,15 @@ export const getSingleDeliveriesService = async (
         select: { user: { select: { name: true, phone: true, email: true } } },
       },
       donationClaim: {
-        include: { donation: { include: { donor: true } } },
+        include: {
+          donation: {
+            include: {
+              donor: {
+                select: donorWithUser,
+              },
+            },
+          },
+        },
       },
     },
   });
@@ -980,7 +1083,9 @@ export const markDeliveryAsReceivedService = async (
       where: { id: deliveryId, recipientId },
       include: {
         donationClaim: { include: { donation: true } },
-        volunteer: { include: { user: true } },
+        volunteer: {
+          select: volunteerWithUser,
+        },
       },
     });
 
@@ -1047,9 +1152,13 @@ export const cancelDeliveryService = async (
     const existingDelivery = await tx.delivery.findUnique({
       where: { id: deliveryId, recipientId },
       include: {
-        volunteer: { include: { user: true } },
+        volunteer: {
+          select: volunteerWithUser,
+        },
         donationClaim: { include: { donation: true } },
-        recipient: { include: { user: true } },
+        recipient: {
+          select: recipientWithUser,
+        },
       },
     });
 
@@ -1078,7 +1187,7 @@ export const cancelDeliveryService = async (
     });
 
     await tx.volunteerProfile.update({
-      where: { userId: existingDelivery.volunteerId },
+      where: { id: existingDelivery.volunteerId },
       data: { availabilityStatus: true },
     });
     return existingDelivery;
@@ -1086,7 +1195,7 @@ export const cancelDeliveryService = async (
 
   try {
     await createNotificationService(
-      existingDelivery.volunteerId,
+      existingDelivery.volunteer.userId,
       "Delivery Cancelled",
       `The recipient has cancelled the delivery for ${existingDelivery.donationClaim.donation.title}. You are now available for other deliveries.`,
     );
@@ -1095,7 +1204,7 @@ export const cancelDeliveryService = async (
   }
   try {
     await createNotificationService(
-      existingDelivery.recipientId,
+      existingDelivery.recipient.userId,
       "Delivery Cancelled",
       `You cancelled the delivery for ${existingDelivery.donationClaim.donation.title}.`,
     );

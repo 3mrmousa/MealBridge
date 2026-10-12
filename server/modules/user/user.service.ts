@@ -1,11 +1,14 @@
 import prisma from "../../database/index.js";
-import { Prisma } from "@prisma/client";
+import { DonorOrganizationType, Prisma } from "@prisma/client";
 import AppError from "../../utils/errors/AppError.js";
 import {
   uploadPFPToCloudinary,
   uploadVerificationDocsToCloudinary,
 } from "../../utils/cloudinary/uploadImage.js";
 import type {
+  CreateDonorInput,
+  CreateRecipientInput,
+  CreateVolunteerInput,
   UpdateDonorInput,
   UpdateRecipientInput,
   UpdateVolunteerInput,
@@ -40,18 +43,56 @@ export const getUserProfileService = async (userId: string) => {
   return user;
 };
 
+// donor profile services
+
+export const createDonorProfileService = async (
+  userId: string,
+  data: CreateDonorInput,
+) => {
+  const { organizationName, organizationType, otherOrganizationType ,address } = data;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      donorProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (existingUser.donorProfile) {
+    throw new AppError("Profile already exists", 400);
+  }
+
+  if (organizationType === DonorOrganizationType.OTHER && !otherOrganizationType) {
+    throw new AppError("Please provide other organization type", 400);
+  }
+
+  await prisma.donorProfile.create({
+    data: {
+      userId,
+      organizationName,
+      organizationType,
+      address,
+      verificationStatus: false,
+    },
+  });
+};
+
 export const updateDonorProfileService = async (
   userId: string,
   data: UpdateDonorInput,
 ) => {
-  const { name, phone, ...profileData } = data;
+  const { name, phone, address, organizationName, organizationType } = data;
 
   const existingProfile = await prisma.donorProfile.findUnique({
     where: { userId },
   });
 
-  if (!existingProfile &&  !profileData.address) {
-    throw new AppError("Address is required to complete your profile setup", 400);
+  if (!existingProfile) {
+    throw new AppError("Please complete your profile setup first", 404);
   }
 
   await prisma.user.update({
@@ -60,14 +101,45 @@ export const updateDonorProfileService = async (
       name,
       phone,
       donorProfile: {
-        upsert: {
-          update: profileData,
-          create: {
-            ...profileData,
-            address: profileData.address!,
-          },
+        update: {
+          address,
+          organizationName,
+          organizationType,
         },
       },
+    },
+  });
+};
+
+// recipient profile services
+
+export const createRecipientProfileService = async (
+  userId: string,
+  data: CreateRecipientInput,
+) => {
+  const { address, organizationName, organizationType } = data;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      recipientProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (existingUser.recipientProfile) {
+    throw new AppError("Profile already exists", 400);
+  }
+
+  await prisma.recipientProfile.create({
+    data: {
+      userId,
+      address,
+      organizationName,
+      organizationType,
     },
   });
 };
@@ -76,14 +148,14 @@ export const updateRecipientProfileService = async (
   userId: string,
   data: UpdateRecipientInput,
 ) => {
-  const { name, phone, ...profileData } = data;
+  const { name, phone, address, organizationName, organizationType } = data;
 
   const existingProfile = await prisma.recipientProfile.findUnique({
     where: { userId },
   });
 
-  if (!existingProfile && !profileData.address) {
-    throw new AppError("Address is required to complete your profile setup", 400);
+  if (!existingProfile) {
+    throw new AppError("Please complete your profile setup first", 404);
   }
 
   await prisma.user.update({
@@ -92,15 +164,49 @@ export const updateRecipientProfileService = async (
       name,
       phone,
       recipientProfile: {
-        upsert: {
-          update: profileData,
-          create: {
-            ...profileData,
-            address: profileData.address!,
-          },
+        update: {
+          address,
+          organizationName,
+          organizationType,
         },
       },
     },
+  });
+};
+
+// volunteer profile services
+
+export const createVolunteerProfileService = async (
+  userId: string,
+  data: CreateVolunteerInput,
+) => {
+  const { address, type, transportType, availabilityStatus, } = data;
+
+  const existingUser = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      volunteerProfile: true,
+    },
+  });
+
+  if (!existingUser) {
+    throw new AppError("User not found", 404);
+  }
+
+  if (existingUser.volunteerProfile) {
+    throw new AppError("Profile already exists", 400);
+  }
+
+  const volunteerData: Prisma.VolunteerProfileUncheckedCreateInput = {
+    userId,
+    address,
+    type,
+    transportType,
+    availabilityStatus: availabilityStatus || false,
+  };
+
+  await prisma.volunteerProfile.create({
+    data: volunteerData,
   });
 };
 
@@ -108,16 +214,15 @@ export const updateVolunteerProfileService = async (
   userId: string,
   data: UpdateVolunteerInput,
 ) => {
-  const { name, phone, ...profileData } = data;
+  const { name, phone, address, type, transportType, availabilityStatus } =
+    data;
 
   const existingProfile = await prisma.volunteerProfile.findUnique({
     where: { userId },
   });
 
   if (!existingProfile) {
-    if (!profileData.address) throw new AppError("Address is required to complete your profile setup", 400);
-    if (!profileData.type) throw new AppError("Type is required to complete your profile setup", 400);
-    if (!profileData.transportType) throw new AppError("Transport Type is required to complete your profile setup", 400);
+    throw new AppError("Please complete your profile setup first", 404);
   }
 
   await prisma.user.update({
@@ -126,19 +231,18 @@ export const updateVolunteerProfileService = async (
       name,
       phone,
       volunteerProfile: {
-        upsert: {
-          update: profileData,
-          create: {
-            ...profileData,
-            address: profileData.address!,
-            type: profileData.type!,
-            transportType: profileData.transportType!,
-          },
+        update: {
+          address,
+          type,
+          transportType,
+          availabilityStatus,
         },
       },
     },
   });
 };
+
+// -----
 
 export const updateProfilePictureService = async (
   userId: string,
@@ -354,7 +458,11 @@ export const deleteVerificationDocumentService = async (
   role: Role,
   public_id: string,
 ) => {
-  if (role !== Role.DONOR && role !== Role.RECIPIENT && role !== Role.VOLUNTEER) {
+  if (
+    role !== Role.DONOR &&
+    role !== Role.RECIPIENT &&
+    role !== Role.VOLUNTEER
+  ) {
     throw new AppError("Not allowed operation", 404);
   }
 

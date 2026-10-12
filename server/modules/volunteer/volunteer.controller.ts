@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
-import type { AuthRequest } from "../auth/auth.types.js";
+import type { AuthRequest } from "../../utils/types/AuthRequest.js";
 import {
   acceptDeliveryRequestService,
   completeDeliveryService,

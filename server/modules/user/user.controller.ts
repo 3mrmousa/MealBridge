@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
-import type { AuthRequest } from "../auth/auth.types.js";
+import type { AuthRequest } from "../../utils/types/AuthRequest.js";
 import AppError from "../../utils/errors/AppError.js";
 import {
   getUserProfileService,
@@ -16,6 +16,9 @@ import {
   currentEmailOtpVerificationService,
   newEmailOtpVerificationAndChangeService,
   changePhoneService,
+  createDonorProfileService,
+  createRecipientProfileService,
+  createVolunteerProfileService,
 } from "./user.service.js";
 import {
   updateDonorProfileSchema,
@@ -24,6 +27,9 @@ import {
   type ChangeEmailRequestInput,
   type ChangePasswordInput,
   type ChangePhoneInput,
+  type CreateDonorInput,
+  type CreateRecipientInput,
+  type CreateVolunteerInput,
   type DeleteImageInput,
   type OtpInput,
   type UpdateDonorInput,
@@ -45,76 +51,109 @@ export const getUserProfile = asyncHandler(
   },
 );
 
-export const updateProfile = asyncHandler(
+// Donor profile
+
+export const createDonorProfile = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const userId = req.user!.id;
     const role = req.user!.role;
 
-    if (role === Role.DONOR) {
-      const {
-        name,
-        phone,
-        organizationName,
-        organizationType,
-        address,
-        verificationDocument,
-      } = req.body as UpdateDonorInput;
-      const validatedData = updateDonorProfileSchema.parse({
-        body: {
-          name,
-          phone,
-          organizationName,
-          organizationType,
-          address,
-          verificationDocument,
-        },
-      });
-      await updateDonorProfileService(userId, validatedData.body);
-    } else if (role === Role.RECIPIENT) {
-      const {
-        name,
-        phone,
-        organizationName,
-        organizationType,
-        address,
-        verificationDocument,
-      } = req.body as UpdateRecipientInput;
-      const validatedData = updateRecipientProfileSchema.parse({
-        body: {
-          name,
-          phone,
-          organizationName,
-          organizationType,
-          address,
-          verificationDocument,
-        },
-      });
-      await updateRecipientProfileService(userId, validatedData.body);
-    } else if (role === Role.VOLUNTEER) {
-      const {
-        name,
-        phone,
-        address,
-        type,
-        transportType,
-        availabilityStatus,
-        verificationDocument,
-      } = req.body as UpdateVolunteerInput;
-      const validatedData = updateVolunteerProfileSchema.parse({
-        body: {
-          name,
-          phone,
-          address,
-          type,
-          transportType,
-          availabilityStatus,
-          verificationDocument,
-        },
-      });
-      await updateVolunteerProfileService(userId, validatedData.body);
-    } else {
+    if (role !== Role.DONOR)
+      throw new AppError("You can't create this type of profile", 401);
+
+    const donorData = req.body as CreateDonorInput;
+    await createDonorProfileService(userId, donorData);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donor profile created successfully.",
+    });
+  },
+);
+export const updateDonorProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    if (role !== Role.DONOR)
       throw new AppError("You can't edit this type of profile", 401);
-    }
+
+    const validatedData = req.body as UpdateDonorInput;
+    await updateDonorProfileService(userId, validatedData);
+
+    res.status(200).json({
+      status: "success",
+      message: "Donor profile updated successfully.",
+    });
+  },
+);
+
+// Recipient profile
+
+export const createRecipientProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    if (role !== Role.RECIPIENT)
+      throw new AppError("You can't create this type of profile", 401);
+
+    const recipientData = req.body as CreateRecipientInput;
+    await createRecipientProfileService(userId, recipientData);
+
+    res.status(200).json({
+      status: "success",
+      message: "Recipient profile created successfully.",
+    });
+  },
+);
+export const updateRecipientProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    if (role !== Role.RECIPIENT)
+      throw new AppError("You can't edit this type of profile", 401);
+
+    const validatedData = req.body as UpdateRecipientInput;
+    await updateRecipientProfileService(userId, validatedData);
+
+    res.status(200).json({
+      status: "success",
+      message: "Profile Updated.",
+    });
+  },
+);
+
+// volunteer profile
+
+export const createVolunteerProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    if (role !== Role.VOLUNTEER)
+      throw new AppError("You can't create this type of profile", 401);
+
+    const volunteerData = req.body as CreateVolunteerInput;
+    await createVolunteerProfileService(userId, volunteerData);
+
+    res.status(200).json({
+      status: "success",
+      message: "Volunteer profile created successfully.",
+    });
+  },
+);
+export const updateVolunteerProfile = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const role = req.user!.role;
+
+    if (role !== Role.VOLUNTEER)
+      throw new AppError("You can't edit this type of profile", 401);
+
+    const validatedData = req.body as UpdateVolunteerInput;
+    await updateVolunteerProfileService(userId, validatedData);
 
     res.status(200).json({
       status: "success",

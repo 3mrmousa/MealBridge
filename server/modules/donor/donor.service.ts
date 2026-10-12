@@ -10,6 +10,12 @@ import {
   type Donation,
 } from "@prisma/client";
 import prisma from "../../database/index.js";
+import {
+  donorOnly,
+  donorWithUser,
+  recipientOnly,
+  recipientWithUser,
+} from "../../database/selectors.js";
 import { uploadDonationPicsToCloudinary } from "../../utils/cloudinary/uploadImage.js";
 import AppError from "../../utils/errors/AppError.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary/deleteImage.js";
@@ -371,7 +377,11 @@ export const getDonationRequestsService = async (
       take: limit,
       skip,
       orderBy: { [sortBy]: sortOrder },
-      include: { recipient: { include: { user: true } } },
+      include: {
+        recipient: {
+          select: recipientWithUser,
+        },
+      },
     }),
     prisma.donationRequest.count({
       where,
@@ -404,7 +414,11 @@ export const getSingleDonationRequestService = async (
 
   const request = await prisma.donationRequest.findUnique({
     where: { id: requestId, donationId },
-    include: { recipient: { include: { user: true } } },
+    include: {
+      recipient: {
+        select: recipientWithUser,
+      },
+    },
   });
 
   if (!request) {
@@ -436,9 +450,7 @@ export const acceptDonationRequestService = async (
       where: { id: donationId, donorId },
       include: {
         donor: {
-          include: {
-            user: { select: { name: true, email: true } },
-          },
+          select: donorWithUser,
         },
       },
     });
@@ -457,7 +469,7 @@ export const acceptDonationRequestService = async (
       where: { id: requestId, donationId },
       include: {
         recipient: {
-          include: { user: { select: { name: true, email: true } } },
+          select: recipientWithUser,
         },
       },
     });
@@ -511,7 +523,7 @@ export const acceptDonationRequestService = async (
       data: {
         quantity: remainingQuantity,
         ...(remainingQuantity === 0
-          ? { status: DonationStatus.COMPLETED }
+          ? { status: DonationStatus.CLAIMED }
           : {}),
       },
     });
@@ -585,7 +597,9 @@ export const rejectDonationRequestService = async (
     const donation = await tx.donation.findUnique({
       where: { id: donationId, donorId },
       include: {
-        donor: { include: { user: { select: { name: true, email: true } } } },
+        donor: {
+          select: donorWithUser,
+        },
       },
     });
 
@@ -597,7 +611,7 @@ export const rejectDonationRequestService = async (
       where: { id: requestId, donationId },
       include: {
         recipient: {
-          include: { user: { select: { name: true, email: true } } },
+          select: recipientWithUser,
         },
       },
     });
@@ -685,7 +699,11 @@ export const getAllDonationClaimsService = async (
       take: limit,
       skip,
       orderBy: { [sortBy]: sortOrder },
-      include: { recipient: true },
+      include: {
+        recipient: {
+          select: recipientOnly,
+        },
+      },
     }),
     prisma.donationClaim.count({ where }),
   ]);
@@ -737,10 +755,18 @@ export const cancelClaimService = async (
       },
       include: {
         donation: {
-          include: { donor: true },
+          include: {
+            donor: {
+              select: donorOnly,
+            },
+          },
         },
         recipient: {
-          select: { organizationName: true, userId: true, user: { select: { email: true } } },
+          select: {
+            organizationName: true,
+            userId: true,
+            user: { select: { email: true } },
+          },
         },
         deliveryRequests: true,
       },
@@ -808,13 +834,15 @@ export const cancelClaimService = async (
         },
         data: { status: DeliveryStatus.CANCELLED },
         include: {
-          volunteer: { select: { userId: true, user: { select: { email: true } } } },
+          volunteer: {
+            select: { userId: true, user: { select: { email: true } } },
+          },
         },
       });
 
       await tx.volunteerProfile.update({
         where: {
-          userId: delivery.volunteerId,
+          id: delivery.volunteerId,
         },
         data: {
           availabilityStatus: true,

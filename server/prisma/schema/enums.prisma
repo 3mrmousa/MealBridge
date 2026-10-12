@@ -56,6 +56,7 @@ enum RecipientOrganizationType {
 
 enum DonationStatus {
   AVAILABLE
+  CLAIMED
   COMPLETED
   CANCELLED
   EXPIRED

@@ -9,21 +9,33 @@ import {
   changeEmailRequest,
   changePassword,
   changePhone,
+  // createProfile,
   currentEmailOtpVerification,
   deleteProfilePicture,
   deleteVerificationDocument,
   getUserProfile,
   newEmailOtpVerificationAndChange,
-  updateProfile,
+  updateDonorProfile,
+  updateRecipientProfile,
+  updateVolunteerProfile,
   updateProfilePicture,
   updateVerificationDocument,
+  createDonorProfile,
+  createRecipientProfile,
+  createVolunteerProfile,
 } from "./user.controller.js";
 import {
   ChangeEmailRequestSchema,
   changePasswordSchema,
   changePhoneSchema,
+  createDonorProfileSchema,
+  createRecipientProfileSchema,
+  createVolunteerProfileSchema,
   deleteImageSchema,
   otpSchema,
+  updateDonorProfileSchema,
+  updateRecipientProfileSchema,
+  updateVolunteerProfileSchema,
 } from "./user.zod.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 
@@ -33,8 +45,27 @@ userRouter.use(protect);
 
 // Profile routes
 
-// patch route it for create or update
-userRouter.route("/profile").get(getUserProfile).patch(updateProfile);
+userRouter.route("/profile").get(getUserProfile);
+
+userRouter.post("/createProfile/donor", validate(createDonorProfileSchema), createDonorProfile);
+userRouter.post("/createProfile/recipient", validate(createRecipientProfileSchema), createRecipientProfile);
+userRouter.post("/createProfile/volunteer", validate(createVolunteerProfileSchema), createVolunteerProfile);
+
+userRouter.patch(
+  "/profile/donor",
+  validate(updateDonorProfileSchema),
+  updateDonorProfile,
+);
+userRouter.patch(
+  "/profile/recipient",
+  validate(updateRecipientProfileSchema),
+  updateRecipientProfile,
+);
+userRouter.patch(
+  "/profile/volunteer",
+  validate(updateVolunteerProfileSchema),
+  updateVolunteerProfile,
+);
 
 userRouter
   .route("/profile/profile-picture")

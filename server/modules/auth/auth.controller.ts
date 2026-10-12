@@ -1,4 +1,4 @@
-import type { AuthRequest } from "./auth.types.js";
+import type { AuthRequest } from "../../utils/types/AuthRequest.js";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
 import type { Request, Response } from "express";
 import type {
@@ -38,7 +38,7 @@ export const registerRequest = asyncHandler(
     res.status(200).json({
       status: "success",
       message:
-        "OTP sent to email. Check your email or spam or try again after 10 minutes.",
+        "OTP sent to your email. Check your email or spam or try again after 10 minutes.",
     });
   },
 );

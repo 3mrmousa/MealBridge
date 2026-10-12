@@ -96,7 +96,12 @@ export const cancelClaimSchema = z.object({
     reason: z.string().min(1, "Reason is required"),
   }),
 });
-export const cancleClaimSchema = cancelClaimSchema;
+
+export const selfPickupClaimSchema = z.object({
+  params: z.object({
+    id: z.string(),
+  }),
+});
 
 // Delivery & Volunteer Routes (Recipient Perspective) Schemas
 
@@ -211,7 +216,10 @@ export type GetClaimByIdParams = z.infer<typeof getClaimByIdSchema>["params"];
 
 export type CancelClaimParams = z.infer<typeof cancelClaimSchema>["params"];
 export type CancelClaimBody = z.infer<typeof cancelClaimSchema>["body"];
-export type CancleClaimParams = CancelClaimParams;
+
+export type SelfPickupClaimParams = z.infer<
+  typeof selfPickupClaimSchema
+>["params"];
 
 // Delivery Request Routes (Recipient Perspective) Types
 

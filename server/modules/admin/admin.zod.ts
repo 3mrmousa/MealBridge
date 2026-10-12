@@ -12,7 +12,7 @@ export const userAcceptVerificationStatusSchema = z.object({
     id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
-    role: z.nativeEnum(Role),
+    role: z.enum([Role.DONOR, Role.RECIPIENT, Role.VOLUNTEER]),
   }),
 });
 
@@ -21,7 +21,7 @@ export const userRejectVerificationStatusSchema = z.object({
     id: z.string().uuid({ message: "Invalid ID format" }),
   }),
   body: z.object({
-    role: z.nativeEnum(Role),
+    role: z.enum([Role.DONOR, Role.RECIPIENT, Role.VOLUNTEER]),
     rejectReason: z.string().optional(),
   }),
 });

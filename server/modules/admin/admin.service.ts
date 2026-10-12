@@ -7,22 +7,19 @@ import {
 } from "../../utils/mail/email.service.js";
 import { hashPassword } from "../../utils/password/passwordFunctions.js";
 import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
-import type { Role } from "@prisma/client";
+import { Role } from "@prisma/client";
 import { createNotificationService } from "../notification/notification.service.js";
+import { userOnly, userWithProfiles } from "../../database/selectors.js";
 
 export const getAllUsersService = async () => {
-  const users = await prisma.user.findMany();
+  const users = await prisma.user.findMany({ select: userOnly });
 
   return users;
 };
 
 export const getAllUsersWithProfileService = async () => {
   const users = await prisma.user.findMany({
-    include: {
-      donorProfile: true,
-      recipientProfile: true,
-      volunteerProfile: true,
-    },
+    select: userWithProfiles,
   });
 
   const donors = users.filter((user) => user.role === "DONOR");
@@ -35,11 +32,7 @@ export const getAllUsersWithProfileService = async () => {
 export const getSingleUserByIdService = async (id: string) => {
   const user = await prisma.user.findUnique({
     where: { id },
-    include: {
-      donorProfile: true,
-      recipientProfile: true,
-      volunteerProfile: true,
-    },
+    select: userWithProfiles,
   });
 
   return user;
@@ -49,45 +42,55 @@ export const AcceptUserVerificationStatusService = async (
   id: string,
   role: Role,
 ) => {
-  if (role === "ADMIN" || role === "MANAGER") {
+  if (role === Role.ADMIN || role === Role.MANAGER) {
     throw new AppError(
       "You are an admin or manager, you cannot be verified",
       400,
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      donorProfile: role === "DONOR",
-      recipientProfile: role === "RECIPIENT",
-      volunteerProfile: role === "VOLUNTEER",
-    },
+  const user = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "users"
+      WHERE id = ${id}::uuid
+      FOR UPDATE
+    `;
+
+    const user = await tx.user.findUnique({
+      where: { id },
+      include: {
+        donorProfile: role === Role.DONOR,
+        recipientProfile: role === Role.RECIPIENT,
+        volunteerProfile: role === Role.VOLUNTEER,
+      },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (role === Role.DONOR) {
+      if (!user.donorProfile) throw new AppError("User has no profile", 404);
+      await tx.donorProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: true },
+      });
+    } else if (role === Role.RECIPIENT) {
+      if (!user.recipientProfile) throw new AppError("User has no profile", 404);
+      await tx.recipientProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: true },
+      });
+    } else if (role === Role.VOLUNTEER) {
+      if (!user.volunteerProfile) throw new AppError("User has no profile", 404);
+      await tx.volunteerProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: true },
+      });
+    }
+
+    return user;
   });
-
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
-
-  if (role === "DONOR") {
-    if (!user.donorProfile) throw new AppError("User has no profile", 404);
-    await prisma.donorProfile.update({
-      where: { userId: id },
-      data: { verificationStatus: !user.donorProfile.verificationStatus },
-    });
-  } else if (role === "RECIPIENT") {
-    if (!user.recipientProfile) throw new AppError("User has no profile", 404);
-    await prisma.recipientProfile.update({
-      where: { userId: id },
-      data: { verificationStatus: !user.recipientProfile.verificationStatus },
-    });
-  } else if (role === "VOLUNTEER") {
-    if (!user.volunteerProfile) throw new AppError("User has no profile", 404);
-    await prisma.volunteerProfile.update({
-      where: { userId: id },
-      data: { verificationStatus: !user.volunteerProfile.verificationStatus },
-    });
-  }
 
   await sendVerificationStatusChangeMail(
     user.email,
@@ -108,25 +111,55 @@ export const RejectUserVerificationStatusService = async (
   role: Role,
   rejectionReason?: string,
 ) => {
-  if (role === "ADMIN" || role === "MANAGER") {
+  if (role === Role.ADMIN || role === Role.MANAGER) {
     throw new AppError(
       "You are an admin or manager, you cannot be verified",
       400,
     );
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id },
-    include: {
-      donorProfile: role === "DONOR",
-      recipientProfile: role === "RECIPIENT",
-      volunteerProfile: role === "VOLUNTEER",
-    },
-  });
+  const user = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT id FROM "users"
+      WHERE id = ${id}::uuid
+      FOR UPDATE
+    `;
 
-  if (!user) {
-    throw new AppError("User not found", 404);
-  }
+    const user = await tx.user.findUnique({
+      where: { id },
+      include: {
+        donorProfile: role === Role.DONOR,
+        recipientProfile: role === Role.RECIPIENT,
+        volunteerProfile: role === Role.VOLUNTEER,
+      },
+    });
+
+    if (!user) {
+      throw new AppError("User not found", 404);
+    }
+
+    if (role === Role.DONOR) {
+      if (!user.donorProfile) throw new AppError("User has no profile", 404);
+      await tx.donorProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: false },
+      });
+    } else if (role === Role.RECIPIENT) {
+      if (!user.recipientProfile) throw new AppError("User has no profile", 404);
+      await tx.recipientProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: false },
+      });
+    } else if (role === Role.VOLUNTEER) {
+      if (!user.volunteerProfile) throw new AppError("User has no profile", 404);
+      await tx.volunteerProfile.update({
+        where: { userId: id },
+        data: { verificationStatus: false },
+      });
+    }
+
+    return user;
+  });
 
   await sendVerificationStatusChangeMail(
     user.email,
@@ -235,6 +268,7 @@ export const unBlockUserService = async (
 export const getAllManagerService = async () => {
   const users = await prisma.user.findMany({
     where: { role: "MANAGER" },
+    select: userOnly,
   });
 
   return users;

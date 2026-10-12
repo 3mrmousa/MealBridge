@@ -1,68 +1,139 @@
 import { Server as SocketIoServer } from "socket.io";
-import { Server as HttpServer } from "http";
+import type { Server as HttpServer } from "http";
 import { parseCookie } from "cookie";
 import jwt from "jsonwebtoken";
-import AppError from "../errors/AppError.js";
 import prisma from "../../database/index.js";
 import { Role } from "@prisma/client";
 
-let io: SocketIoServer;
+let io: SocketIoServer | undefined;
 
-// Map<userId, socketId>
-const connectedUsers: Map<string, { socketId: string; role: Role }> = new Map();
+const userRoom = (userId: string) => `user:${userId}`;
+const roleRoom = (role: Role) => `role:${role}`;
 
-export const initSocketServer = (httpServer: HttpServer) => {
-  io = new SocketIoServer(httpServer, {
+export const initSocketServer = (httpServer: HttpServer): SocketIoServer => {
+  const socketServer = new SocketIoServer(httpServer, {
     cors: {
       origin: process.env.CLIENT_URL,
       credentials: true,
     },
   });
 
-  io.use((socket, next) => {
+  io = socketServer;
+
+  socketServer.use(async (socket, next) => {
+    const secret = process.env.JWT_SECRET;
+
+    if (!secret) {
+      console.error("JWT_SECRET is not configured.");
+      return next(new Error("Socket authentication unavailable"));
+    }
+
+    let token: string | undefined;
+
     try {
       const cookies = parseCookie(socket.handshake.headers.cookie || "");
-      const token = cookies.access_token;
-      if (!token) {
-        throw new AppError("Unauthorized - No token provided", 401);
+      token = cookies.access_token;
+    } catch {
+      console.error("Failed to parse cookies.");
+      return next(new Error("Unauthorized"));
+    }
+
+    if (!token) {
+      console.error("No token found in cookies.");
+      return next(new Error("Unauthorized"));
+    }
+
+    let userId: string;
+    let tokenVersion: number;
+
+    try {
+      const decodedToken = jwt.verify(token, secret);
+
+      if (
+        typeof decodedToken !== "object" ||
+        decodedToken === null ||
+        typeof decodedToken.userId !== "string" ||
+        typeof decodedToken.tokenVersion !== "number"
+      ) {
+        console.error("Invalid token.");
+        return next(new Error("Unauthorized"));
       }
-      const secret = process.env.JWT_SECRET as string;
-      if (!secret) {
-        throw new AppError("JWT Secret not configured", 500);
+
+      userId = decodedToken.userId;
+      tokenVersion = decodedToken.tokenVersion;
+    } catch {
+      console.error("Invalid token.");
+      return next(new Error("Unauthorized"));
+    }
+
+    try {
+      const user = await prisma.user.findUnique({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          tokenVersion: true,
+          role: true,
+          isBlocked: true,
+        },
+      });
+
+      if (!user) {
+        console.error("User not found.");
+        return next(new Error("Unauthorized"));
       }
-      const decodedToken = jwt.verify(token, secret) as { userId: string };
-      socket.data.userId = decodedToken.userId;
-      next();
-    } catch (error) {
-      next(new AppError("Unauthorized", 401));
+
+      if (user.tokenVersion !== tokenVersion) {
+        console.error("Token version mismatch.");
+        return next(new Error("Session expired. Please login again."));
+      }
+
+      if (user.isBlocked) {
+        console.error("User is blocked.");
+        return next(
+          new Error(
+            "Your account has been blocked. Please contact support for more information.",
+          ),
+        );
+      }
+
+      socket.data.userId = userId;
+      socket.data.role = user.role;
+
+      return next();
+    } catch {
+      console.error("Failed to fetch user.");
+      return next(new Error("Unauthorized"));
     }
   });
 
-  io.on("connection", async (socket) => {
-    const userId = socket.data.userId;
-    const user = await prisma.user.findUnique({
-      where: {
-        id: userId,
-      },
-      select: {
-        role: true,
-      },
-    });
-    if (!user) {
+  socketServer.on("connection", async (socket) => {
+    const userId = socket.data.userId as string;
+    const role = socket.data.role as Role;
+
+    try {
+      await socket.join(userRoom(userId));
+      await socket.join(roleRoom(role));
+    } catch (err) {
+      console.error("Failed to join rooms: ", err);
       socket.disconnect();
       return;
     }
-    connectedUsers.set(userId, {
-      socketId: socket.id,
-      role: user.role,
-    });
-    console.log(`🟢 User connected: ${userId}`);
 
-    socket.on("disconnect", () => {
-      connectedUsers.delete(userId);
-      console.log(`🔴 User disconnected: ${userId}`);
+    console.log("User connected: ", userId);
+
+    socket.on("disconnect", (reason) => {
+      console.log(`User disconnected: ${userId} because ${reason}`);
+    });
+
+    socket.on("error", (err: any) => {
+      console.error(`Socket error for user ${userId}:`, err);
+      socket.disconnect();
     });
   });
+
+  return socketServer;
 };
 
 export const getIO = () => {
@@ -85,10 +156,7 @@ export const sendNotificationToUser = (
   eventName: string,
   data: NotificationType,
 ) => {
-  const socketId = connectedUsers.get(userId)?.socketId;
-  if (socketId) {
-    io.to(socketId).emit(eventName, data);
-  }
+  getIO().to(userRoom(userId)).emit(eventName, data);
 };
 
 export type ReportType = {
@@ -101,9 +169,8 @@ export const sendReportToSupportTeam = async (
   eventName: string,
   data: ReportType,
 ) => {
-  for (const [, user] of connectedUsers) {
-    if (user.role === Role.ADMIN || user.role === Role.MANAGER) {
-      io.to(user.socketId).emit(eventName, data);
-    }
-  }
+  getIO()
+    .to(roleRoom(Role.ADMIN))
+    .to(roleRoom(Role.MANAGER))
+    .emit(eventName, data);
 };

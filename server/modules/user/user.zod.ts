@@ -7,42 +7,63 @@ import {
 } from "@prisma/client";
 
 // Donor Profile Schema
+export const createDonorProfileSchema = z.object({
+  body: z.object({
+    organizationName: z.string().min(2),
+    organizationType: z.nativeEnum(DonorOrganizationType),
+    otherOrganizationType: z.string().min(2).optional(),
+    address: z.string().min(5),
+  }),
+});
 export const updateDonorProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
     phone: z.string().min(10).optional(),
-    profilePicture: z.string().url().optional(),
     organizationName: z.string().min(2).optional(),
     organizationType: z.nativeEnum(DonorOrganizationType).optional(),
+    otherOrganizationType: z.string().min(2).optional(),
     address: z.string().min(5).optional(),
-    verificationDocument: z.string().url().optional(),
   }),
 });
 
 // Recipient Profile Schema
+export const createRecipientProfileSchema = z.object({
+  body: z.object({
+    organizationName: z.string().min(2),
+    organizationType: z.nativeEnum(RecipientOrganizationType),
+    otherOrganizationType: z.string().min(2).optional(),
+    address: z.string().min(5),
+  }),
+});
+
 export const updateRecipientProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
     phone: z.string().min(10).optional(),
-    profilePicture: z.string().url().optional(),
     organizationName: z.string().min(2).optional(),
     organizationType: z.nativeEnum(RecipientOrganizationType).optional(),
+    otherOrganizationType: z.string().min(2).optional(),
     address: z.string().min(5).optional(),
-    verificationDocument: z.string().url().optional(),
   }),
 });
 
 // Volunteer Profile Schema
+export const createVolunteerProfileSchema = z.object({
+  body: z.object({
+    address: z.string().min(5),
+    type: z.nativeEnum(VolunteerType),
+    transportType: z.nativeEnum(TransportType),
+    availabilityStatus: z.boolean().optional(),
+  }),
+});
 export const updateVolunteerProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
     phone: z.string().min(10).optional(),
-    profilePicture: z.string().url().optional(),
     address: z.string().min(5).optional(),
     type: z.nativeEnum(VolunteerType).optional(),
     transportType: z.nativeEnum(TransportType).optional(),
     availabilityStatus: z.boolean().optional(),
-    verificationDocument: z.string().url().optional(),
   }),
 });
 
@@ -77,9 +98,16 @@ export const changePhoneSchema = z.object({
   }),
 });
 
+export type CreateDonorInput = z.infer<typeof createDonorProfileSchema>["body"];
 export type UpdateDonorInput = z.infer<typeof updateDonorProfileSchema>["body"];
+export type CreateRecipientInput = z.infer<
+  typeof createRecipientProfileSchema
+>["body"];
 export type UpdateRecipientInput = z.infer<
   typeof updateRecipientProfileSchema
+>["body"];
+export type CreateVolunteerInput = z.infer<
+  typeof createVolunteerProfileSchema
 >["body"];
 export type UpdateVolunteerInput = z.infer<
   typeof updateVolunteerProfileSchema

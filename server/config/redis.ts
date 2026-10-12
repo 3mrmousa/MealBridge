@@ -5,14 +5,17 @@ if (!process.env.REDIS_URL) {
   throw new AppError("REDIS_URL not found in environment variables", 500);
 }
 
-const redis = new Redis(process.env.REDIS_URL);
-
-redis.on("connect", () => {
-  console.log("Redis client connected");
+const redis = new Redis(process.env.REDIS_URL, {
+  lazyConnect: true,
 });
 
 redis.on("error", (err) => {
   console.error("Redis client error", err.message);
 });
+
+export const connectRedis = async () => {
+  await redis.connect();
+  console.log("🟢 Redis client connected successfully.");
+};
 
 export default redis;

@@ -10,7 +10,11 @@ import {
   singleDelivery,
   pickupDelivery,
 } from "./volunteer.controller.js";
-import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
+import {
+  authorizeRoles,
+  isProfileVerified,
+  protect,
+} from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
 import {
   getAllDeliveriesSchema,
@@ -22,6 +26,7 @@ const volunteerRouter = Router();
 
 volunteerRouter.use(protect);
 volunteerRouter.use(authorizeRoles(Role.VOLUNTEER));
+volunteerRouter.use(isProfileVerified());
 
 // Delivery Request Routes (Volunteer Perspective)
 
@@ -72,7 +77,7 @@ volunteerRouter.patch(
 volunteerRouter.patch(
   "/deliveries/:id/cancel",
   validate(singleIdRequestSchema),
-  cancelDelivery
+  cancelDelivery,
 );
 
 export default volunteerRouter;

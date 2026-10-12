@@ -10,6 +10,12 @@ import type {
   GetDeliveryRequestsQuery,
 } from "./volunteer.zod.js";
 import prisma from "../../database/index.js";
+import {
+  donorWithUser,
+  recipientOnly,
+  recipientWithUser,
+  volunteerWithUser,
+} from "../../database/selectors.js";
 import AppError from "../../utils/errors/AppError.js";
 import { createNotificationService } from "../notification/notification.service.js";
 import {
@@ -29,39 +35,7 @@ import {
   getWeeklyLimit,
   setWeeklyLimit,
 } from "../../utils/redis/weeklyLimit.redis.js";
-
-const deliveryDetailsInclude = Prisma.validator<Prisma.DeliveryInclude>()({
-  volunteer: {
-    include: {
-      user: {
-        select: { id: true, name: true, email: true },
-      },
-    },
-  },
-  donationClaim: {
-    include: {
-      recipient: {
-        include: {
-          user: {
-            select: { id: true, name: true, email: true },
-          },
-        },
-      },
-      donationRequest: true,
-      donation: {
-        include: {
-          donor: {
-            include: {
-              user: {
-                select: { id: true, name: true, email: true },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
-});
+import { deliveryDetailsInclude } from "../../database/includes.js";
 
 export async function getAllDeliveriesService(
   userId: string,
@@ -94,7 +68,9 @@ export async function getAllDeliveriesService(
           include: {
             donation: true,
             donationRequest: true,
-            recipient: true,
+            recipient: {
+              select: recipientOnly,
+            },
           },
         },
       },
@@ -127,7 +103,9 @@ export async function singleDeliveryService(id: string, userId: string) {
         include: {
           donation: true,
           donationRequest: true,
-          recipient: true,
+          recipient: {
+            select: recipientOnly,
+          },
         },
       },
     },
@@ -178,7 +156,9 @@ export async function getDeliveryRequestsService(
         donationClaim: {
           include: {
             donation: true,
-            recipient: true,
+            recipient: {
+              select: recipientOnly,
+            },
           },
         },
       },
@@ -211,12 +191,22 @@ export async function acceptDeliveryRequestService(
     const existingRequest = await tx.deliveryRequest.findUnique({
       where: { id: requestId },
       include: {
-        volunteer: { include: { user: true } },
+        volunteer: {
+          select: volunteerWithUser,
+        },
         donationClaim: {
           include: {
-            donation: { include: { donor: { include: { user: true } } } },
+            donation: {
+              include: {
+                donor: {
+                  select: donorWithUser,
+                },
+              },
+            },
             donationRequest: true,
-            recipient: { include: { user: true } },
+            recipient: {
+              select: recipientWithUser,
+            },
           },
         },
       },
@@ -239,7 +229,6 @@ export async function acceptDeliveryRequestService(
       throw new AppError("You are not authorized to accept this request", 403);
     }
 
-    // Check if a delivery already exists for this claim
     const existingDelivery = await tx.delivery.findUnique({
       where: { donationClaimId: existingRequest.donationClaimId },
     });
@@ -251,13 +240,25 @@ export async function acceptDeliveryRequestService(
       );
     }
 
-    // Update request status
+    const activeVolunteerDelivery = await tx.delivery.findFirst({
+      where: {
+        volunteerId: existingRequest.volunteerId,
+        status: { in: [DeliveryStatus.PENDING, DeliveryStatus.PICKED_UP] },
+      },
+    });
+
+    if (activeVolunteerDelivery) {
+      throw new AppError(
+        "You already have an active delivery in progress.",
+        400,
+      );
+    }
+
     await tx.deliveryRequest.update({
       where: { id: requestId },
       data: { status: "ACCEPTED" },
     });
 
-    // Create the actual delivery
     const newDelivery = await tx.delivery.create({
       data: {
         donationClaimId: existingRequest.donationClaimId,
@@ -269,7 +270,7 @@ export async function acceptDeliveryRequestService(
       include: deliveryDetailsInclude,
     });
 
-    // Optionally reject other pending requests for the same claim
+    // Reject other pending requests for the same claim
     await tx.deliveryRequest.updateMany({
       where: {
         donationClaimId: existingRequest.donationClaimId,
@@ -373,11 +374,21 @@ export async function rejectDeliveryRequestService(
     const existingRequest = await tx.deliveryRequest.findUnique({
       where: { id: requestId },
       include: {
-        volunteer: { include: { user: true } },
+        volunteer: {
+          select: volunteerWithUser,
+        },
         donationClaim: {
           include: {
-            donation: { include: { donor: { include: { user: true } } } },
-            recipient: { include: { user: true } },
+            donation: {
+              include: {
+                donor: {
+                  select: donorWithUser,
+                },
+              },
+            },
+            recipient: {
+              select: recipientWithUser,
+            },
           },
         },
       },
@@ -525,20 +536,14 @@ export async function completeDeliveryService(id: string, userId: string) {
     });
 
     const donation = existingDelivery.donationClaim.donation;
-    const completedClaims = await tx.donationClaim.findMany({
+    const pendingClaimsCount = await tx.donationClaim.count({
       where: {
         donationId: donation.id,
-        status: ClaimStatus.COMPLETED,
+        status: { not: ClaimStatus.COMPLETED },
       },
-      select: { quantityClaimed: true },
     });
 
-    const totalQuantityCompleted = completedClaims.reduce(
-      (sum, claim) => sum + claim.quantityClaimed,
-      0,
-    );
-
-    if (totalQuantityCompleted >= donation.quantity) {
+    if (donation.quantity === 0 && pendingClaimsCount === 0) {
       await tx.donation.update({
         where: { id: donation.id },
         data: { status: DonationStatus.COMPLETED },

@@ -16,7 +16,11 @@ import {
   getSingleDonationClaim,
   cancelClaim,
 } from "./donor.controller.js";
-import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
+import {
+  authorizeRoles,
+  isProfileVerified,
+  protect,
+} from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
@@ -39,6 +43,7 @@ const donorRouter = Router();
 
 donorRouter.use(protect);
 donorRouter.use(authorizeRoles(Role.DONOR));
+donorRouter.use(isProfileVerified());
 
 // Donations Routes (Donor Perspective)
 donorRouter

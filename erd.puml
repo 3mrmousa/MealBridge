@@ -62,6 +62,7 @@ enum DonorOrganizationType {
     HOTEL
     CATERING
     GOVERNMENT
+    INDIVIDUAL
     OTHER
 }
 
@@ -70,16 +71,17 @@ enum RecipientOrganizationType {
     COMMUNITY_CENTER
     CHARITY
     GOVERNMENT
+    INDIVIDUAL
     OTHER
 }
 
 enum DonationStatus {
     AVAILABLE
+    CLAIMED
     COMPLETED
     CANCELLED
     EXPIRED
 }
-
 
 enum DonationRequestStatus {
     PENDING
@@ -108,11 +110,10 @@ enum DeliveryRequestStatus {
 
 enum DeliveryStatus {
     PENDING
+    PICKED_UP
     CANCELLED
     COMPLETED
 }
-
-
 
 enum ConversationType {
     DONOR_RECIPIENT
@@ -127,7 +128,7 @@ enum ReportStatus {
 }
 
 ' =========================================================
-' Entities/Tables
+' Entities / Tables
 ' =========================================================
 
 entity User {
@@ -141,7 +142,7 @@ entity User {
     phone : String <<UNIQUE>>
     role : Role
     tokenVersion : Int default(0)
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -150,12 +151,13 @@ entity DonorProfile {
     --
     userId : UUID <<FK, UNIQUE>>
     profilePicture : JSON <<NULLABLE>>
-    organizationName : String <<NULLABLE>>
-    organizationType : DonorOrganizationType <<NULLABLE>>
+    organizationName : String
+    organizationType : DonorOrganizationType
+    otherOrganizationType : String <<NULLABLE>>
     address : String
-    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
-    verificationStatus : Boolean
-    createdAt : DateTime
+    verificationDocuments : JSON[]
+    verificationStatus : Boolean default(false)
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -164,12 +166,13 @@ entity RecipientProfile {
     --
     userId : UUID <<FK, UNIQUE>>
     profilePicture : JSON <<NULLABLE>>
-    organizationName : String <<NULLABLE>>
-    organizationType : RecipientOrganizationType <<NULLABLE>>
+    organizationName : String
+    organizationType : RecipientOrganizationType
+    otherOrganizationType : String <<NULLABLE>>
     address : String
-    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
-    verificationStatus : Boolean
-    createdAt : DateTime
+    verificationDocuments : JSON[]
+    verificationStatus : Boolean default(false)
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -181,10 +184,10 @@ entity VolunteerProfile {
     address : String
     type : VolunteerType
     transportType : TransportType
-    availabilityStatus : Boolean
-    verificationDocuments : JSON[] <<MIN:1, MAX:5>>
-    verificationStatus : Boolean
-    createdAt : DateTime
+    availabilityStatus : Boolean default(false)
+    verificationDocuments : JSON[]
+    verificationStatus : Boolean default(false)
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -194,16 +197,15 @@ entity Donation {
     donorId : UUID <<FK>>
     title : String
     description : String
-    images : String[]
+    images : JSON[]
     foodType : String
     quantity : Int
     unit : String
     pickupAddress : String
     availableFrom : DateTime
     availableUntil : DateTime
-    status : DonationStatus
-    
-    createdAt : DateTime
+    status : DonationStatus default(AVAILABLE)
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -216,8 +218,10 @@ entity DonationRequest {
     deliveryAddress : String
     message : String
     status : DonationRequestStatus
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
+    -- constraints --
+    UNIQUE(recipientId, donationId)
 }
 
 entity DonationClaim {
@@ -227,14 +231,13 @@ entity DonationClaim {
     donationId : UUID <<FK>>
     recipientId : UUID <<FK>>
     quantityClaimed : Int
+    status : ClaimStatus
     pickupDeadline : DateTime
     pickupMethod : PickupMethod default(SELF)
-
     collectedAt : DateTime <<NULLABLE>>
-    status : ClaimStatus
     canceledBy : Role <<NULLABLE>>
     canceledReason : String <<NULLABLE>>
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -244,14 +247,13 @@ entity Delivery {
     donationClaimId : UUID <<FK, UNIQUE>>
     volunteerId : UUID <<FK>>
     recipientId : UUID <<FK>>
-
     notes : String <<NULLABLE>>
     completedAt : DateTime <<NULLABLE>>
-    status : DeliveryStatus
+    status : DeliveryStatus default(PENDING)
     canceledBy : Role <<NULLABLE>>
     canceledAt : DateTime <<NULLABLE>>
     canceledReason : String <<NULLABLE>>
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -262,18 +264,19 @@ entity DeliveryRequest {
     recipientId : UUID <<FK>>
     volunteerId : UUID <<FK>>
     status : DeliveryRequestStatus default(PENDING)
-
     notes : String <<NULLABLE>>
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
+    -- constraints --
+    UNIQUE(donationClaimId, volunteerId)
 }
 
 entity Conversation {
     * id : UUID <<PK>>
     --
-    donationClaimId : UUID <<FK>>
+    donationClaimId : UUID <<FK, UNIQUE>>
     conversationType : ConversationType
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -281,7 +284,7 @@ entity ConversationParticipant {
     * conversationId : UUID <<PK, FK>>
     * userId : UUID <<PK, FK>>
     --
-    joinedAt : DateTime
+    joinedAt : DateTime default(now())
     lastReadAt : DateTime <<NULLABLE>>
 }
 
@@ -291,32 +294,7 @@ entity Message {
     conversationId : UUID <<FK>>
     senderId : UUID <<FK>>
     content : String
-    createdAt : DateTime
-    updatedAt : DateTime
-}
-
-entity Notification {
-    * id : UUID <<PK>>
-    --
-    userId : UUID <<FK>>
-    sourceReportId : UUID <<FK, NULLABLE>>
-    title : String
-    message : String
-    isRead : Boolean
-    createdAt : DateTime
-}
-
-entity Report {
-    * id : UUID <<PK>>
-    --
-    reporterId : UUID <<FK>>
-    reportedUserId : UUID <<FK, NULLABLE>>
-    title : String
-    description : String
-    status : ReportStatus
-    reviewedById : UUID <<FK, NULLABLE>>
-    reviewedAt : DateTime <<NULLABLE>>
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -330,18 +308,43 @@ entity SiteSetting {
     contactEmail : String <<NULLABLE>>
     contactPhone : String <<NULLABLE>>
     address : String <<NULLABLE>>
-    updatedById : UUID <<FK, NULLABLE>>
+    updatedById : UUID <<FK>>
     updatedAt : DateTime
+}
+
+entity Report {
+    * id : UUID <<PK>>
+    --
+    reporterId : UUID <<FK>>
+    reportedUserId : UUID <<FK, NULLABLE>>
+    title : String
+    description : String
+    status : ReportStatus default(PENDING)
+    reviewedById : UUID <<FK, NULLABLE>>
+    reviewedAt : DateTime <<NULLABLE>>
+    createdAt : DateTime default(now())
+    updatedAt : DateTime
+}
+
+entity Notification {
+    * id : UUID <<PK>>
+    --
+    userId : UUID <<FK>>
+    sourceReportId : UUID <<FK, NULLABLE>>
+    title : String
+    message : String
+    isRead : Boolean default(false)
+    createdAt : DateTime default(now())
 }
 
 entity BlockedUser {
     * id : UUID <<PK>>
     --
     blockerId : UUID <<FK>>
-    blockedId : UUID <<FK>>
+    blockedId : UUID <<FK, UNIQUE>>
     reason : String
     message : String
-    createdAt : DateTime
+    createdAt : DateTime default(now())
     updatedAt : DateTime
 }
 
@@ -356,45 +359,31 @@ User ||--o| VolunteerProfile
 DonorProfile ||--o{ Donation
 
 Donation ||--o{ DonationRequest
-
 RecipientProfile ||--o{ DonationRequest
 
 DonationRequest ||--o| DonationClaim
-
 Donation ||--o{ DonationClaim
-
 RecipientProfile ||--o{ DonationClaim
 
 DonationClaim ||--o| Delivery
-
 RecipientProfile ||--o{ Delivery
-
 VolunteerProfile ||--o{ Delivery
 
 DonationClaim ||--o{ DeliveryRequest
-
 RecipientProfile ||--o{ DeliveryRequest
-
 VolunteerProfile ||--o{ DeliveryRequest
 
 DonationClaim ||--o| Conversation
-
 Conversation ||--o{ ConversationParticipant
-
 User ||--o{ ConversationParticipant
-
 Conversation ||--o{ Message
-
 User ||--o{ Message
 
 User ||--o{ Notification : receives
-
 Report ||--o{ Notification : triggers (to reporter)
 
 User ||--o{ Report : creates
-
 User ||--o{ Report : reported
-
 User ||--o{ Report : reviews
 
 User ||--o{ SiteSetting : updates
@@ -426,5 +415,3 @@ Report -[hidden]right- SiteSetting
 SiteSetting -[hidden]right- BlockedUser
 
 @enduml
-
-

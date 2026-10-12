@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import asyncHandler from "../../utils/errors/asyncHandler.js";
-import type { AuthRequest } from "../auth/auth.types.js";
+import type { AuthRequest } from "../../utils/types/AuthRequest.js";
 import type {
   CreateDonationRequestBody,
   CancelDonationRequestParams,
@@ -24,6 +24,7 @@ import type {
   GetSingleDeliveryParams,
   CancelDeliveryParams,
   CancelDeliveryBody,
+  SelfPickupClaimParams,
 } from "./recipient.zod.js";
 import {
   getMyDonationRequestByIdService,
@@ -47,6 +48,7 @@ import {
   markDeliveryAsReceivedService,
   cancelDeliveryService,
   isDonationClaimHasDeliveryService,
+  selfPickupClaimService,
 } from "./recipient.service.js";
 
 export const getMyDonationRequests = asyncHandler(
@@ -223,6 +225,18 @@ export const cancelClaim = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Claim cancelled successfully",
+    });
+  },
+);
+
+export const selfPickupClaim = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const recipientId = req.user!.id;
+    const { id } = req.params as SelfPickupClaimParams;
+    await selfPickupClaimService(recipientId, id);
+    res.status(200).json({
+      status: "success",
+      message: "Claim self-picked up successfully",
     });
   },
 );

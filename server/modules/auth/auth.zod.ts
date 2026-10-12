@@ -10,7 +10,7 @@ export const registerRequestSchema = z.object({
       .string()
       .min(8, { message: "Password must be at least 8 characters" }),
     phone: z.string().min(10, { message: "Phone number is too short" }),
-    role: z.nativeEnum(Role, {
+    role: z.enum([Role.DONOR, Role.RECIPIENT, Role.VOLUNTEER], {
       message: "Invalid role selected",
     }),
   }),

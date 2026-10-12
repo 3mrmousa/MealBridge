@@ -1,61 +1,105 @@
 MealBridge: Project Requirements Document
+
 1. Project Overview
 Idea:
-The primary role of MealBridge is to manage and reduce the food waste that occurs in restaurants and hotels. The platform achieves this by seamlessly connecting food donors with verified recipients and volunteer drivers to ensure surplus food reaches those in need.
+The primary role of MealBridge is to manage and reduce commercial food waste that occurs in restaurants, hotels, cafes, caterers, and food businesses. The platform achieves this by seamlessly connecting verified food donors with verified non-profit recipients and volunteer drivers to ensure surplus food reaches those in need quickly and safely.
+
 2. Functional Requirements
-Create Donations: Donors must be able to list available surplus food, including details such as food type, total quantity, and pickup times.
-Request Food: Recipients must be able to view available donations and submit claims for either the full amount or partial quantities of a donation.
-Deliver Donations: The system must allow volunteer drivers to view pending delivery requests, accept delivery tasks, and update the status of the delivery in real-time.
-Chat System: Users (Donors, Recipients, and Volunteers) must be able to communicate with each other directly regarding specific donation logistics.
-Notifications: The system must send automated alerts to users for events such as new nearby donations, accepted claims, or delivery status updates.
+- Create Donations: Donors can list surplus food with details such as food type, quantity, unit, pickup address, availability window, and photos.
+- Request Food: Recipients can browse available donations and submit requests for full or partial quantities.
+- Accept / Reject Requests: Donors review requests; accepting a request locks the quantity and creates a Donation Claim.
+- Pickup & Delivery Methods: When a claim is created, the recipient can choose:
+  * Self-Pickup: Recipient picks up the donation directly from the donor.
+  * Volunteer Delivery: Recipient requests a verified volunteer to pick up and deliver the food.
+- Deliver Donations: Volunteers can view delivery requests, accept or reject them, mark when the food is picked up, and confirm when it is delivered.
+- Claim & Request Cancellation:
+  * Recipients can cancel pending requests or active claims.
+  * Donors can cancel active claims with a reason, which automatically restores the food quantity back to the donation.
+  * Connected volunteers and users are automatically notified upon cancellation.
+- Chat System: Users (Donors, Recipients, Volunteers) can communicate directly through dedicated chats regarding donation and delivery logistics.
+- Notifications & Emails: Automated in-app notifications (via WebSockets) and transactional emails are sent for all key events (new requests, accepted claims, delivery updates, cancellations, verifications, account blocks).
+- Issue Reporting: Any user can submit reports about issues or rule violations directly to Admins and Managers for review.
+
 3. Non-Functional Requirements
+
 Performance & Speed
-Response Time: Standard API requests must be processed in under 500 milliseconds to ensure a smooth user experience.
-Real-time Latency: The chat and notification systems (powered by WebSockets) must deliver messages with less than 1 second of latency.
+- Response Time: Standard API requests must be processed in under 500 milliseconds.
+- Real-time Latency: Chat and notification systems (powered by WebSockets) must deliver messages with less than 1 second of latency.
+
 Security & Privacy
-Data Encryption: Sensitive user data, such as passwords, must be securely hashed and encrypted before being stored in the database.
-Authorization: The system must enforce Role-Based Access Control (RBAC) to ensure users can only perform actions permitted by their specific role (Donor, Recipient, Volunteer, Admin).
-Data Privacy: Personal contact information and exact locations must remain private until a donation claim or delivery is officially accepted.
-Scalability
-High Concurrency: The application architecture must be capable of handling sudden spikes in traffic and concurrent active users without crashing.
-Database Optimization: Database tables must be properly indexed to ensure search queries (e.g., finding nearby donations) remain fast as the platform grows.
+- Data Encryption: Passwords securely hashed with bcrypt (12 salt rounds); sensitive tokens signed with JWT.
+- Authorization: Strict Role-Based Access Control (RBAC) enforced on all endpoints (Donor, Recipient, Volunteer, Admin, Manager).
+- Verification Gate: Unverified users cannot create donations, request food, or accept deliveries until approved.
+- Session Control: Token versioning ensures immediate session revocation upon password changes or account blocks.
+- Data Privacy: Contact details and exact locations remain private until a claim or delivery is confirmed.
+
+Scalability & Concurrency
+- High Concurrency: Architecture handles spikes in traffic and concurrent requests without crashing.
+- Concurrency-Safe Claiming: PostgreSQL row-level locks (SELECT FOR UPDATE) inside transactions prevent overselling and race conditions when claiming donations.
+- Database Optimization: Database tables and foreign keys are indexed for fast searching and filtering.
+
 Usability & Accessibility
-Mobile-First Design: The user interface must be fully responsive and optimized for mobile devices, as volunteers and restaurant staff will primarily use phones.
-Intuitive UI: The donation creation workflow must be highly streamlined, taking less than 3 steps to complete, ensuring busy restaurant staff can use it frictionlessly.
-Reliability & Availability
-Error Handling: The system must gracefully handle transaction errors (e.g., simultaneous claims on the same donation) by cleanly resolving conflicts and alerting the user, rather than causing a system failure.
+- Mobile-First Design: Fully responsive UI optimized for mobile devices, since volunteers and kitchen staff primarily use phones.
+- Intuitive UI: Donation creation takes less than 3 steps to ensure friction-free listing for busy kitchen staff.
+
+Reliability & Error Handling
+- Graceful Conflict Resolution: System cleanly resolves transaction conflicts (e.g. simultaneous claims on limited stock) and informs the user rather than failing.
+- Weekly Limits: Redis-backed weekly rate limits enforce policy rules (such as volunteer emergency cancellations).
+
 4. Users and Roles
+
 Admin
-Can view all users (basic info or with full profile details).
-Can view a specific user's complete profile by their ID.
-Can verify or unverify users (approve/reject verification documents).
-Can block or unblock users to restrict their platform access.
-Can view all website activity (donations, requests, system logs).
-Can access and read chats between users (read-only; cannot send or edit messages) to resolve disputes.
-Can update global site settings.
-Can view all system reports and analytics.
+- Can view all users (basic list or full profiles grouped by role).
+- Can view a specific user's complete profile by their ID.
+- Can verify or reject user verification documents for Donors, Recipients, and Volunteers.
+- Can block any user (with reason) and is exclusively authorized to unblock accounts.
+- Can create, view, update, and delete Manager accounts.
+- Can access and read chats between users (read-only) to resolve disputes.
+- Can update global site settings (branding, contact information).
+- Can view and resolve all submitted user reports.
+
+Manager
+- Can view all users and inspect full user profiles.
+- Can verify or reject user verification documents for Donors, Recipients, and Volunteers.
+- Can block standard users with a logged reason (cannot block other Managers or Admins).
+- Cannot unblock users (Admin-only).
+- Cannot create or manage Manager accounts.
+- Can review and resolve submitted user reports.
+
 Donor
-Verification Requirements: Must upload a Health Department Inspection Certificate, Food Handling Permit, or Business License. Account must be approved by an Admin before they can post donations.
-Can create, edit, or cancel a donation only if no volunteer or recipient has entered the process yet.
-Emergency Cancel: Can cancel an active donation if food spoils, which automatically alerts the Admin and connected users.
-Can view the status of all their donations.
-Can chat with the connected recipient or volunteer (once a request is issued).
-Can edit their own profile information.
-Can report issues (regarding a recipient, volunteer, or system error) directly to the Admin.
+- Organization Types: Restaurant, Cafe, Hotel, Catering, Government, Individual, or Other.
+- Verification Requirements: Must upload a Health Department Inspection Certificate, Food Handling Permit, or Business License. Account must be approved before posting donations.
+- Can create, edit, and cancel donations (editing is locked once active claims or pending requests exist).
+- Can accept or reject recipient requests for their donations.
+- Can cancel an active claim with a reason (automatically restores quantity and alerts recipient/volunteer).
+- Can view status of all their donations, requests, and claims.
+- Can chat with connected recipients and volunteers once a request or claim is active.
+- Can edit their own profile and upload a profile picture.
+- Can report issues (regarding a recipient, volunteer, or system error) directly to support.
+
 Recipient
-Verification Requirements: Must upload a Registered Charity Number, NGO Registration, or official tax-exempt document (e.g., 501(c)(3)). Account must be approved by an Admin before they can request food.
-Can request an existing donation.
-Can edit or cancel a request only if no volunteer has accepted it and it is not currently being processed.
-Can view the status of all their requests.
-Can chat with the connected donor or volunteer (once they issue a request).
-Can edit their own profile information.
-Can report issues (regarding a donor, volunteer, or system error) directly to the Admin.
+- Organization Types: Shelter, Community Center, Charity, Government, Individual, or Other.
+- Verification Requirements: Must upload a Registered Charity Number, NGO Registration, or official tax-exempt document (e.g. 501(c)(3)). Account must be approved before requesting food.
+- Can browse available donations and submit requests for full or partial quantity.
+- Can edit or cancel a pending request.
+- Can manage claims: complete via Self-Pickup or request a verified Volunteer for delivery.
+- Can cancel an active claim with a reason (restores donation stock).
+- Can browse verified volunteers and view their transport type.
+- Can view status of all their requests, claims, and deliveries.
+- Can confirm receipt of delivered food.
+- Can chat with connected donors and volunteers.
+- Can edit their own profile and upload a profile picture.
+- Can report issues (regarding a donor, volunteer, or system error) directly to support.
+
 Volunteer
-Verification Requirements: Must upload a valid Driver's License or Government ID (and optionally vehicle registration). Account must be approved by an Admin before they can view or accept delivery requests.
-Can update their working status (Available, In Progress, or Not Available).
-Can view delivery requests issued by recipients and choose to accept or deny them.
-When accepting a request, two new chats are created in their inbox: one with the Donor (for pickup) and one with the Recipient (for drop-off).
-Can edit their own profile information.
-Can report issues (e.g., Donor no-show, Recipient unavailable, or system error) directly to the Admin.
-Emergency Cancel: Can use 1 emergency cancellation per week to abort an active delivery, automatically notifying the Donor and Recipient.
-Can only have one active delivery process at a time.
+- Types: Individual or Organization.
+- Transport Types: Car, Van, Bicycle, Motorcycle, Walking, Public Transport, or Other.
+- Verification Requirements: Must upload a valid Driver's License or Government ID (and optionally vehicle registration). Account must be approved before accepting delivery requests.
+- Can update working status (Available or Not Available).
+- Can view delivery requests sent by recipients and choose to accept or deny them.
+- Can only have ONE active delivery process at a time (Pending or Picked Up).
+- Can update delivery status in real-time (Picked Up -> Completed).
+- Emergency Cancel: Can use 1 emergency cancellation per week to abort an active delivery, automatically notifying the Donor and Recipient.
+- Can chat with connected donors (for pickup) and recipients (for drop-off).
+- Can edit their own profile and upload a profile picture.
+- Can report issues (e.g. donor no-show, recipient unavailable, or system error) directly to support.

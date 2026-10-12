@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
+import {
+  authorizeRoles,
+  isProfileVerified,
+  protect,
+} from "../../middlewares/auth.middleware.js";
 import { heavyRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 import { Role } from "@prisma/client";
 import { validate } from "../../middlewares/validate.middleware.js";
@@ -23,6 +27,7 @@ import {
   getDeliveriesSchema,
   getSingleDeliverySchema,
   cancelDeliverySchema,
+  selfPickupClaimSchema,
 } from "./recipient.zod.js";
 import {
   createDonationRequest,
@@ -46,12 +51,14 @@ import {
   markDeliveryAsReceived,
   cancelDelivery,
   isDonationClaimHasDelivery,
+  selfPickupClaim,
 } from "./recipient.controller.js";
 
 const recipientRouter = Router();
 
 recipientRouter.use(protect);
 recipientRouter.use(authorizeRoles(Role.RECIPIENT));
+recipientRouter.use(isProfileVerified());
 
 // Donation Request Routes (Recipient Perspective)
 recipientRouter
@@ -103,11 +110,11 @@ recipientRouter.patch(
 );
 
 // Take the claim route
-// recipientRouter.patch(
-//   "/claims/:id/self-pickup",
-//   validate(selfPickupClaimSchema),
-//   selfPickupClaim,
-// );
+recipientRouter.patch(
+  "/claims/:id/self-pickup",
+  validate(selfPickupClaimSchema),
+  selfPickupClaim,
+);
 
 // Delivery & Volunteer Routes (Recipient Perspective)
 recipientRouter.get(

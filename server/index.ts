@@ -1,14 +1,12 @@
 import "dotenv/config";
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from "express";
+import express from "express";
+import type { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import AppError from "./utils/errors/AppError.js";
 import prisma from "./database/index.js";
+import { connectRedis } from "./config/redis.js";
 import { z } from "zod";
 import authRouter from "./modules/auth/auth.route.js";
 import userRouter from "./modules/user/user.route.js";
@@ -82,6 +80,8 @@ const startServer = async () => {
   try {
     await prisma.$connect();
     console.log("🟢 Connected to PostgreSQL database successfully.");
+    
+    await connectRedis();
 
     const httpServer = createServer(app);
     initSocketServer(httpServer);

@@ -24,10 +24,9 @@ import { authRateLimiter } from "../../middlewares/rateLimit.middleware.js";
 
 const authRouter = Router();
 
-authRouter.use(authRateLimiter);
-
 authRouter.post(
   "/register/request",
+  authRateLimiter,
   validate(registerRequestSchema),
   registerRequest,
 );
@@ -37,12 +36,13 @@ authRouter.post(
   registerValidate,
 );
 
-authRouter.post("/login", validate(loginSchema), login);
+authRouter.post("/login", authRateLimiter, validate(loginSchema), login);
 authRouter.post("/logout", protect, logout);
 authRouter.get("/me", protect, me);
 
 authRouter.post(
   "/password/forgot/request",
+  authRateLimiter,
   validate(passwordForgotRequestSchema),
   passwordForgotRequest,
 );
