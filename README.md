@@ -42,7 +42,7 @@
 - [Project Directory Structure](#-project-directory-structure)
 - [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
-- [UML Diagrams & Architecture Guides](#-uml-diagrams--architecture-guides)
+- [UML Diagrams](#-uml-diagrams)
 
 ---
 
@@ -632,18 +632,16 @@ EMAIL_PASS=your_gmail_16_character_app_password                         # 16-cha
 
 ---
 
-## 📊 UML Diagrams & Architecture Guides
+## 📊 UML Diagrams
 
-The project includes formal PlantUML diagrams and architectural implementation guides documenting every layer of the platform:
+The project includes formal PlantUML diagrams documenting every architectural layer:
 
-| Resource | Source File | Description |
+| Diagram | Source File | Description |
 | :--- | :--- | :--- |
 | **System Overview** | [`main.puml`](main.puml) | Use cases across all 5 system roles |
 | **Donation & Request** | [`donation_request.puml`](donation_request.puml) | Donor and Recipient interaction lifecycle |
 | **Delivery Workflow** | [`delivery.puml`](delivery.puml) | Volunteer pickup and drop-off flow |
 | **Entity Relationship** | [`erd.puml`](erd.puml) | Complete PostgreSQL ERD (16 entities, 13 enums, constraints) |
-| **Chat Implementation Guide** | [`SOCKET_CHAT_IMPLEMENTATION_GUIDE.md`](SOCKET_CHAT_IMPLEMENTATION_GUIDE.md) | Socket.io event architecture, rooms, and chat handlers |
-| **System Audit Report** | [`SERVER_AUDIT_REPORT.md`](SERVER_AUDIT_REPORT.md) | Architectural audit, active issue tracker, and feature status |
 
 > 💡 **Viewing UML**: Render the diagrams inside Visual Studio Code using the **PlantUML** extension or via the [PlantUML Online Server](https://www.plantuml.com/plantuml/uml/).
 
