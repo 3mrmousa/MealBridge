@@ -33,8 +33,8 @@ reportRouter.get(
 
 // To make admin and managers can review and take final decision like
 // reject or accept a report
-reportRouter.use(
-  "/handle",
+reportRouter.patch(
+  ["/handle", "/handle/:id", "/:id/handle"],
   authorizeRoles(Role.ADMIN, Role.MANAGER),
   validate(handleReportSchema),
   handleReport,

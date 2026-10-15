@@ -97,4 +97,9 @@ adminRouter
     deleteManager,
   );
 
+adminRouter.get(
+  "/chats/:conversationId",
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
+);
+
 export default adminRouter;

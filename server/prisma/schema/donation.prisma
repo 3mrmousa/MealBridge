@@ -68,7 +68,7 @@ model DonationClaim {
   recipient        RecipientProfile  @relation("RecipientClaims", fields: [recipientId], references: [id])
   delivery         Delivery?
   deliveryRequests DeliveryRequest[]
-  conversation     Conversation?     @relation("DonationClaimConversations")
+  conversations    Conversation[]    @relation("DonationClaimConversations")
 
   @@map("donation_claim")
 }

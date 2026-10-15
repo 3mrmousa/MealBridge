@@ -1,6 +1,6 @@
 model Conversation {
   id               String           @id @default(uuid()) @map("id") @db.Uuid
-  donationClaimId  String           @unique @map("donation_claim_id") @db.Uuid
+  donationClaimId  String           @map("donation_claim_id") @db.Uuid
   conversationType ConversationType @map("conversation_type")
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
@@ -9,6 +9,7 @@ model Conversation {
   participants  ConversationParticipant[] @relation("ConversationParticipants")
   messages      Message[]                 @relation("ConversationMessages")
 
+  @@unique([donationClaimId, conversationType])
   @@map("conversation")
 }
 

@@ -274,10 +274,12 @@ entity DeliveryRequest {
 entity Conversation {
     * id : UUID <<PK>>
     --
-    donationClaimId : UUID <<FK, UNIQUE>>
+    donationClaimId : UUID <<FK>>
     conversationType : ConversationType
     createdAt : DateTime default(now())
     updatedAt : DateTime
+    -- constraints --
+    UNIQUE(donationClaimId, conversationType)
 }
 
 entity ConversationParticipant {
@@ -373,7 +375,7 @@ DonationClaim ||--o{ DeliveryRequest
 RecipientProfile ||--o{ DeliveryRequest
 VolunteerProfile ||--o{ DeliveryRequest
 
-DonationClaim ||--o| Conversation
+DonationClaim ||--o{ Conversation
 Conversation ||--o{ ConversationParticipant
 User ||--o{ ConversationParticipant
 Conversation ||--o{ Message

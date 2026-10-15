@@ -138,6 +138,12 @@ export const initSocketServer = (httpServer: HttpServer): SocketIoServer => {
 
 export const getIO = () => {
   if (!io) {
+    if (process.env.NODE_ENV === "test") {
+      return {
+        to: () => ({ emit: () => true }),
+        emit: () => true,
+      } as any;
+    }
     throw new Error("Socket.io is not initialized!");
   }
   return io;

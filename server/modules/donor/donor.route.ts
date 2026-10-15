@@ -15,6 +15,7 @@ import {
   getAllDonationClaims,
   getSingleDonationClaim,
   cancelClaim,
+  emergencyCancelDonation,
 } from "./donor.controller.js";
 import {
   authorizeRoles,
@@ -64,6 +65,12 @@ donorRouter.patch(
   "/:id/cancel",
   validate(onlyIdParamSchema),
   cancelDonation,
+);
+
+donorRouter.delete(
+  "/:id/emergency-cancel",
+  validate(onlyIdParamSchema),
+  emergencyCancelDonation,
 );
 
 donorRouter.patch(

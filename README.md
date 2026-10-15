@@ -29,11 +29,20 @@
 - [Core Workflows & Concurrency](#-core-workflows--concurrency)
 - [Database Schema & Enums](#-database-schema--enums)
 - [Complete API Reference](#-complete-api-reference)
+  - [1. Authentication (`/api/auth`)](#1-authentication-apiauth)
+  - [2. User & Profiles (`/api/users`)](#2-user--profiles-apiusers--all-authenticated)
+  - [3. Donors (`/api/donors`)](#3-donors-apidonors--donor-verified)
+  - [4. Recipients (`/api/recipients`)](#4-recipients-apirecipients--recipient-verified)
+  - [5. Volunteers (`/api/volunteers`)](#5-volunteers-apivolunteers--volunteer-verified)
+  - [6. Admin & Management (`/api/admin`)](#6-admin--management-apiadmin--admin--manager)
+  - [7. Notifications (`/api/notifications`)](#7-notifications-apinotifications--all-authenticated)
+  - [8. Reports (`/api/reports`)](#8-reports-apireports--all-authenticated)
+  - [9. Real-Time Chat (`/api/chats`)](#9-real-time-chat-apichats--all-authenticated)
 - [Real-time Events & Email Notifications](#-real-time-events--email-notifications)
 - [Project Directory Structure](#-project-directory-structure)
 - [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
-- [UML Diagrams](#-uml-diagrams)
+- [UML Diagrams & Architecture Guides](#-uml-diagrams--architecture-guides)
 
 ---
 
@@ -190,7 +199,12 @@ When multiple recipients simultaneously request the same donation, MealBridge gu
 - A volunteer can have **only one active delivery** (`PENDING` or `PICKED_UP`) at a time. Attempts to accept another request are rejected.
 - Volunteers have access to an **Emergency Cancellation** feature limited to **1 cancellation per week**, tracked via Redis TTL keys (`weeklyLimit:{volunteerId}`).
 
-### 4. Token Versioning & Session Revocation
+### 4. Donor Emergency Cancellation Workflow
+- Donors can trigger an emergency cancellation via `DELETE /api/donors/:id/emergency-cancel` when food spoils or poses public health and safety concerns.
+- Acquires pessimistic database locks (`SELECT ... FOR UPDATE`) on the donation, its donation requests, claims, delivery requests, and active deliveries.
+- Automatically transitions the donation to `CANCELLED`, cancels all pending donation requests and active claims, cancels pending and accepted delivery requests, marks ongoing deliveries as `CANCELLED`, resets volunteer availability to `true`, and sends urgent notifications and HTML emails to all affected recipients and volunteers.
+
+### 5. Token Versioning & Session Revocation
 - Passwords are encrypted with `bcryptjs` (cost: 12).
 - JWTs encode `tokenVersion`. Whenever a user changes their password or an account is blocked, `tokenVersion` increments in PostgreSQL, immediately terminating active sessions across all devices.
 
@@ -226,7 +240,7 @@ erDiagram
     VolunteerProfile ||--o{ Delivery : "executes"
     RecipientProfile ||--o{ Delivery : "drop-off"
 
-    DonationClaim ||--o| Conversation : "chat logistics"
+    DonationClaim ||--o{ Conversation : "chat logistics"
     Conversation ||--o{ ConversationParticipant : members
     Conversation ||--o{ Message : messages
 ```
@@ -254,6 +268,7 @@ erDiagram
 - `DeliveryRequest`: Unique constraint on `[donationClaimId, volunteerId]` (prevents spamming the same volunteer).
 - `DonationClaim`: Unique constraint on `donationRequestId` (strict 1:1 request to claim).
 - `Delivery`: Unique constraint on `donationClaimId` (strict 1:1 claim to delivery).
+- `Conversation`: Unique constraint on `[donationClaimId, conversationType]` (allows dedicated donor-recipient and recipient-volunteer chat channels per claim).
 - `BlockedUser`: Unique constraint on `blockedId` (one active block record per user).
 
 ---
@@ -318,6 +333,7 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `GET` | `/:id/claims` | List all claims created for this donation |
 | `GET` | `/:id/claims/:claimId` | Get details of a single claim |
 | `PATCH` | `/:id/claims/:claimId/cancel` | **Cancel claim**: Restores quantity, cancels delivery, and notifies all parties |
+| `DELETE` | `/:id/emergency-cancel` | **Emergency cancel donation**: Concurrency-locked cancel of donation, active claims, delivery requests, and active deliveries; resets volunteer availability and dispatches urgent notifications & emails |
 
 ---
 
@@ -380,6 +396,7 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `POST` | `/managers` | ADMIN only | Create a new manager account |
 | `PATCH` | `/managers/:id` | ADMIN only | Update manager credentials/details |
 | `DELETE` | `/managers/:id` | ADMIN only | Delete a manager account |
+| `GET` | `/chats/:conversationId` | ADMIN, MANAGER | Read-only inspection of conversation messages and participants for moderation |
 
 ---
 
@@ -403,22 +420,37 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 
 ---
 
+### 9. Real-Time Chat (`/api/chats`) — 🔒 All Authenticated
+
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/conversations` | List all active conversations for the authenticated user |
+| `GET` | `/conversations/:id/messages` | Get message history and participant list for a specific conversation |
+
+---
+
 ## 🔔 Real-time Events & Email Notifications
 
 ### Socket.io Architecture
 The WebSocket server runs synchronously alongside the HTTP server, authenticating connections using the same JWT HttpOnly cookie:
-- **`user:{userId}`**: Dedicated private room for user-specific real-time notifications.
+- **`user:{userId}`**: Dedicated private room for user-specific real-time notifications and offline alerts.
 - **`role:{Role}`**: Role-based rooms allowing broadcasts to all Admins/Managers (e.g. support reports).
+- **`conversation:{conversationId}`**: Real-time room for active direct messages between participants (Donor-Volunteer, Recipient-Volunteer).
 - **Socket Events**:
   - `new-notification` — Emitted when in-app notifications are generated.
   - `new-report` — Dispatched to `role:ADMIN` and `role:MANAGER` upon issue submission.
+  - `join-chat` — Client joins an active conversation room (validates user membership).
+  - `send-message` — Client sends a message; persisted to DB via Prisma and broadcasted to the conversation.
+  - `receive-message` — Delivers incoming chat messages in real time to the conversation room.
+  - `mark-read` — Updates `lastReadAt` in `ConversationParticipant`.
+  - `messages-read` — Emits real-time read receipt updates to participants.
 
 ### Transactional Email Suite (Nodemailer)
 MealBridge includes responsive, branded HTML email templates covering every interaction:
 1. **Authentication**: `sendRegisterRequestOtpMail`, `sendForgotPasswordOtpMail`, `sendWelcomeMail`, `sendChangeEmailOtpMail`.
 2. **Verification & Moderation**: `sendVerificationStatusChangeMail` (Accepted/Rejected), `sendBlockStatusChangeMail` (Blocked/Unblocked).
 3. **Donation Requests**: `sendCreateRequestForDonorMail`, `sendAcceptDonationRequestRecipientPovMail`, `sendAcceptDonationRequestDonorPovMail`, `sendRejectDonationRequestRecipientPovMail`, `sendRejectDonationRequestDonorPovMail`.
-4. **Claim Cancellations**: `sendClaimCancelForDonorMail`, `sendClaimCancelForRecipientMail`, `sendClaimCancelForVolunteerMail`.
+4. **Claim & Emergency Cancellations**: `sendClaimCancelForDonorMail`, `sendClaimCancelForRecipientMail`, `sendClaimCancelForVolunteerMail`, `sendEmergencyDonationCancellationRecipientMail`, `sendEmergencyDonationCancellationVolunteerMail`.
 5. **Delivery Lifecycle**: `sendCreateDeliveryRequestVolunteerMail`, `sendCancelDeliveryRequestVolunteerMail`, `sendAcceptDeliveryRecipientMail`, `sendAcceptDeliveryDonorMail`, `sendAcceptDeliveryVolunteerMail`, `sendRejectDeliveryRecipientMail`, `sendRejectDeliveryDonorMail`, `sendCompleteDeliveryRecipientMail`, `sendCompleteDeliveryDonorMail`, `sendCompleteDeliveryVolunteerMail`, `sendCancelDeliveryRecipientMail`, `sendCancelDeliveryDonorMail`, `sendCancelDeliveryVolunteerMail`.
 
 ---
@@ -432,7 +464,6 @@ MealBridge/
 ├── erd.puml                           # Entity Relationship Diagram (PlantUML)
 ├── main.puml                          # System-level use case diagram
 ├── docs.txt                           # Functional & non-functional requirements
-├── SERVER_AUDIT_REPORT.md             # Backend audit, known issues, and roadmap
 ├── README.md                          # Comprehensive project documentation
 └── server/
     ├── config/
@@ -459,6 +490,11 @@ MealBridge/
     │   │   ├── auth.route.ts
     │   │   ├── auth.service.ts
     │   │   └── auth.zod.ts
+    │   ├── chat/                      # Real-time chat routes, controllers, and services
+    │   │   ├── chat.controller.ts
+    │   │   ├── chat.route.ts
+    │   │   ├── chat.service.ts
+    │   │   └── chat.zod.ts
     │   ├── donor/                     # Donations, image uploads, claims & request reviews
     │   │   ├── donor.controller.ts
     │   │   ├── donor.route.ts
@@ -569,42 +605,45 @@ MealBridge/
 Create a `server/.env` file:
 
 ```env
-# Server Configuration
-PORT=3000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
+# Server & Environment Configuration
+NODE_ENV=development                                                    # Runtime mode: 'development', 'production', or 'test'
+PORT=3000                                                               # Port on which the Express server listens
+CLIENT_URL=http://localhost:3001                                        # Main client frontend URL (used for CORS & Socket.IO)
+ADMIN_CLIENT_URL=http://localhost:3002                                  # Admin dashboard frontend URL (used for CORS)
 
-# Database (PostgreSQL)
-DATABASE_URL="postgresql://username:password@localhost:5432/mealbridge_db?schema=public"
+# Database (PostgreSQL via Prisma & pg)
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/mealbridge_database" # PostgreSQL connection URI
 
-# Redis Cache & Sessions
-REDIS_URL="redis://localhost:6379"
+# Authentication & Security
+JWT_SECRET=your_super_secret_jwt_key_at_least_32_characters_long        # Secret key used to sign & verify JWT cookies (min 32 chars)
 
-# Authentication
-JWT_SECRET="your-super-secret-jwt-signing-key-here-minimum-32-chars"
+# Redis (Caching, Sessions & Rate Limiting)
+REDIS_URL=redis://localhost:6379                                        # Redis connection URI (required for cancellation limits)
 
-# Transactional Email (Gmail SMTP)
-EMAIL_USER="your-email@gmail.com"
-EMAIL_PASS="your-16-character-gmail-app-password"
+# Cloudinary Media Storage (Photos & Verification Documents)
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name                        # Cloudinary Cloud Name
+CLOUDINARY_API_KEY=your_cloudinary_api_key                              # Cloudinary API Key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret                        # Cloudinary API Secret
 
-# Cloudinary Media Storage
-CLOUDINARY_CLOUD_NAME="your-cloudinary-cloud-name"
-CLOUDINARY_API_KEY="your-cloudinary-api-key"
-CLOUDINARY_API_SECRET="your-cloudinary-api-secret"
+# Transactional Email Service (Nodemailer via Gmail SMTP)
+EMAIL_USER=your_email@gmail.com                                         # Gmail address used as the sender ('from')
+EMAIL_PASS=your_gmail_16_character_app_password                         # 16-character Google App Password (not normal password)
 ```
 
 ---
 
-## 📊 UML Diagrams
+## 📊 UML Diagrams & Architecture Guides
 
-The project includes formal PlantUML diagrams documenting every architectural layer:
+The project includes formal PlantUML diagrams and architectural implementation guides documenting every layer of the platform:
 
-| Diagram | Source File | Description |
+| Resource | Source File | Description |
 | :--- | :--- | :--- |
-| **System Overview** | [`main.puml`](file:///d:/upload-to-github/MealBridge/main.puml) | Use cases across all 5 system roles |
-| **Donation & Request** | [`donation_request.puml`](file:///d:/upload-to-github/MealBridge/donation_request.puml) | Donor and Recipient interaction lifecycle |
-| **Delivery Workflow** | [`delivery.puml`](file:///d:/upload-to-github/MealBridge/delivery.puml) | Volunteer pickup and drop-off flow |
-| **Entity Relationship** | [`erd.puml`](file:///d:/upload-to-github/MealBridge/erd.puml) | Complete PostgreSQL ERD (16 entities, 13 enums, constraints) |
+| **System Overview** | [`main.puml`](main.puml) | Use cases across all 5 system roles |
+| **Donation & Request** | [`donation_request.puml`](donation_request.puml) | Donor and Recipient interaction lifecycle |
+| **Delivery Workflow** | [`delivery.puml`](delivery.puml) | Volunteer pickup and drop-off flow |
+| **Entity Relationship** | [`erd.puml`](erd.puml) | Complete PostgreSQL ERD (16 entities, 13 enums, constraints) |
+| **Chat Implementation Guide** | [`SOCKET_CHAT_IMPLEMENTATION_GUIDE.md`](SOCKET_CHAT_IMPLEMENTATION_GUIDE.md) | Socket.io event architecture, rooms, and chat handlers |
+| **System Audit Report** | [`SERVER_AUDIT_REPORT.md`](SERVER_AUDIT_REPORT.md) | Architectural audit, active issue tracker, and feature status |
 
 > 💡 **Viewing UML**: Render the diagrams inside Visual Studio Code using the **PlantUML** extension or via the [PlantUML Online Server](https://www.plantuml.com/plantuml/uml/).
 

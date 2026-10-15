@@ -26,12 +26,17 @@ export const singleReportIdSchema = z.object({
 });
 
 export const handleReportSchema = z.object({
-  params: z.object({
+  params: z
+    .object({
+      id: z.string().trim().uuid({
+        message: "Invalid report ID",
+      }).optional(),
+    })
+    .optional(),
+  body: z.object({
     id: z.string().trim().uuid({
       message: "Invalid report ID",
-    }),
-  }),
-  body: z.object({
+    }).optional(),
     status: z.nativeEnum(ReportStatus),
     message: z.string().optional(),
   }),

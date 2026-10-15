@@ -313,3 +313,86 @@ export const sendClaimCancelForVolunteerMail = async (
     );
   }
 };
+
+export const sendEmergencyDonationCancellationRecipientMail = async (
+  email: string,
+  recipientName: string,
+  donationTitle: string,
+  donorName: string,
+  reason: string = "Food spoiled or safety issue",
+) => {
+  const html = baseEmailLayout(
+    `Important: Emergency Donation Cancellation`,
+    `
+      <p style="margin-top: 0;">Hello ${recipientName || "there"},</p>
+      <p>We are writing to urgently notify you that the donation "<strong>${donationTitle}</strong>" by <strong>${donorName}</strong> has been cancelled due to an emergency.</p>
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
+          Emergency Cancellation
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          <strong>Reason:</strong> ${reason}
+        </p>
+      </div>
+      <p>For health and safety reasons, this donation will not be distributed. Any scheduled delivery or pickup has been immediately halted.</p>
+      <p style="margin-bottom: 0;">We apologize for the inconvenience and invite you to explore MealBridge for other available food donations.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `URGENT: Emergency Cancellation for "${donationTitle}" - MealBridge`,
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send emergency cancellation email to recipient",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+
+export const sendEmergencyDonationCancellationVolunteerMail = async (
+  email: string,
+  volunteerName: string,
+  donationTitle: string,
+  donorName: string,
+  reason: string = "Food spoiled or safety issue",
+) => {
+  const html = baseEmailLayout(
+    `Urgent: Delivery Cancelled - Emergency Notice`,
+    `
+      <p style="margin-top: 0;">Hello ${volunteerName || "Volunteer"},</p>
+      <p>Please be advised that your delivery assignment for the donation "<strong>${donationTitle}</strong>" (from <strong>${donorName}</strong>) has been cancelled immediately due to an emergency donor cancellation.</p>
+      <div style="background-color: #fee2e2; border: 1px dashed #f87171; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
+        <span style="font-size: 20px; font-weight: bold; color: #ef4444;">
+          DO NOT PICK UP OR DELIVER
+        </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
+          <strong>Reason:</strong> ${reason}
+        </p>
+      </div>
+      <p>Your availability status has been reset to available, and you are free to accept other delivery tasks.</p>
+      <p style="margin-bottom: 0;">Thank you for your understanding and your dedication to the MealBridge community.</p>
+    `,
+  );
+
+  try {
+    await transporter.sendMail({
+      from: process.env.EMAIL_USER,
+      to: email,
+      subject: `URGENT: Delivery Cancelled for "${donationTitle}" - MealBridge`,
+      html,
+    });
+  } catch (error: any) {
+    throw new AppError(
+      error?.message || "Failed to send emergency cancellation email to volunteer",
+      error?.code || error?.statusCode || 500,
+      error,
+    );
+  }
+};
+

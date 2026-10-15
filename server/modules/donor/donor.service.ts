@@ -15,6 +15,7 @@ import {
   donorWithUser,
   recipientOnly,
   recipientWithUser,
+  volunteerWithUser,
 } from "../../database/selectors.js";
 import { uploadDonationPicsToCloudinary } from "../../utils/cloudinary/uploadImage.js";
 import AppError from "../../utils/errors/AppError.js";
@@ -30,6 +31,8 @@ import {
   sendAcceptDonationRequestRecipientPovMail,
   sendClaimCancelForRecipientMail,
   sendClaimCancelForVolunteerMail,
+  sendEmergencyDonationCancellationRecipientMail,
+  sendEmergencyDonationCancellationVolunteerMail,
   sendRejectDonationRequestDonorPovMail,
   sendRejectDonationRequestRecipientPovMail,
 } from "../../utils/mail/email.service.js";
@@ -522,9 +525,7 @@ export const acceptDonationRequestService = async (
       where: { id: donationId },
       data: {
         quantity: remainingQuantity,
-        ...(remainingQuantity === 0
-          ? { status: DonationStatus.CLAIMED }
-          : {}),
+        ...(remainingQuantity === 0 ? { status: DonationStatus.CLAIMED } : {}),
       },
     });
 
@@ -907,4 +908,211 @@ export const cancelClaimService = async (
       console.error("Error sending email to volunteer:", e.message || e);
     }
   }
+};
+
+export const emergencyCancelDonationService = async (
+  donorId: string,
+  donationId: string,
+) => {
+  const existingDonation = await prisma.$transaction(async (tx) => {
+    // Lock for donation related records
+    await tx.$queryRaw`
+      SELECT id
+      FROM "donation"
+      WHERE id = ${donationId}::uuid
+      FOR UPDATE`;
+    await tx.$queryRaw`
+      SELECT id
+      FROM "donation_request"
+      WHERE donation_id = ${donationId}::uuid
+      FOR UPDATE`;
+    await tx.$queryRaw`
+      SELECT id
+      FROM "donation_claim"
+      WHERE donation_id = ${donationId}::uuid
+      FOR UPDATE`;
+
+    // Lock for delivery related records
+    await tx.$queryRaw`
+      SELECT dr.id
+      FROM "delivery_request" as dr
+      JOIN "donation_claim" as dc
+      ON dc.id = dr.donation_claim_id
+      WHERE dc.donation_id = ${donationId}::uuid
+      FOR UPDATE OF dr`;
+    await tx.$queryRaw`
+      SELECT d.id
+      FROM "delivery" as d
+      JOIN "donation_claim" as dc
+      ON dc.id = d.donation_claim_id
+      WHERE dc.donation_id = ${donationId}::uuid
+      FOR UPDATE OF d`;
+
+    const donation = await tx.donation.findUnique({
+      where: { id: donationId, donorId },
+      include: {
+        donor: {
+          select: donorWithUser,
+        },
+      },
+    });
+
+    if (!donation) {
+      throw new AppError("Donation not found", 404);
+    }
+
+    if (donation.status === DonationStatus.COMPLETED) {
+      throw new AppError(
+        "Cannot emergency cancel an already completed donation",
+        400,
+      );
+    }
+
+    if (donation.status === DonationStatus.CANCELLED) {
+      throw new AppError("Donation is already cancelled", 400);
+    }
+
+    await tx.donation.update({
+      where: { id: donationId },
+      data: { status: DonationStatus.CANCELLED },
+    });
+
+    await tx.donationRequest.updateMany({
+      where: { donationId, status: DonationRequestStatus.PENDING },
+      data: { status: DonationRequestStatus.CANCELLED },
+    });
+
+    const claims = await tx.donationClaim.findMany({
+      where: { donationId, status: ClaimStatus.ACTIVE },
+      select: {
+        id: true,
+        recipient: { select: recipientWithUser },
+        delivery: {
+          select: {
+            id: true,
+            volunteerId: true,
+            volunteer: { select: volunteerWithUser },
+          },
+        },
+      },
+    });
+
+    const claimIds = claims.map((claim) => claim.id);
+
+    if (claimIds.length > 0) {
+      await tx.donationClaim.updateMany({
+        where: { id: { in: claimIds } },
+        data: {
+          status: ClaimStatus.CANCELLED,
+          canceledBy: Role.DONOR,
+          canceledReason: "Emergency cancellation by donor",
+        },
+      });
+
+      await tx.deliveryRequest.updateMany({
+        where: {
+          donationClaimId: { in: claimIds },
+          status: {
+            in: [DeliveryRequestStatus.PENDING, DeliveryRequestStatus.ACCEPTED],
+          },
+        },
+        data: { status: DeliveryRequestStatus.CANCELLED },
+      });
+
+      const deliveries = claims
+        .map((c) => c.delivery)
+        .filter((d): d is NonNullable<typeof d> => d !== null);
+
+      if (deliveries.length > 0) {
+        await tx.delivery.updateMany({
+          where: {
+            donationClaimId: { in: claimIds },
+            status: {
+              in: [DeliveryStatus.PENDING, DeliveryStatus.PICKED_UP],
+            },
+          },
+          data: {
+            status: DeliveryStatus.CANCELLED,
+            canceledAt: new Date(),
+            canceledBy: Role.DONOR,
+            canceledReason: "Emergency cancellation by donor",
+          },
+        });
+
+        const volunteerIds = deliveries.map((d) => d.volunteerId);
+        await tx.volunteerProfile.updateMany({
+          where: { id: { in: volunteerIds }, availabilityStatus: false },
+          data: { availabilityStatus: true },
+        });
+      }
+    }
+
+    return { donation, claims };
+  });
+
+  for (const claim of existingDonation.claims) {
+    try {
+      await createNotificationService(
+        claim.recipient.userId,
+        `Emergency Cancellation: ${existingDonation.donation.title}`,
+        `The donation "${existingDonation.donation.title}" was emergency cancelled by the donor. Reason: Food spoiled or safety issue.`,
+      );
+    } catch (err: any) {
+      console.error(
+        "Failed to notify recipient of emergency cancellation:",
+        err.message || err,
+      );
+    }
+
+    try {
+      await sendEmergencyDonationCancellationRecipientMail(
+        claim.recipient.user.email,
+        claim.recipient.organizationName || claim.recipient.user.name,
+        existingDonation.donation.title,
+        existingDonation.donation.donor.organizationName ||
+          existingDonation.donation.donor.user.name ||
+          "the donor",
+        "Food spoiled or safety issue",
+      );
+    } catch (err: any) {
+      console.error(
+        "Failed to send emergency cancellation email to recipient:",
+        err.message || err,
+      );
+    }
+
+    if (claim.delivery?.volunteer) {
+      try {
+        await createNotificationService(
+          claim.delivery.volunteer.userId,
+          `Emergency Delivery Cancellation`,
+          `The delivery for "${existingDonation.donation.title}" has been cancelled due to an emergency donor cancellation. Do not proceed with pickup.`,
+        );
+      } catch (err: any) {
+        console.error(
+          "Failed to notify volunteer of emergency cancellation:",
+          err.message || err,
+        );
+      }
+
+      try {
+        await sendEmergencyDonationCancellationVolunteerMail(
+          claim.delivery.volunteer.user.email,
+          claim.delivery.volunteer.user.name,
+          existingDonation.donation.title,
+          existingDonation.donation.donor.organizationName ||
+            existingDonation.donation.donor.user.name ||
+            "the donor",
+          "Food spoiled or safety issue",
+        );
+      } catch (err: any) {
+        console.error(
+          "Failed to send emergency cancellation email to volunteer:",
+          err.message || err,
+        );
+      }
+    }
+  }
+
+  return existingDonation.donation;
 };

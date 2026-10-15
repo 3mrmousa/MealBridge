@@ -1,7 +1,6 @@
 import type z from "zod";
 import asyncHandler from "../utils/errors/asyncHandler.js";
 import type { NextFunction, Request, Response } from "express";
-import type { ParsedQs } from "qs";
 
 export const validate = (schema: z.ZodObject<any>) => {
   return asyncHandler(
@@ -12,9 +11,27 @@ export const validate = (schema: z.ZodObject<any>) => {
         params: req.params,
       });
 
-      req.body = parsedData.body as Record<string, unknown>;
-      req.query = parsedData.query as ParsedQs;
-      req.params = parsedData.params as Record<string, string>;
+      if (parsedData.body !== undefined) {
+        req.body = parsedData.body as Record<string, unknown>;
+      }
+
+      if (parsedData.query !== undefined) {
+        Object.defineProperty(req, "query", {
+          value: parsedData.query,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      }
+
+      if (parsedData.params !== undefined) {
+        Object.defineProperty(req, "params", {
+          value: parsedData.params,
+          writable: true,
+          configurable: true,
+          enumerable: true,
+        });
+      }
 
       next();
     },

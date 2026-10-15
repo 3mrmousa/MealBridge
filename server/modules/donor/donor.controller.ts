@@ -16,6 +16,7 @@ import {
   getDonationRequestsService,
   getSingleDonationRequestService,
   cancelClaimService,
+  emergencyCancelDonationService,
 } from "./donor.service.js";
 import type {
   CreateDonationBody,
@@ -319,6 +320,18 @@ export const cancelClaim = asyncHandler(
     res.status(200).json({
       status: "success",
       message: "Donation claim cancelled successfully",
+    });
+  },
+);
+
+export const emergencyCancelDonation = asyncHandler(
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user!.id;
+    const { id: donationId } = req.params as OnlyIdParamParams;
+    await emergencyCancelDonationService(userId!, donationId);
+    res.status(200).json({
+      status: "success",
+      message: "Donation cancelled successfully",
     });
   },
 );

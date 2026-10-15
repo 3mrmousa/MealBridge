@@ -18,12 +18,26 @@ import reportRouter from "./modules/report/report.route.js";
 import donorRouter from "./modules/donor/donor.route.js";
 import recipientRouter from "./modules/recipient/recipient.route.js";
 import volunteerRouter from "./modules/volunteer/volunteer.route.js";
+import chatRouter from "./modules/chat/chat.route.js";
 
 const app = express();
 
+const allowedOrigins = [
+  process.env.CLIENT_URL,
+  process.env.ADMIN_CLIENT_URL,
+  "http://localhost:3001",
+  "http://localhost:3002",
+];
+
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   }),
 );
@@ -39,6 +53,7 @@ app.use("/api/reports", reportRouter);
 app.use("/api/donors", donorRouter);
 app.use("/api/recipients", recipientRouter);
 app.use("/api/volunteers", volunteerRouter);
+app.use("/api/chats", chatRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));
@@ -80,7 +95,7 @@ const startServer = async () => {
   try {
     await prisma.$connect();
     console.log("🟢 Connected to PostgreSQL database successfully.");
-    
+
     await connectRedis();
 
     const httpServer = createServer(app);

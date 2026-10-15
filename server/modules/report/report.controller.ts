@@ -58,7 +58,7 @@ export const getSingleReport = asyncHandler(
 export const handleReport = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const reviewerId = req.user!.id;
-    const { id } = req.params as HandleReportParams;
+    const id = ((req.params as any)?.id || (req.body as any)?.id) as string;
     const { status, message } = req.body as HandleReportBody;
 
     await handleReportService(reviewerId, id, status, message);
