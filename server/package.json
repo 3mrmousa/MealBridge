@@ -2,11 +2,11 @@
   "name": "server",
   "version": "1.0.0",
   "type": "module",
-  "main": "index.js",
+  "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "nodemon index.ts",
-    "start": "node index.js",
+    "dev": "tsx watch index.ts",
+    "start": "node dist/index.js",
     "test": "vitest"
   },
   "keywords": [],
@@ -48,11 +48,11 @@
     "@types/streamifier": "^0.1.2",
     "@types/supertest": "^7.2.1",
     "eslint": "^10.11.0",
-    "nodemon": "^3.1.14",
     "prettier": "^3.9.9",
     "prisma": "^7.10.0",
     "supertest": "^7.3.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.0.3"
   }

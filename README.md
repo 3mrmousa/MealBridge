@@ -145,7 +145,7 @@ MealBridge implements a layered, domain-driven REST API powered by Express.js v5
 | Layer | Technology | Details |
 | :--- | :--- | :--- |
 | **Runtime** | Node.js v20+ | ES Modules (`"type": "module"`) |
-| **Language** | TypeScript 5.x | Strict type checking with project paths |
+| **Language & Tooling** | TypeScript & `tsx` | Strict type checking (`tsc`), hot-reload via `tsx watch` |
 | **Web Framework** | Express.js v5 | Native async handling and modern routing |
 | **Database** | PostgreSQL 16+ | Relational storage with ACID transaction guarantees |
 | **ORM** | Prisma 7.10 | Multi-file schema with `@prisma/adapter-pg` pool |
@@ -591,10 +591,23 @@ MealBridge/
    npx prisma generate
    ```
 
-6. **Start development server**:
-   ```bash
-   npm run dev
-   ```
+6. **Start server & available scripts**:
+   - **Development** (hot-reload via `tsx watch`):
+     ```bash
+     npm run dev
+     ```
+   - **Build** (compile TypeScript to `./dist` via `tsc`):
+     ```bash
+     npm run build
+     ```
+   - **Production Start** (run compiled output from `./dist`):
+     ```bash
+     npm start
+     ```
+   - **Testing** (run Vitest suites):
+     ```bash
+     npm test
+     ```
 
    The server will start on your configured port (default: `http://localhost:3000`).
 
