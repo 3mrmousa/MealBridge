@@ -113,6 +113,7 @@ enum DeliveryStatus {
 enum ConversationType {
   DONOR_RECIPIENT
   RECIPIENT_VOLUNTEER
+  DONOR_VOLUNTEER
 
   @@map("conversation_type")
 }

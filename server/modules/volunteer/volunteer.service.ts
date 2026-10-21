@@ -4,6 +4,7 @@ import {
   DonationStatus,
   Role,
   Prisma,
+  ConversationType,
 } from "@prisma/client";
 import type {
   GetAllDeliveriesQuery,
@@ -36,6 +37,11 @@ import {
   setWeeklyLimit,
 } from "../../utils/redis/weeklyLimit.redis.js";
 import { deliveryDetailsInclude } from "../../database/includes.js";
+import {
+  createConversationAndNotify,
+  lockConversationByType,
+  lockConversationsForClaim,
+} from "../chat/chat.service.js";
 
 export async function getAllDeliveriesService(
   userId: string,
@@ -316,6 +322,32 @@ export async function acceptDeliveryRequestService(
   }
 
   try {
+    await createConversationAndNotify(
+      requestResult.donationClaimId,
+      ConversationType.RECIPIENT_VOLUNTEER,
+      [recipientUser.id, volunteerUser.id],
+    );
+  } catch (e: any) {
+    console.error(
+      "Error creating recipient-volunteer conversations for claim:",
+      e.message || e,
+    );
+  }
+
+  try {
+    await createConversationAndNotify(
+      requestResult.donationClaimId,
+      ConversationType.DONOR_VOLUNTEER,
+      [donorUser.id, volunteerUser.id],
+    );
+  } catch (e: any) {
+    console.error(
+      "Error creating donor-volunteer conversations for claim:",
+      e.message || e,
+    );
+  }
+
+  try {
     await createNotificationService(
       recipientUser.id,
       "Delivery Accepted! 🚚",
@@ -590,6 +622,12 @@ export async function completeDeliveryService(id: string, userId: string) {
   }
 
   try {
+    await lockConversationsForClaim(delivery.donationClaimId);
+  } catch (e: any) {
+    console.error("Error locking conversations for claim:", e.message || e);
+  }
+
+  try {
     await createNotificationService(
       recipientUser.id,
       "Meal Delivered! 🎉",
@@ -700,6 +738,30 @@ export async function emergencyCancelDeliveryService(
   const recipientUser = delivery.donationClaim.recipient.user;
   const volunteerUser = delivery.volunteer?.user;
   const donationTitle = delivery.donationClaim.donation.title;
+
+  try {
+    await lockConversationByType(
+      delivery.donationClaimId,
+      ConversationType.RECIPIENT_VOLUNTEER,
+    );
+  } catch (e: any) {
+    console.error(
+      "Error locking recipient-volunteer conversations for claim:",
+      e.message || e,
+    );
+  }
+
+  try {
+    await lockConversationByType(
+      delivery.donationClaimId,
+      ConversationType.DONOR_VOLUNTEER,
+    );
+  } catch (e: any) {
+    console.error(
+      "Error locking donor-volunteer conversations for claim:",
+      e.message || e,
+    );
+  }
 
   try {
     await createNotificationService(

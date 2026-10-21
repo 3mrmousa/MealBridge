@@ -1,5 +1,5 @@
 import AppError from "../errors/AppError.js";
-import { transporter, baseEmailLayout } from "./mail.config.js";
+import { transporter, baseEmailLayout, defaultSender } from "./mail.config.js";
 
 export const sendVerificationStatusChangeMail = async (
   email: string,
@@ -8,32 +8,45 @@ export const sendVerificationStatusChangeMail = async (
   message: string,
 ) => {
   const isAccepted = status === "Accepted";
-  const color = isAccepted ? "#10b981" : "#ef4444";
-  const bgColor = isAccepted ? "#d1fae5" : "#fee2e2";
-  const borderColor = isAccepted ? "#34d399" : "#f87171";
+  const statusLabel = isAccepted ? "Approved" : "Rejected";
+  const color = isAccepted ? "#059669" : "#dc2626";
+  const bgColor = isAccepted ? "#f0fdf4" : "#fef2f2";
+  const borderColor = isAccepted ? "#86efac" : "#fca5a5";
 
   const html = baseEmailLayout(
-    `Verification Status ${status}`,
+    `Verification Request ${statusLabel}`,
     `
       <p style="margin-top: 0;">Hello,</p>
-      <p>Your verification status for the <strong>${role}</strong> role has been updated.</p>
+      <p>
+        ${
+          isAccepted
+            ? `Great news! Your verification request for the <strong>${role}</strong> role has been approved by the administration.`
+            : `We have reviewed your verification request for the <strong>${role}</strong> role. Unfortunately, your request was not approved at this time.`
+        }
+      </p>
       <div style="background-color: ${bgColor}; border: 1px dashed ${borderColor}; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
-        <span style="font-size: 24px; font-weight: bold; color: ${color};">
-          ${status.toUpperCase()}
+        <span style="font-size: 22px; font-weight: 700; color: ${color}; letter-spacing: 0.5px;">
+          ${statusLabel.toUpperCase()}
         </span>
-        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
-          ${message}
+        <p style="margin-top: 12px; margin-bottom: 0; color: #374151; font-size: 15px; line-height: 1.5;">
+          ${message ? `<strong>Details:</strong> "${message}"` : isAccepted ? "You now have full access to your role features." : "Please review the requirements and reapply."}
         </p>
       </div>
-      <p style="margin-bottom: 0;">If you have any questions, please contact our support team.</p>
+      <p style="margin-bottom: 0;">
+        ${
+          isAccepted
+            ? "You can now log in and start using all the features of your role on MealBridge."
+            : "If you have questions or believe this was a mistake, please contact our support team."
+        }
+      </p>
     `,
   );
 
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: defaultSender,
       to: email,
-      subject: `MealBridge - Verification ${status}`,
+      subject: `MealBridge - Verification Request ${statusLabel}`,
       html,
     });
   } catch (error: any) {
@@ -51,32 +64,45 @@ export const sendBlockStatusChangeMail = async (
   message: string,
 ) => {
   const isUnblocked = status === "Unblocked";
-  const color = isUnblocked ? "#10b981" : "#ef4444"; // Emerald or Red
-  const bgColor = isUnblocked ? "#d1fae5" : "#fee2e2";
-  const borderColor = isUnblocked ? "#34d399" : "#f87171";
+  const statusLabel = isUnblocked ? "Reactivated" : "Suspended";
+  const color = isUnblocked ? "#059669" : "#dc2626";
+  const bgColor = isUnblocked ? "#f0fdf4" : "#fef2f2";
+  const borderColor = isUnblocked ? "#86efac" : "#fca5a5";
 
   const html = baseEmailLayout(
-    `Account ${status}`,
+    `Account ${statusLabel}`,
     `
       <p style="margin-top: 0;">Hello,</p>
-      <p>Your account status has been updated by the administration.</p>
+      <p>
+        ${
+          isUnblocked
+            ? "Good news! Your MealBridge account has been reactivated by the administration."
+            : "Please be advised that your MealBridge account has been suspended by the administration."
+        }
+      </p>
       <div style="background-color: ${bgColor}; border: 1px dashed ${borderColor}; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
-        <span style="font-size: 24px; font-weight: bold; color: ${color};">
-          ${status.toUpperCase()}
+        <span style="font-size: 22px; font-weight: 700; color: ${color}; letter-spacing: 0.5px;">
+          ACCOUNT ${statusLabel.toUpperCase()}
         </span>
-        <p style="margin-top: 12px; margin-bottom: 0; color: #4b5563; font-size: 16px;">
-          ${message}
+        <p style="margin-top: 12px; margin-bottom: 0; color: #374151; font-size: 15px; line-height: 1.5;">
+          ${message ? `<strong>Reason:</strong> "${message}"` : isUnblocked ? "Your account is once again in good standing." : "Suspended due to administrative review."}
         </p>
       </div>
-      <p style="margin-bottom: 0;">If you have any questions or believe this is a mistake, please contact our support team.</p>
+      <p style="margin-bottom: 0;">
+        ${
+          isUnblocked
+            ? "You can now log in and resume using MealBridge."
+            : "If you believe this was an error or would like to submit an appeal, please contact our support team."
+        }
+      </p>
     `,
   );
 
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: defaultSender,
       to: email,
-      subject: `MealBridge - Account ${status}`,
+      subject: `MealBridge - Account ${statusLabel}`,
       html,
     });
   } catch (error: any) {
@@ -87,3 +113,4 @@ export const sendBlockStatusChangeMail = async (
     );
   }
 };
+

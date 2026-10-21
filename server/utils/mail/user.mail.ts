@@ -1,27 +1,35 @@
 import AppError from "../errors/AppError.js";
-import { transporter, baseEmailLayout } from "./mail.config.js";
+import { transporter, baseEmailLayout, defaultSender } from "./mail.config.js";
 
-export const sendChangeEmailOtpMail = async (email: string, otp: string) => {
+export const sendChangeEmailOtpMail = async (
+  email: string,
+  otp: string,
+  name?: string,
+) => {
+  const greeting = name ? `Hello ${name},` : "Hello,";
   const html = baseEmailLayout(
-    "Verify your email",
+    "Verify Your New Email Address",
     `
-      <p style="margin-top: 0;">Hello,</p>
-      <p>Please enter the following OTP to change your email:</p>
-      <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 20px; text-align: center; margin: 24px 0;">
-        <span style="font-size: 32px; font-weight: bold; letter-spacing: 8px; color: #a855f7;">
+      <p style="margin-top: 0;">${greeting}</p>
+      <p>We received a request to update your email address on MealBridge. Please enter the following One-Time Password (OTP) to confirm and complete this change:</p>
+      <div style="background-color: #faf5ff; border: 1px dashed #d8b4fe; border-radius: 8px; padding: 24px; text-align: center; margin: 24px 0;">
+        <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: #7e22ce; margin-bottom: 8px;">Email Verification Code</div>
+        <span style="font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #9333ea; font-family: monospace;">
           ${otp}
         </span>
+        <p style="margin-top: 12px; margin-bottom: 0; color: #6b7280; font-size: 13px;">
+          This code will expire in <strong>10 minutes</strong>.
+        </p>
       </div>
-      <p>This OTP will expire in <strong>10 minutes</strong>.</p>
-      <p style="margin-bottom: 0;">If you didn't request this, you can safely ignore this email.</p>
+      <p style="margin-bottom: 0;">If you did not request this email change, please secure your account immediately and contact our support team.</p>
     `,
   );
 
   try {
     await transporter.sendMail({
-      from: process.env.EMAIL_USER,
+      from: defaultSender,
       to: email,
-      subject: "MealBridge - Change Email",
+      subject: "MealBridge - Verify Your New Email Address",
       html,
     });
   } catch (error: any) {
@@ -32,3 +40,4 @@ export const sendChangeEmailOtpMail = async (email: string, otp: string) => {
     );
   }
 };
+

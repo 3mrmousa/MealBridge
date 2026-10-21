@@ -24,7 +24,7 @@ export const createReport = asyncHandler(
     await createReportService(userId, title, description, reportedUserId);
 
     res.status(201).json({
-      status: "success",
+      success: true,
       message: "Report sent successfully",
     });
   },
@@ -35,7 +35,7 @@ export const getAllReports = asyncHandler(
     const reports = await getAllReportsService();
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Reports sent successfully",
       data: { reports },
     });
@@ -48,7 +48,7 @@ export const getSingleReport = asyncHandler(
     const report = await getSingleReportService(id);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Report sent successfully",
       data: { report },
     });
@@ -64,7 +64,7 @@ export const handleReport = asyncHandler(
     await handleReportService(reviewerId, id, status, message);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Report handled successfully",
     });
   },

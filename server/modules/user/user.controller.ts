@@ -44,7 +44,7 @@ export const getUserProfile = asyncHandler(
     const data = await getUserProfileService(userId);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Profile Fetched.",
       data,
     });
@@ -65,7 +65,7 @@ export const createDonorProfile = asyncHandler(
     await createDonorProfileService(userId, donorData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donor profile created successfully.",
     });
   },
@@ -82,7 +82,7 @@ export const updateDonorProfile = asyncHandler(
     await updateDonorProfileService(userId, validatedData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donor profile updated successfully.",
     });
   },
@@ -102,7 +102,7 @@ export const createRecipientProfile = asyncHandler(
     await createRecipientProfileService(userId, recipientData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Recipient profile created successfully.",
     });
   },
@@ -119,7 +119,7 @@ export const updateRecipientProfile = asyncHandler(
     await updateRecipientProfileService(userId, validatedData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Profile Updated.",
     });
   },
@@ -139,7 +139,7 @@ export const createVolunteerProfile = asyncHandler(
     await createVolunteerProfileService(userId, volunteerData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Volunteer profile created successfully.",
     });
   },
@@ -156,7 +156,7 @@ export const updateVolunteerProfile = asyncHandler(
     await updateVolunteerProfileService(userId, validatedData);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Profile Updated.",
     });
   },
@@ -175,7 +175,7 @@ export const updateProfilePicture = asyncHandler(
     await updateProfilePictureService(userId, role, file.buffer);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Profile Picture Updated.",
     });
   },
@@ -190,7 +190,7 @@ export const deleteProfilePicture = asyncHandler(
     await deleteProfilePictureService(userId, role, public_id);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Profile Picture Deleted.",
     });
   },
@@ -218,7 +218,7 @@ export const updateVerificationDocument = asyncHandler(
     await updateVerificationDocumentService(userId, role, verificationDocs);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Verification Documents Updated.",
     });
   },
@@ -233,7 +233,7 @@ export const deleteVerificationDocument = asyncHandler(
     await deleteVerificationDocumentService(userId, role, public_id);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Verification Document Deleted.",
     });
   },
@@ -247,7 +247,7 @@ export const changePassword = asyncHandler(
     await changePasswordService(userId, currentPassword, newPassword);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Password Changed.",
     });
   },
@@ -261,7 +261,7 @@ export const changeEmailRequest = asyncHandler(
     await changeEmailRequestService(currentEmail, newEmail);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message:
         "OTP sent to current email. Check your email or spam or try again after 10 minutes.",
     });
@@ -276,7 +276,7 @@ export const currentEmailOtpVerification = asyncHandler(
     await currentEmailOtpVerificationService(currentEmail, otp);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message:
         "OTP sent to new email. Check your email or spam or try again after 10 minutes.",
     });
@@ -291,7 +291,7 @@ export const newEmailOtpVerificationAndChange = asyncHandler(
     await newEmailOtpVerificationAndChangeService(currentEmail, otp);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Email Has Been Changed.",
     });
   },
@@ -305,7 +305,7 @@ export const changePhone = asyncHandler(
     await changePhoneService(userId, phone);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Phone Has Been Changed.",
     });
   },

@@ -2,6 +2,7 @@ model Conversation {
   id               String           @id @default(uuid()) @map("id") @db.Uuid
   donationClaimId  String           @map("donation_claim_id") @db.Uuid
   conversationType ConversationType @map("conversation_type")
+  isLocked         Boolean          @default(false) @map("is_locked")
   createdAt        DateTime         @default(now()) @map("created_at")
   updatedAt        DateTime         @updatedAt @map("updated_at")
 

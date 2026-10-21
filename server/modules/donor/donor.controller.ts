@@ -51,7 +51,7 @@ export const getMyDonations = asyncHandler(
       sortOrder,
     });
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donations fetched successfully",
       data: result.donations,
       pagination: result.pagination,
@@ -65,7 +65,7 @@ export const getDonationById = asyncHandler(
     const userId = req.user!.id;
     const donation = await getDonationByIdService(userId!, donationId);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation fetched successfully",
       data: donation,
     });
@@ -112,7 +112,7 @@ export const createDonation = asyncHandler(
     );
 
     res.status(201).json({
-      status: "success",
+      success: true,
       message: "Donation created successfully",
     });
   },
@@ -143,7 +143,7 @@ export const updateDonation = asyncHandler(
       availableUntil,
     });
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation updated successfully",
     });
   },
@@ -160,7 +160,7 @@ export const addPicsToDonation = asyncHandler(
     }
     await addPicsToDonationService(userId!, donationId, donationPictures);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation pictures added successfully",
     });
   },
@@ -179,7 +179,7 @@ export const removePicFromDonation = asyncHandler(
     }
     await removePicFromDonationService(userId!, donationId, publicId);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation picture removed successfully",
     });
   },
@@ -191,7 +191,7 @@ export const cancelDonation = asyncHandler(
     const { id: donationId } = req.params as OnlyIdParamParams;
     await cancelDonationService(userId!, donationId);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation cancelled successfully",
     });
   },
@@ -213,7 +213,7 @@ export const getDonationRequests = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation requests fetched successfully",
       data: result.requests,
       pagination: result.pagination,
@@ -234,7 +234,7 @@ export const getSingleDonationRequest = asyncHandler(
     );
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request fetched successfully",
       data: request,
     });
@@ -249,7 +249,7 @@ export const acceptDonationRequest = asyncHandler(
     await acceptDonationRequestService(userId!, donationId, reqId);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request accepted successfully",
     });
   },
@@ -263,7 +263,7 @@ export const rejectDonationRequest = asyncHandler(
     await rejectDonationRequestService(userId!, donationId, reqId);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request rejected successfully",
     });
   },
@@ -286,7 +286,7 @@ export const getAllDonationClaims = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation claims fetched successfully",
       data: result.claims,
       pagination: result.pagination,
@@ -302,7 +302,7 @@ export const getSingleDonationClaim = asyncHandler(
     const claim = await getSingleDonationClaimService(userId, id, claimId);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation claim fetched successfully",
       data: claim,
     });
@@ -318,7 +318,7 @@ export const cancelClaim = asyncHandler(
     await cancelClaimService(userId, claimId, reason);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation claim cancelled successfully",
     });
   },
@@ -330,7 +330,7 @@ export const emergencyCancelDonation = asyncHandler(
     const { id: donationId } = req.params as OnlyIdParamParams;
     await emergencyCancelDonationService(userId!, donationId);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation cancelled successfully",
     });
   },

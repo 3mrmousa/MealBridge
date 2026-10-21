@@ -118,6 +118,7 @@ enum DeliveryStatus {
 enum ConversationType {
     DONOR_RECIPIENT
     RECIPIENT_VOLUNTEER
+    DONOR_VOLUNTEER
 }
 
 enum ReportStatus {
@@ -276,6 +277,7 @@ entity Conversation {
     --
     donationClaimId : UUID <<FK>>
     conversationType : ConversationType
+    isLocked : Boolean default(false)
     createdAt : DateTime default(now())
     updatedAt : DateTime
     -- constraints --

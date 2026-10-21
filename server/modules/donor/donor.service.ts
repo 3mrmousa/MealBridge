@@ -1,5 +1,6 @@
 import {
   ClaimStatus,
+  ConversationType,
   DeliveryRequestStatus,
   DeliveryStatus,
   DonationRequestStatus,
@@ -36,6 +37,10 @@ import {
   sendRejectDonationRequestDonorPovMail,
   sendRejectDonationRequestRecipientPovMail,
 } from "../../utils/mail/email.service.js";
+import {
+  createConversationAndNotify,
+  lockConversationsForClaim,
+} from "../chat/chat.service.js";
 
 export const getMyDonationsService = async (
   donorId: string,
@@ -436,7 +441,7 @@ export const acceptDonationRequestService = async (
   donationId: string,
   requestId: string,
 ) => {
-  const { donation, request } = await prisma.$transaction(async (tx) => {
+  const { donation, request, claim } = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
     FROM "donation"
@@ -499,8 +504,9 @@ export const acceptDonationRequestService = async (
       data: { status: DonationRequestStatus.ACCEPTED },
     });
 
+    let claim;
     try {
-      await tx.donationClaim.create({
+      claim = await tx.donationClaim.create({
         data: {
           donationRequestId: requestId,
           donationId: donationId,
@@ -541,8 +547,18 @@ export const acceptDonationRequestService = async (
       });
     }
 
-    return { donation, request };
+    return { donation, request, claim };
   });
+
+  try {
+    await createConversationAndNotify(
+      claim.id,
+      ConversationType.DONOR_RECIPIENT,
+      [donation.donor.userId, request.recipient.userId],
+    );
+  } catch (error: any) {
+    console.error("Failed to create conversation:", error.message || error);
+  }
 
   try {
     await createNotificationService(
@@ -855,6 +871,12 @@ export const cancelClaimService = async (
   });
 
   try {
+    await lockConversationsForClaim(claimId);
+  } catch (e: any) {
+    console.error("Error locking conversations for claim:", e.message || e);
+  }
+
+  try {
     await createNotificationService(
       claim.recipient.userId,
       `Claim on ${donation.title} cancelled by donor`,
@@ -1051,6 +1073,14 @@ export const emergencyCancelDonationService = async (
   });
 
   for (const claim of existingDonation.claims) {
+    try {
+      await lockConversationsForClaim(claim.id);
+    } catch (err: any) {
+      console.error(
+        "Failed to lock conversations for claim:",
+        err.message || err,
+      );
+    }
     try {
       await createNotificationService(
         claim.recipient.userId,

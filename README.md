@@ -27,7 +27,15 @@
 - [Tech Stack](#-tech-stack)
 - [User Roles & Permissions](#-user-roles--permissions)
 - [Core Workflows & Concurrency](#-core-workflows--concurrency)
+  - [1. Concurrency-Safe Claiming (`SELECT ... FOR UPDATE`)](#1-concurrency-safe-claiming-select--for-update)
+  - [2. Multi-Hop Cancellation & Restoration](#2-multi-hop-cancellation--restoration)
+  - [3. Volunteer Single Active Delivery & Emergency Abort](#3-volunteer-single-active-delivery--emergency-abort)
+  - [4. Donor Emergency Cancellation Workflow](#4-donor-emergency-cancellation-workflow)
+  - [5. Token Versioning & Session Revocation](#5-token-versioning--session-revocation)
+  - [6. Real-Time Chat Channels & Lifecycle Locking](#6-real-time-chat-channels--lifecycle-locking)
+  - [7. Self-Pickup & Delivery Confirmation Workflows](#7-self-pickup--delivery-confirmation-workflows)
 - [Database Schema & Enums](#-database-schema--enums)
+- [Standard API Response Format](#-standard-api-response-format)
 - [Complete API Reference](#-complete-api-reference)
   - [1. Authentication (`/api/auth`)](#1-authentication-apiauth)
   - [2. User & Profiles (`/api/users`)](#2-user--profiles-apiusers--all-authenticated)
@@ -37,9 +45,13 @@
   - [6. Admin & Management (`/api/admin`)](#6-admin--management-apiadmin--admin--manager)
   - [7. Notifications (`/api/notifications`)](#7-notifications-apinotifications--all-authenticated)
   - [8. Reports (`/api/reports`)](#8-reports-apireports--all-authenticated)
-  - [9. Real-Time Chat (`/api/chats`)](#9-real-time-chat-apichats--all-authenticated)
+  - [9. Real-Time Chat (`/api/chats`)](#9-real-time-chat-apichats--verified-users)
 - [Real-time Events & Email Notifications](#-real-time-events--email-notifications)
+  - [Socket.io Architecture & Room System](#socketio-architecture--room-system)
+  - [Socket.io Event Reference](#socketio-event-reference)
+  - [Transactional Email Suite (Nodemailer)](#transactional-email-suite-nodemailer)
 - [Project Directory Structure](#-project-directory-structure)
+- [System Audit & Known Issues Tracker](#-system-audit--known-issues-tracker)
 - [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
 - [UML Diagrams](#-uml-diagrams)
@@ -64,16 +76,19 @@ MealBridge tackles surplus food waste in the commercial food and hospitality sec
   Donor accepts Request ───► Concurrency Lock (SELECT FOR UPDATE)
           │
           ├── Quantity deducted; status -> AVAILABLE or CLAIMED
-          └── DonationClaim (ACTIVE) created
+          ├── DonationClaim (ACTIVE) created
+          └── DONOR_RECIPIENT Chat automatically provisioned
                     │
        ┌────────────┴────────────┐
        ▼                         ▼
 [ Self-Pickup ]         [ Stage 3: Volunteer Delivery ]
-Recipient claims meal     Recipient creates DeliveryRequest (PENDING)
-via SELF pickup                   │
-(status: COMPLETED)               ▼
-                        Volunteer accepts request
-                                  │
+Recipient executes        Recipient creates DeliveryRequest (PENDING)
+SELF pickup (COMPLETED)           │
+       │                          ▼
+       ├── Chats locked ◄── Volunteer accepts request
+       └── Mails sent             │
+                                  ├── DONOR_VOLUNTEER & RECIPIENT_VOLUNTEER
+                                  │   Chats automatically provisioned
                                   ▼
                         Delivery created (PENDING)
                                   │
@@ -81,8 +96,8 @@ via SELF pickup                   │
                         Volunteer marks PICKED_UP
                                   │
                                   ▼
-                        Volunteer/Recipient marks COMPLETED
-                        (Claim & Delivery completed)
+                        Volunteer / Recipient marks COMPLETED
+                        (Claim & Delivery completed; all chats locked)
 ```
 
 ### Core Platform Goals
@@ -90,8 +105,8 @@ via SELF pickup                   │
 - **Zero Food Waste**: Frictionless donation creation taking under 3 steps for busy kitchen staff.
 - **Strict Concurrency Safety**: PostgreSQL row-level locks (`SELECT ... FOR UPDATE`) inside database transactions protect against race conditions, double-claiming, and over-allocation.
 - **Mandatory Document Verification**: Donors, recipients, and volunteers must submit official documentation approved by Admins or Managers before participating.
-- **Instant Real-Time Sync**: Socket.io event broadcasting and targeted room delivery for notifications and support reports.
-- **Fail-Safe Communications**: Automated, branded transactional emails via Nodemailer for every lifecycle status transition and cancellation.
+- **Instant Real-Time Sync**: Socket.io event broadcasting and targeted room delivery for chat, notifications, and support reports.
+- **Fail-Safe Communications**: Automated, branded transactional emails via Nodemailer for every lifecycle status transition, delivery event, and cancellation.
 
 ---
 
@@ -185,6 +200,7 @@ When multiple recipients simultaneously request the same donation, MealBridge gu
 - The requested quantity is decremented atomically.
 - If the remaining quantity reaches `0`, the donation status automatically transitions to `CLAIMED`.
 - A corresponding `DonationClaim` is created with a foreign-key link to the request.
+- A dedicated `DONOR_RECIPIENT` conversation is auto-provisioned.
 
 ### 2. Multi-Hop Cancellation & Restoration
 - When a claim is canceled by either the Donor or Recipient:
@@ -193,20 +209,52 @@ When multiple recipients simultaneously request the same donation, MealBridge gu
   - If the donation was `CLAIMED`, its status reverts to `AVAILABLE`.
   - All pending `DeliveryRequest` records are marked `CANCELLED`.
   - Any active `Delivery` is canceled, and the assigned Volunteer's `availabilityStatus` is restored.
+  - All claim chat channels (`DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER`) are locked (`isLocked: true`).
   - Automated transactional emails and push notifications are dispatched to all parties.
 
 ### 3. Volunteer Single Active Delivery & Emergency Abort
 - A volunteer can have **only one active delivery** (`PENDING` or `PICKED_UP`) at a time. Attempts to accept another request are rejected.
 - Volunteers have access to an **Emergency Cancellation** feature limited to **1 cancellation per week**, tracked via Redis TTL keys (`weeklyLimit:{volunteerId}`).
+- When emergency cancellation occurs, volunteer-assigned channels (`DONOR_VOLUNTEER`, `RECIPIENT_VOLUNTEER`) are automatically locked.
 
 ### 4. Donor Emergency Cancellation Workflow
 - Donors can trigger an emergency cancellation via `DELETE /api/donors/:id/emergency-cancel` when food spoils or poses public health and safety concerns.
 - Acquires pessimistic database locks (`SELECT ... FOR UPDATE`) on the donation, its donation requests, claims, delivery requests, and active deliveries.
-- Automatically transitions the donation to `CANCELLED`, cancels all pending donation requests and active claims, cancels pending and accepted delivery requests, marks ongoing deliveries as `CANCELLED`, resets volunteer availability to `true`, and sends urgent notifications and HTML emails to all affected recipients and volunteers.
+- Automatically transitions the donation to `CANCELLED`, cancels all pending donation requests and active claims, cancels pending and accepted delivery requests, marks ongoing deliveries as `CANCELLED`, resets volunteer availability to `true`, auto-locks all claim conversations, and sends urgent notifications and HTML emails to all affected recipients and volunteers.
 
 ### 5. Token Versioning & Session Revocation
 - Passwords are encrypted with `bcryptjs` (cost: 12).
 - JWTs encode `tokenVersion`. Whenever a user changes their password or an account is blocked, `tokenVersion` increments in PostgreSQL, immediately terminating active sessions across all devices.
+
+### 6. Real-Time Chat Channels & Lifecycle Locking
+MealBridge features a full real-time communication pipeline with automatic provisioning and lifecycle locking:
+- **3-Way Channel Support**: Supports `DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, and `DONOR_VOLUNTEER` conversation channels per claim.
+- **Automatic Provisioning**:
+  - `acceptDonationRequestService`: Auto-creates `DONOR_RECIPIENT` channel.
+  - `acceptDeliveryRequestService`: Auto-creates `RECIPIENT_VOLUNTEER` and `DONOR_VOLUNTEER` channels.
+  - Enrolled participants' active WebSocket connections join room `conversation:{conversationId}` immediately.
+- **Lifecycle Auto-Locking**:
+  - `cancelClaimService`: Locks all conversations for the claim.
+  - `emergencyCancelDonationService`: Locks all conversations for the claim.
+  - `selfPickupClaimService`: Locks all conversations for the claim.
+  - `markDeliveryAsReceivedService`: Locks all conversations for the claim.
+  - `completeDeliveryService`: Locks all conversations for the claim.
+  - `cancelDeliveryService` & `emergencyCancelDeliveryService`: Locks volunteer channels (`RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER`).
+- **Lock Guarding**: The WebSocket `sendMessage` handler checks the conversation `isLocked` column before persisting; if locked, messaging is rejected with `"This chat is locked"`.
+
+### 7. Self-Pickup & Delivery Confirmation Workflows
+- **Self-Pickup (`selfPickupClaimService`)**:
+  - Recipient picks up the donation directly from the donor address.
+  - Marks claim as `COMPLETED` with `collectedAt = now()`.
+  - Checks if the donation is fully depleted; if so, marks donation as `COMPLETED`.
+  - Locks all conversations linked to the claim.
+  - Emits in-app notifications and sends completion emails to both donor and recipient (`sendSelfPickupCompletedDonorMail`, `sendSelfPickupCompletedRecipientMail`).
+- **Delivery Received Confirmation (`markDeliveryAsReceivedService`)**:
+  - Recipient confirms delivery arrival.
+  - Marks `Delivery` as `COMPLETED` and `DonationClaim` as `COMPLETED`.
+  - Releases volunteer availability (`availabilityStatus: true`).
+  - Locks all claim chat channels.
+  - Sends completion confirmation emails to volunteer, recipient, and donor (`sendCompleteDeliveryVolunteerMail`, `sendCompleteDeliveryRecipientMail`, `sendCompleteDeliveryDonorMail`).
 
 ---
 
@@ -260,7 +308,7 @@ erDiagram
 | **`TransportType`** | `CAR`, `PUBLIC_TRANSPORT`, `VAN`, `BICYCLE`, `MOTORCYCLE`, `WALKING`, `OTHER` |
 | **`DonorOrganizationType`** | `RESTAURANT`, `CAFE`, `HOTEL`, `CATERING`, `GOVERNMENT`, `INDIVIDUAL`, `OTHER` |
 | **`RecipientOrganizationType`** | `SHELTER`, `COMMUNITY_CENTER`, `CHARITY`, `GOVERNMENT`, `INDIVIDUAL`, `OTHER` |
-| **`ConversationType`** | `DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER` |
+| **`ConversationType`** | `DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER` |
 | **`ReportStatus`** | `PENDING`, `REVIEWED`, `RESOLVED`, `REJECTED` |
 
 ### Key Database Constraints
@@ -268,8 +316,68 @@ erDiagram
 - `DeliveryRequest`: Unique constraint on `[donationClaimId, volunteerId]` (prevents spamming the same volunteer).
 - `DonationClaim`: Unique constraint on `donationRequestId` (strict 1:1 request to claim).
 - `Delivery`: Unique constraint on `donationClaimId` (strict 1:1 claim to delivery).
-- `Conversation`: Unique constraint on `[donationClaimId, conversationType]` (allows dedicated donor-recipient and recipient-volunteer chat channels per claim).
+- `Conversation`: Unique constraint on `[donationClaimId, conversationType]` (allows dedicated donor-recipient, recipient-volunteer, and donor-volunteer chat channels per claim; includes `isLocked` flag to close messaging upon claim completion or cancellation).
 - `BlockedUser`: Unique constraint on `blockedId` (one active block record per user).
+
+---
+
+## 📦 Standard API Response Format
+
+MealBridge follows a uniform JSON response contract across all controllers and error handlers:
+
+### 1. Success Response (HTTP 200, 201)
+
+All successful controller operations return `success: true`, accompanied by optional `message`, `data`, and pagination metadata when applicable:
+
+```json
+{
+  "success": true,
+  "message": "Donation request accepted successfully",
+  "data": {
+    "id": "c1f7a240-...",
+    "status": "ACTIVE",
+    "claimStatus": "ACTIVE"
+  },
+  "pagination": {
+    "totalCount": 42,
+    "totalPages": 5,
+    "currentPage": 1,
+    "limit": 10
+  }
+}
+```
+
+### 2. Operational & Server Error Response (HTTP 4xx, 5xx)
+
+Managed through custom `AppError` instances caught by the centralized Express error middleware:
+
+```json
+{
+  "status": "fail",
+  "statusCode": 404,
+  "message": "Donation not found or no longer available",
+  "errors": []
+}
+```
+
+### 3. Zod Schema Validation Error Response (HTTP 400)
+
+When incoming `body`, `query`, or `params` fail Zod schema validation:
+
+```json
+{
+  "status": "fail",
+  "statusCode": 400,
+  "message": "Validation Failed",
+  "errors": [
+    {
+      "code": "invalid_string",
+      "path": ["email"],
+      "message": "Invalid email format"
+    }
+  ]
+}
+```
 
 ---
 
@@ -328,12 +436,12 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `PATCH` | `/:id/remove-pics` | Remove a photo from donation |
 | `GET` | `/:id/requests` | List all requests submitted for this donation |
 | `GET` | `/:id/requests/:reqId` | Get single request details |
-| `PATCH` | `/:id/requests/:reqId/accept` | **Accept request**: Locks rows, deducts quantity, creates claim, alerts recipient |
+| `PATCH` | `/:id/requests/:reqId/accept` | **Accept request**: Locks rows, deducts quantity, creates claim, auto-provisions `DONOR_RECIPIENT` chat channel, and alerts recipient |
 | `PATCH` | `/:id/requests/:reqId/reject` | **Reject request**: Locks rows, sets status REJECTED, alerts recipient |
 | `GET` | `/:id/claims` | List all claims created for this donation |
 | `GET` | `/:id/claims/:claimId` | Get details of a single claim |
-| `PATCH` | `/:id/claims/:claimId/cancel` | **Cancel claim**: Restores quantity, cancels delivery, and notifies all parties |
-| `DELETE` | `/:id/emergency-cancel` | **Emergency cancel donation**: Concurrency-locked cancel of donation, active claims, delivery requests, and active deliveries; resets volunteer availability and dispatches urgent notifications & emails |
+| `PATCH` | `/:id/claims/:claimId/cancel` | **Cancel claim**: Restores quantity, cancels delivery, locks claim chat channels (`DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER`), and notifies all parties |
+| `DELETE` | `/:id/emergency-cancel` | **Emergency cancel donation**: Concurrency-locked cancel of donation, active claims, delivery requests, and active deliveries; auto-locks all claim conversations, resets volunteer availability, and dispatches urgent notifications & emails |
 
 ---
 
@@ -350,8 +458,8 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `PATCH` | `/donation-requests/:id/cancel` | Cancel a pending request |
 | `GET` | `/claims` | List all own active/completed claims |
 | `GET` | `/claims/:id` | Get single claim details |
-| `PATCH` | `/claims/:id/cancel` | Cancel claim, restore donation stock, and notify donor/volunteer |
-| `PATCH` | `/claims/:id/self-pickup` | Mark claim as **SELF** pickup and complete the claim |
+| `PATCH` | `/claims/:id/cancel` | Cancel claim, restore donation stock, lock chat channels, and notify donor/volunteer |
+| `PATCH` | `/claims/:id/self-pickup` | **Self-pickup**: Mark claim as `COMPLETED` via `SELF` pickup, lock all claim conversations, and dispatch completion emails to donor & recipient |
 | `GET` | `/volunteers` | Browse available, verified volunteers |
 | `GET` | `/volunteers/:id` | Get details of a single volunteer |
 | `POST` | `/delivery-requests` | Send a delivery request to a specific volunteer for an active claim |
@@ -361,8 +469,8 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `GET` | `/delivery-requests/:id/has-delivery`| Check if claim already has an active delivery |
 | `GET` | `/deliveries` | List active and historical deliveries for own claims |
 | `GET` | `/deliveries/:id` | Get single delivery details |
-| `PATCH` | `/deliveries/:id` | Mark delivery as received by recipient |
-| `PATCH` | `/deliveries/:id/cancel` | Cancel an active delivery assignment |
+| `PATCH` | `/deliveries/:id` | **Confirm delivery received**: Mark delivery & claim as `COMPLETED`, lock claim conversations, and send confirmation emails to volunteer, recipient & donor |
+| `PATCH` | `/deliveries/:id/cancel` | Cancel an active delivery assignment: resets volunteer availability, locks volunteer chat channels, and sends cancellation emails |
 
 ---
 
@@ -371,13 +479,13 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | Method | Endpoint | Description |
 | :--- | :--- | :--- |
 | `GET` | `/delivery-requests` | List delivery requests assigned to this volunteer |
-| `PATCH` | `/delivery-requests/:id/accept` | **Accept delivery request**: Enforces single-delivery limit, creates Delivery, alerts donor/recipient |
+| `PATCH` | `/delivery-requests/:id/accept` | **Accept delivery request**: Enforces single-delivery limit, creates Delivery, auto-provisions `DONOR_VOLUNTEER` & `RECIPIENT_VOLUNTEER` chat channels, and alerts donor/recipient |
 | `PATCH` | `/delivery-requests/:id/reject` | Reject a delivery request |
 | `GET` | `/deliveries` | List active and completed deliveries |
 | `GET` | `/deliveries/:id` | Get single delivery details |
 | `PATCH` | `/deliveries/:id/pickup` | Mark delivery status as `PICKED_UP` |
-| `PATCH` | `/deliveries/:id/complete` | Mark delivery as `COMPLETED` (completes both Delivery and Claim) |
-| `PATCH` | `/deliveries/:id/cancel` | **Emergency cancel delivery**: 1 cancellation/week limit enforced via Redis |
+| `PATCH` | `/deliveries/:id/complete` | **Complete delivery**: Mark delivery & claim as `COMPLETED`, lock all claim conversations, and dispatch completion emails to volunteer, recipient & donor |
+| `PATCH` | `/deliveries/:id/cancel` | **Emergency cancel delivery**: 1 cancellation/week limit enforced via Redis, resets volunteer availability, locks volunteer chat channels, and sends cancellation emails |
 
 ---
 
@@ -420,38 +528,55 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 
 ---
 
-### 9. Real-Time Chat (`/api/chats`) — 🔒 All Authenticated
+### 9. Real-Time Chat (`/api/chats`) — 🔒 Verified Users
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `GET` | `/conversations` | List all active conversations for the authenticated user |
-| `GET` | `/conversations/:id/messages` | Get message history and participant list for a specific conversation |
+Requires authentication (`protect`) and an approved profile (`isProfileVerified`).
+
+| Method | Endpoint | Query Params | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/conversations` | None | List all active conversations for the authenticated user, including latest message preview and participants |
+| `GET` | `/conversations/:id/messages` | `cursor?: string`, `limit?: number` | Cursor-paginated message history (default limit: 30) for a conversation. Verifies user membership |
 
 ---
 
 ## 🔔 Real-time Events & Email Notifications
 
-### Socket.io Architecture
-The WebSocket server runs synchronously alongside the HTTP server, authenticating connections using the same JWT HttpOnly cookie:
-- **`user:{userId}`**: Dedicated private room for user-specific real-time notifications and offline alerts.
-- **`role:{Role}`**: Role-based rooms allowing broadcasts to all Admins/Managers (e.g. support reports).
-- **`conversation:{conversationId}`**: Real-time room for active direct messages between participants (Donor-Volunteer, Recipient-Volunteer).
-- **Socket Events**:
-  - `new-notification` — Emitted when in-app notifications are generated.
-  - `new-report` — Dispatched to `role:ADMIN` and `role:MANAGER` upon issue submission.
-  - `join-chat` — Client joins an active conversation room (validates user membership).
-  - `send-message` — Client sends a message; persisted to DB via Prisma and broadcasted to the conversation.
-  - `receive-message` — Delivers incoming chat messages in real time to the conversation room.
-  - `mark-read` — Updates `lastReadAt` in `ConversationParticipant`.
-  - `messages-read` — Emits real-time read receipt updates to participants.
+### Socket.io Architecture & Room System
+
+The WebSocket server runs synchronously on top of the HTTP server, authenticating connections using the HTTP-only `access_token` JWT cookie during the initial handshake:
+- **Session Validation**: Verifies JWT signature, validates `tokenVersion` against PostgreSQL to prevent stale sessions, and immediately aborts connections if the user is flagged as `isBlocked: true`.
+- **Automatic Room Join on Connect**:
+  - `user:{userId}`: Dedicated private room for user-specific push notifications and system alerts.
+  - `role:{Role}`: Role broadcast rooms (e.g. `role:ADMIN`, `role:MANAGER`) for platform broadcasts.
+  - `conversation:{conversationId}`: Automatically queries all conversations where `userId` is an enrolled participant and joins their socket to each room immediately upon connection.
+
+### Socket.io Event Reference
+
+#### Client-to-Server Events
+
+| Event Name | Payload | Callback Acknowledgement | Description |
+| :--- | :--- | :--- | :--- |
+| `sendMessage` | `{ conversationId: string, content: string }` | `({ success?: boolean, message?: Message, error?: string }) => void` | Validates message content, ensures chat is not locked (`isLocked: false`), verifies user is a participant, persists `Message` to PostgreSQL via Prisma, emits `newMessage` to the conversation room, and returns the message via callback ack. |
+| `markRead` | `{ conversationId: string }` | None | Updates `lastReadAt` timestamp for the caller in `ConversationParticipant`. |
+
+#### Server-to-Client Events
+
+| Event Name | Target Room / Destination | Payload | Description |
+| :--- | :--- | :--- | :--- |
+| `newMessage` | `conversation:{conversationId}` | `Message` object (`id`, `conversationId`, `senderId`, `content`, `createdAt`) | Dispatched in real time to all room participants when a message is successfully saved. |
+| `conversationCreated` | `conversation:{conversationId}` | `Conversation` object | Emitted when a new chat channel is provisioned upon donor request acceptance or delivery acceptance. |
+| `conversationLocked` | `conversation:{conversationId}` | `{ conversationId: string }` | Emitted when a claim or donation is completed or cancelled, disabling client input in the channel. |
+| `new-notification` | `user:{userId}` | `NotificationType` (`userId`, `title`, `message`, `isRead`, `sourceReportId?`) | Dispatched to target user when platform events trigger an in-app notification. |
+| `new-report` | `role:ADMIN` & `role:MANAGER` | `ReportType` (`reportedUserId?`, `title`, `description`) | Broadcasted to support staff upon user issue submission. |
 
 ### Transactional Email Suite (Nodemailer)
 MealBridge includes responsive, branded HTML email templates covering every interaction:
 1. **Authentication**: `sendRegisterRequestOtpMail`, `sendForgotPasswordOtpMail`, `sendWelcomeMail`, `sendChangeEmailOtpMail`.
 2. **Verification & Moderation**: `sendVerificationStatusChangeMail` (Accepted/Rejected), `sendBlockStatusChangeMail` (Blocked/Unblocked).
 3. **Donation Requests**: `sendCreateRequestForDonorMail`, `sendAcceptDonationRequestRecipientPovMail`, `sendAcceptDonationRequestDonorPovMail`, `sendRejectDonationRequestRecipientPovMail`, `sendRejectDonationRequestDonorPovMail`.
-4. **Claim & Emergency Cancellations**: `sendClaimCancelForDonorMail`, `sendClaimCancelForRecipientMail`, `sendClaimCancelForVolunteerMail`, `sendEmergencyDonationCancellationRecipientMail`, `sendEmergencyDonationCancellationVolunteerMail`.
-5. **Delivery Lifecycle**: `sendCreateDeliveryRequestVolunteerMail`, `sendCancelDeliveryRequestVolunteerMail`, `sendAcceptDeliveryRecipientMail`, `sendAcceptDeliveryDonorMail`, `sendAcceptDeliveryVolunteerMail`, `sendRejectDeliveryRecipientMail`, `sendRejectDeliveryDonorMail`, `sendCompleteDeliveryRecipientMail`, `sendCompleteDeliveryDonorMail`, `sendCompleteDeliveryVolunteerMail`, `sendCancelDeliveryRecipientMail`, `sendCancelDeliveryDonorMail`, `sendCancelDeliveryVolunteerMail`.
+4. **Claim & Self-Pickup**: `sendSelfPickupCompletedDonorMail`, `sendSelfPickupCompletedRecipientMail`, `sendClaimCancelForDonorMail`, `sendClaimCancelForRecipientMail`, `sendClaimCancelForVolunteerMail`.
+5. **Emergency Cancellations**: `sendEmergencyDonationCancellationRecipientMail`, `sendEmergencyDonationCancellationVolunteerMail`.
+6. **Delivery Lifecycle**: `sendCreateDeliveryRequestVolunteerMail`, `sendCancelDeliveryRequestVolunteerMail`, `sendAcceptDeliveryRecipientMail`, `sendAcceptDeliveryDonorMail`, `sendAcceptDeliveryVolunteerMail`, `sendRejectDeliveryRecipientMail`, `sendRejectDeliveryDonorMail`, `sendCompleteDeliveryRecipientMail`, `sendCompleteDeliveryDonorMail`, `sendCompleteDeliveryVolunteerMail`, `sendCancelDeliveryRecipientMail`, `sendCancelDeliveryDonorMail`, `sendCancelDeliveryVolunteerMail`.
 
 ---
 
@@ -536,21 +661,31 @@ MealBridge/
     │       ├── main.prisma            # Datasource & generator definition
     │       └── users.prisma           # User, DonorProfile, RecipientProfile, VolunteerProfile
     ├── utils/
-    │   ├── cloudinary/                # Buffer streaming upload & delete helpers
+    │   ├── cloudinary/                # Buffer streaming upload & delete helpers (deleteImage.ts, uploadImage.ts)
     │   ├── errors/                    # AppError class & asyncHandler wrapper
-    │   ├── jwt/                       # Cookie-based JWT generation
-    │   ├── mail/                      # Nodemailer config & 12+ HTML templates
-    │   ├── otp/                       # SHA-256 OTP generation & verification
-    │   ├── password/                  # bcryptjs hashing and comparison
-    │   ├── phoneNumber/               # Phone formatting & internationalization (+20)
-    │   ├── redis/                     # Redis OTP sessions & weekly cancellation counters
-    │   ├── socket/                    # Socket.io initialization, room join, event emitters
+    │   ├── jwt/                       # Cookie-based JWT generation (generateToken.ts)
+    │   ├── mail/                      # Nodemailer config & 7 domain mail modules (auth, donation, volunteer, etc.)
+    │   ├── otp/                       # SHA-256 OTP generation & verification (generateOtp.ts)
+    │   ├── password/                  # bcryptjs hashing and comparison (passwordFunctions.ts)
+    │   ├── phoneNumber/               # Phone formatting & internationalization (formatPhoneNumber.ts)
+    │   ├── redis/                     # Redis OTP sessions & weekly cancellation rate limits
+    │   ├── socket/                    # Socket.io initialization, room routing & event emitters (socket.ts)
     │   └── types/                     # AuthRequest & sorting/pagination contracts
-    ├── __tests__/                     # Vitest API test suites
-    ├── index.ts                       # Server bootstrap, middleware pipeline & routing
-    ├── package.json
-    └── tsconfig.json
+    ├── .env.example                   # Environment variables template
+    ├── index.ts                       # Server bootstrap, middleware pipeline & HTTP/WebSocket server
+    ├── package.json                   # Dependencies, scripts, and project metadata
+    ├── prisma.config.ts               # Prisma 7 multi-schema and datasource configuration
+    ├── tsconfig.json                  # TypeScript compiler configuration (ES2022, NodeNext)
+    └── vitest.config.ts               # Vitest runner configuration
 ```
+
+---
+
+### Key Takeaways for Developers:
+1. **User ID vs. Profile ID Distinction**: `User.id` represents the primary account identity. `DonorProfile.id`, `RecipientProfile.id`, and `VolunteerProfile.id` are separate primary keys referenced by donation, request, claim, and delivery entities. Ensure controllers pass profile IDs (`req.user!.donorProfile!.id`, `req.user!.recipientProfile!.id`) or traverse relations when querying.
+2. **Pessimistic Locking**: All critical quantity deductions and cancellation restorations utilize raw PostgreSQL row locks (`SELECT ... FOR UPDATE`) inside Prisma transactions. Always use lowercase table identifiers (e.g. `"donation"`) with `::uuid` casting.
+3. **Session Invalidation**: Whenever passwords change or accounts are blocked, `tokenVersion` increments to enforce immediate session termination.
+4. **Real-time Lifecycle**: Real-time chat channels auto-provision upon request acceptance and delivery acceptance, and are strictly locked upon claim completion, delivery confirmation, self-pickup, or cancellation.
 
 ---
 

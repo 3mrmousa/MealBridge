@@ -36,7 +36,7 @@ export const registerRequest = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message:
         "OTP sent to your email. Check your email or spam or try again after 10 minutes.",
     });
@@ -52,7 +52,7 @@ export const registerValidate = asyncHandler(
     generateToken(res, id, tokenVersion);
 
     res.status(201).json({
-      status: "success",
+      success: true,
       message: "Registration successful",
     });
   },
@@ -68,7 +68,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
   generateToken(res, id, tokenVersion);
 
   res.status(200).json({
-    status: "success",
+    success: true,
     message: "Login successful",
   });
 });
@@ -76,7 +76,7 @@ export const login = asyncHandler(async (req: Request, res: Response) => {
 export const logout = asyncHandler(async (req: Request, res: Response) => {
   res.clearCookie("access_token");
   res.status(200).json({
-    status: "success",
+    success: true,
     message: "Logout successful",
   });
 });
@@ -88,7 +88,7 @@ export const me = asyncHandler(async (req: AuthRequest, res: Response) => {
   const user = await meService(id, role);
 
   res.status(200).json({
-    status: "success",
+    success: true,
     message: "User fetched successfully",
     data: user,
   });
@@ -103,7 +103,7 @@ export const passwordForgotRequest = asyncHandler(
     await passwordForgotRequestService({ email });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message:
         "OTP sent to email. Check your email or spam or try again after 10 minutes.",
     });
@@ -117,7 +117,7 @@ export const passwordForgotValidate = asyncHandler(
     await passwordForgotValidateService({ email, otp });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "OTP verified successfully",
     });
   },
@@ -130,7 +130,7 @@ export const passwordReset = asyncHandler(
     await passwordResetService({ email, newPassword });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Password reset successfully. You can now login.",
     });
   },

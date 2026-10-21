@@ -66,7 +66,7 @@ export const getMyDonationRequests = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation requests fetched successfully",
       data: result.requests,
       pagination: result.pagination,
@@ -81,7 +81,7 @@ export const getMyDonationRequestById = asyncHandler(
 
     const request = await getMyDonationRequestByIdService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request fetched successfully",
       data: request,
     });
@@ -103,7 +103,7 @@ export const createDonationRequest = asyncHandler(
     );
 
     res.status(201).json({
-      status: "success",
+      success: true,
       message: "Donation request created successfully",
     });
   },
@@ -125,7 +125,7 @@ export const updateDonationRequest = asyncHandler(
     );
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request created successfully",
     });
   },
@@ -137,7 +137,7 @@ export const cancelDonationRequest = asyncHandler(
     const { id } = req.params as CancelDonationRequestParams;
     await cancelDonationRequestService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation request cancelled successfully",
     });
   },
@@ -156,7 +156,7 @@ export const getAllDonations = asyncHandler(
       sortOrder,
     });
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donations fetched successfully",
       data: result.donations,
       pagination: result.pagination,
@@ -169,7 +169,7 @@ export const getDonationById = asyncHandler(
     const { id } = req.params as GetDonationByIdParams;
     const donation = await getDonationByIdService(id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation fetched successfully",
       data: donation,
     });
@@ -193,7 +193,7 @@ export const getClaims = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Claims fetched successfully",
       data: result.claims,
       pagination: result.pagination,
@@ -209,7 +209,7 @@ export const getClaimById = asyncHandler(
     const claim = await getClaimByIdService(recipientId, id);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Claim fetched successfully",
       data: claim,
     });
@@ -223,7 +223,7 @@ export const cancelClaim = asyncHandler(
     const { reason } = req.body as CancelClaimBody;
     await cancelClaimService(recipientId, id, reason);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Claim cancelled successfully",
     });
   },
@@ -235,7 +235,7 @@ export const selfPickupClaim = asyncHandler(
     const { id } = req.params as SelfPickupClaimParams;
     await selfPickupClaimService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Claim self-picked up successfully",
     });
   },
@@ -253,7 +253,7 @@ export const getAllVolunteers = asyncHandler(
       sortOrder,
     });
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Volunteers fetched successfully",
       data: result.volunteers,
       pagination: result.pagination,
@@ -266,7 +266,7 @@ export const getVolunteerById = asyncHandler(
     const { id } = req.params as GetVolunteerByIdParams;
     const volunteer = await getVolunteerByIdService(id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Volunteer fetched successfully",
       data: volunteer,
     });
@@ -287,7 +287,7 @@ export const getDeliveryRequests = asyncHandler(
     });
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery requests fetched successfully",
       data: result.requests,
       pagination: result.pagination,
@@ -303,7 +303,7 @@ export const getSingleDeliveryRequest = asyncHandler(
     const request = await getSingleDeliveryRequestService(recipientId, id);
 
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery request fetched successfully",
       data: request,
     });
@@ -324,7 +324,7 @@ export const createDeliveryRequest = asyncHandler(
     );
 
     res.status(201).json({
-      status: "success",
+      success: true,
       message: "Delivery request created successfully",
     });
   },
@@ -336,7 +336,7 @@ export const cancelDeliveryRequest = asyncHandler(
     const { id } = req.params as CancelDeliveryRequestParams;
     await cancelDeliveryRequestService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery request cancelled successfully",
     });
   },
@@ -354,7 +354,7 @@ export const getDeliveries = asyncHandler(
       status,
     });
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Deliveries fetched successfully",
       data: result.deliveries,
       pagination: result.pagination,
@@ -367,7 +367,7 @@ export const getSingleDeliveries = asyncHandler(
     const { id } = req.params as GetSingleDeliveryParams;
     const delivery = await getSingleDeliveriesService(req.user!.id, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery fetched successfully",
       data: delivery,
     });
@@ -380,7 +380,7 @@ export const isDonationClaimHasDelivery = asyncHandler(
     const { id } = req.params as GetSingleDeliveryParams;
     const result = await isDonationClaimHasDeliveryService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Donation claim has delivery fetched successfully",
       data: result,
     });
@@ -393,7 +393,7 @@ export const markDeliveryAsReceived = asyncHandler(
     const { id } = req.params as GetSingleDeliveryParams;
     await markDeliveryAsReceivedService(recipientId, id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery marked as received successfully",
     });
   },
@@ -406,7 +406,7 @@ export const cancelDelivery = asyncHandler(
     const { reason } = req.body as CancelDeliveryBody;
     await cancelDeliveryService(recipientId, id, reason);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Delivery cancelled successfully",
     });
   },

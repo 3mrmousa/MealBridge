@@ -4,6 +4,7 @@ import { parseCookie } from "cookie";
 import jwt from "jsonwebtoken";
 import prisma from "../../database/index.js";
 import { Role } from "@prisma/client";
+import { conversationRoom, markConversationRead } from "../../modules/chat/chat.service.js";
 
 let io: SocketIoServer | undefined;
 
@@ -115,6 +116,20 @@ export const initSocketServer = (httpServer: HttpServer): SocketIoServer => {
     try {
       await socket.join(userRoom(userId));
       await socket.join(roleRoom(role));
+
+      const participantRows = await prisma.conversationParticipant.findMany({
+        where: {
+          userId,
+        },
+        select: {
+          conversationId: true,
+        },
+      });
+      await Promise.all(
+        participantRows.map((p) =>
+          socket.join(conversationRoom(p.conversationId)),
+        ),
+      );
     } catch (err) {
       console.error("Failed to join rooms: ", err);
       socket.disconnect();
@@ -122,6 +137,57 @@ export const initSocketServer = (httpServer: HttpServer): SocketIoServer => {
     }
 
     console.log("User connected: ", userId);
+
+    socket.on(
+      "sendMessage",
+      async (
+        payload: { conversationId: string; content: string },
+        callback?: (res: {
+          success?: boolean;
+          message?: any;
+          error?: string;
+        }) => void,
+      ) => {
+        try {
+          const { conversationId, content } = payload;
+          if (!content?.trim())
+            return callback?.({ error: "Message cannot be empty" });
+
+          const conversation = await prisma.conversation.findUnique({
+            where: { id: conversationId },
+          });
+          if (!conversation)
+            return callback?.({ error: "Conversation not found" });
+          if (conversation.isLocked)
+            return callback?.({ error: "This chat is locked" });
+
+          const participant = await prisma.conversationParticipant.findUnique({
+            where: { conversationId_userId: { conversationId, userId } },
+          });
+          if (!participant) return callback?.({ error: "Forbidden" });
+
+          const message = await prisma.message.create({
+            data: { conversationId, senderId: userId, content },
+          });
+
+          getIO()
+            .to(conversationRoom(conversationId))
+            .emit("newMessage", message);
+          callback?.({ success: true, message });
+        } catch (err) {
+          console.error("sendMessage failed:", err);
+          callback?.({ error: "Failed to send message" });
+        }
+      },
+    );
+
+    socket.on("markRead", async (payload: { conversationId: string }) => {
+      try {
+        await markConversationRead(payload.conversationId, userId);
+      } catch (err) {
+        console.error("markRead failed:", err);
+      }
+    });
 
     socket.on("disconnect", (reason) => {
       console.log(`User disconnected: ${userId} because ${reason}`);

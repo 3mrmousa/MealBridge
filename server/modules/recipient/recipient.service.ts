@@ -1,5 +1,6 @@
 import {
   ClaimStatus,
+  ConversationType,
   DeliveryRequestStatus,
   DeliveryStatus,
   DonationRequestStatus,
@@ -16,6 +17,7 @@ import {
   recipientWithUser,
   volunteerWithUser,
 } from "../../database/selectors.js";
+import { deliveryDetailsInclude } from "../../database/includes.js";
 import AppError from "../../utils/errors/AppError.js";
 import type {
   GetAllDonationsQuery,
@@ -32,7 +34,16 @@ import {
   sendClaimCancelForVolunteerMail,
   sendCreateDeliveryRequestVolunteerMail,
   sendCancelDeliveryRequestVolunteerMail,
+  sendSelfPickupCompletedDonorMail,
+  sendSelfPickupCompletedRecipientMail,
+  sendCompleteDeliveryVolunteerMail,
+  sendCompleteDeliveryRecipientMail,
+  sendCompleteDeliveryDonorMail,
 } from "../../utils/mail/email.service.js";
+import {
+  lockConversationByType,
+  lockConversationsForClaim,
+} from "../chat/chat.service.js";
 
 export const getMyDonationRequestsService = async (
   recipientId: string,
@@ -575,6 +586,12 @@ export const cancelClaimService = async (
   });
 
   try {
+    await lockConversationsForClaim(claimId);
+  } catch (e: any) {
+    console.error("Error locking conversations for claim:", e.message || e);
+  }
+
+  try {
     await createNotificationService(
       donation.donor.userId,
       `Claim on ${donation.title} cancelled by recipient`,
@@ -634,7 +651,7 @@ export const selfPickupClaimService = async (
   recipientId: string,
   claimId: string,
 ) => {
-  const existingClaim = await prisma.$transaction(async (tx) => {
+  const [updatedClaim, claim] = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT id FROM "donation_claim"
       WHERE id = ${claimId}::uuid
@@ -645,7 +662,14 @@ export const selfPickupClaimService = async (
       where: { id: claimId },
       include: {
         recipient: {
-          select: { userId: true },
+          select: recipientWithUser,
+        },
+        donation: {
+          include: {
+            donor: {
+              select: donorWithUser,
+            },
+          },
         },
       },
     });
@@ -699,10 +723,64 @@ export const selfPickupClaimService = async (
       });
     }
 
-    return updatedClaim;
+    return [updatedClaim, claim];
   });
 
-  return existingClaim;
+  try {
+    await lockConversationsForClaim(claimId);
+  } catch (e: any) {
+    console.error("Error locking conversations for claim:", e.message || e);
+  }
+
+  try {
+    await createNotificationService(
+      claim.donation.donor.userId,
+      `Self-pickup completed for ${claim.donation.title}`,
+      `Recipient "${claim.recipient.organizationName}" has completed the self-pickup for donation "${claim.donation.title}" on ${new Date(Date.now()).toLocaleString()}. The claim is now marked as completed.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to donor:", e.message || e);
+  }
+
+  try {
+    await createNotificationService(
+      claim.recipient.userId,
+      `Self-pickup completed for ${claim.donation.title}`,
+      `You have successfully confirmed self-pickup for "${claim.donation.title}" on ${new Date(Date.now()).toLocaleString()}.`,
+    );
+  } catch (e: any) {
+    console.error("Error sending notification to recipient:", e.message || e);
+  }
+
+  try {
+    await sendSelfPickupCompletedDonorMail(
+      claim.donation.donor.user.email,
+      claim.donation.donor.user.name || claim.donation.donor.organizationName,
+      claim.donation.title,
+      claim.recipient.organizationName,
+    );
+  } catch (error: any) {
+    console.error(
+      "Error sending self-pickup email to donor:",
+      error.message || error,
+    );
+  }
+
+  try {
+    await sendSelfPickupCompletedRecipientMail(
+      claim.recipient.user.email,
+      claim.recipient.user.name || claim.recipient.organizationName,
+      claim.donation.title,
+      claim.donation.donor.organizationName,
+    );
+  } catch (error: any) {
+    console.error(
+      "Error sending self-pickup email to recipient:",
+      error.message || error,
+    );
+  }
+
+  return updatedClaim;
 };
 
 // Delivery & Volunteer Services
@@ -1081,12 +1159,7 @@ export const markDeliveryAsReceivedService = async (
   const existingDelivery = await prisma.$transaction(async (tx) => {
     const existingDelivery = await tx.delivery.findUnique({
       where: { id: deliveryId, recipientId },
-      include: {
-        donationClaim: { include: { donation: true } },
-        volunteer: {
-          select: volunteerWithUser,
-        },
-      },
+      include: deliveryDetailsInclude,
     });
 
     if (!existingDelivery) {
@@ -1111,36 +1184,114 @@ export const markDeliveryAsReceivedService = async (
       data: { status: ClaimStatus.COMPLETED, collectedAt: now },
     });
 
+    await tx.volunteerProfile.update({
+      where: { id: existingDelivery.volunteerId },
+      data: { availabilityStatus: true },
+    });
+
+    const donation = existingDelivery.donationClaim.donation;
+    const pendingClaimsCount = await tx.donationClaim.count({
+      where: {
+        donationId: donation.id,
+        status: { not: ClaimStatus.COMPLETED },
+      },
+    });
+
+    if (donation.quantity === 0 && pendingClaimsCount === 0) {
+      await tx.donation.update({
+        where: { id: donation.id },
+        data: { status: DonationStatus.COMPLETED },
+      });
+    }
+
     return existingDelivery;
   });
 
+  const volunteer = existingDelivery.volunteer;
+  const recipient = existingDelivery.donationClaim.recipient;
+  const donor = existingDelivery.donationClaim.donation.donor;
+  const donationTitle = existingDelivery.donationClaim.donation.title;
+  const deliveryAddress =
+    existingDelivery.donationClaim.donationRequest?.deliveryAddress ||
+    "your address";
+
+  try {
+    await lockConversationsForClaim(existingDelivery.donationClaimId);
+  } catch (e: any) {
+    console.error("Error locking conversations for claim:", e.message || e);
+  }
+
   try {
     await createNotificationService(
-      existingDelivery.volunteerId,
-      "Delivery Completed",
-      `You have successfully delivered the ${existingDelivery.donationClaim.donation.title}.`,
+      volunteer.userId,
+      "Delivery Completed! 🌟",
+      `The recipient has confirmed receiving the delivery for "${donationTitle}". Thank you for your service!`,
     );
   } catch (e: any) {
     console.error("Error sending notification to volunteer:", e.message || e);
   }
+
   try {
     await createNotificationService(
-      existingDelivery.recipientId,
-      "Delivery Completed",
-      `You have successfully received the ${existingDelivery.donationClaim.donation.title}.`,
+      recipient.userId,
+      "Delivery Completed! 🎉",
+      `You have successfully confirmed receiving "${donationTitle}".`,
     );
   } catch (e: any) {
     console.error("Error sending notification to recipient:", e.message || e);
   }
+
   try {
     await createNotificationService(
-      existingDelivery.donationClaim.donation.donorId,
-      "Delivery Completed",
-      `Your donation ${existingDelivery.donationClaim.donation.title} has been successfully received by the recipient throgh volunteer ${existingDelivery.volunteer.user.name}.`,
+      donor.userId,
+      "Donation Delivered! 🎉",
+      `Your donation "${donationTitle}" has been successfully delivered to ${recipient.organizationName} by volunteer ${volunteer.user.name}.`,
     );
   } catch (e: any) {
     console.error("Error sending notification to donor:", e.message || e);
   }
+
+  try {
+    await sendCompleteDeliveryVolunteerMail(
+      volunteer.user.email,
+      volunteer.user.name,
+      donationTitle,
+    );
+  } catch (error: any) {
+    console.error(
+      "Error sending complete delivery email to volunteer:",
+      error.message || error,
+    );
+  }
+
+  try {
+    await sendCompleteDeliveryRecipientMail(
+      recipient.user.email,
+      recipient.user.name || recipient.organizationName,
+      donationTitle,
+      deliveryAddress,
+    );
+  } catch (error: any) {
+    console.error(
+      "Error sending complete delivery email to recipient:",
+      error.message || error,
+    );
+  }
+
+  try {
+    await sendCompleteDeliveryDonorMail(
+      donor.user.email,
+      donor.user.name || donor.organizationName,
+      donationTitle,
+    );
+  } catch (error: any) {
+    console.error(
+      "Error sending complete delivery email to donor:",
+      error.message || error,
+    );
+  }
+
+  return existingDelivery;
 };
 
 export const cancelDeliveryService = async (
@@ -1192,6 +1343,24 @@ export const cancelDeliveryService = async (
     });
     return existingDelivery;
   });
+
+  try {
+    await lockConversationByType(
+      existingDelivery.donationClaimId,
+      ConversationType.RECIPIENT_VOLUNTEER,
+    );
+  } catch (e: any) {
+    console.error("Error locking recipient-volunteer conversations for claim:", e.message || e);
+  }
+
+  try {
+    await lockConversationByType(
+      existingDelivery.donationClaimId,
+      ConversationType.DONOR_VOLUNTEER,
+    );
+  } catch (e: any) {
+    console.error("Error locking donor-volunteer conversations for claim:", e.message || e);
+  }
 
   try {
     await createNotificationService(

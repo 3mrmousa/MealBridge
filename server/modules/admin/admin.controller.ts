@@ -34,7 +34,7 @@ import type {
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
   const data = await getAllUsersService();
   res.status(200).json({
-    status: "success",
+    success: true,
     message: "Users fetched successfully.",
     data,
   });
@@ -44,7 +44,7 @@ export const getAllUsersWithProfile = asyncHandler(
   async (req: Request, res: Response) => {
     const data = await getAllUsersWithProfileService();
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Users with profiles fetched successfully.",
       data,
     });
@@ -56,7 +56,7 @@ export const getSingleUserById = asyncHandler(
     const { id } = req.params as getSingleUserByIdInput;
     const data = await getSingleUserByIdService(id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "User fetched successfully.",
       data,
     });
@@ -74,7 +74,7 @@ export const AcceptUserVerificationStatus = asyncHandler(
 
     await AcceptUserVerificationStatusService(id, role);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "User verification status Accepted successfully.",
     });
   },
@@ -91,7 +91,7 @@ export const RejectUserVerificationStatus = asyncHandler(
 
     await RejectUserVerificationStatusService(id, role, rejectReason);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "User verification status Rejected successfully.",
     });
   },
@@ -108,7 +108,7 @@ export const toggleUserBlockStatus = asyncHandler(
     const { reason, message } = req.body as toggleUserBlockStatusBody;
     await blockUserService(blockedId, blockerId, blockerRole, reason, message);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "User blocked successfully.",
     });
   },
@@ -124,7 +124,7 @@ export const toggleUserUnblockStatus = asyncHandler(
     const { message } = req.body as toggleUserUnBlockStatusBody;
     await unBlockUserService(blockedId, blockerRole, message);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "User unblocked successfully.",
     });
   },
@@ -134,7 +134,7 @@ export const getAllManager = asyncHandler(
   async (req: Request, res: Response) => {
     const data = await getAllManagerService();
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Managers fetched successfully.",
       data,
     });
@@ -149,7 +149,7 @@ export const createManager = asyncHandler(
     const { name, email, phone, password } = req.body as createManagerInput;
     const data = await createManagerService(name, email, phone, password);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Manager created successfully.",
       data,
     });
@@ -165,7 +165,7 @@ export const updateManager = asyncHandler(
     const { name, email, phone, password } = req.body as updateManagerBody;
     await updateManagerService(id, name, email, phone, password);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Manager updated successfully.",
     });
   },
@@ -179,7 +179,7 @@ export const deleteManager = asyncHandler(
     const { id } = req.params as deleteManagerInput;
     await deleteManagerService(id);
     res.status(200).json({
-      status: "success",
+      success: true,
       message: "Manager deleted successfully.",
     });
   },
