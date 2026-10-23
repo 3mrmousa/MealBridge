@@ -8,3 +8,16 @@ export const deleteFromCloudinary = async (publicId: string) => {
     throw new AppError("Cloudinary delete failed", 500);
   }
 };
+
+export const deleteSiteSettingsLogoFromCloudinary = async (
+  publicId: string,
+) => {
+  return deleteFromCloudinary(publicId);
+};
+
+export const deleteSiteSettingsFaviconFromCloudinary = async (
+  publicId: string,
+) => {
+  return deleteFromCloudinary(publicId);
+};
+

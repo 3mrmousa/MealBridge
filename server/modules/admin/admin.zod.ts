@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { Role } from "@prisma/client";
+import { Role, ConversationType } from "@prisma/client";
+import { egyptianPhoneSchema } from "../../utils/phoneNumber/formatPhoneNumber.js";
 
 export const getSingleUserByIdSchema = z.object({
   params: z.object({
@@ -49,7 +50,7 @@ export const createManagerSchema = z.object({
   body: z.object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
-    phone: z.string().min(1, "Phone is required"),
+    phone: egyptianPhoneSchema,
     password: z.string().min(8, "Password must be at least 8 characters"),
   }),
 });
@@ -61,7 +62,7 @@ export const updateManagerSchema = z.object({
   body: z.object({
     name: z.string().min(1, "Name is required").optional(),
     email: z.string().email("Invalid email").optional(),
-    phone: z.string().min(1, "Phone is required").optional(),
+    phone: egyptianPhoneSchema.optional(),
     password: z
       .string()
       .min(8, "Password must be at least 8 characters")
@@ -112,3 +113,29 @@ export type toggleUserUnBlockStatusParams = z.infer<
 export type toggleUserUnBlockStatusBody = z.infer<
   typeof toggleUserUnBlockStatusSchema
 >["body"];
+
+export const getAllChatsSchema = z.object({
+  query: z.object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
+    conversationType: z.nativeEnum(ConversationType).optional(),
+    isLocked: z
+      .preprocess((val) => {
+        if (val === "true" || val === true) return true;
+        if (val === "false" || val === false) return false;
+        return undefined;
+      }, z.boolean().optional()),
+  }),
+});
+
+export const getSingleChatSchema = z.object({
+  params: z.object({
+    conversationId: z
+      .string()
+      .uuid({ message: "Invalid conversation ID format" }),
+  }),
+});
+
+export type GetAllChatsQuery = z.infer<typeof getAllChatsSchema>["query"];
+export type GetSingleChatParams = z.infer<typeof getSingleChatSchema>["params"];
+

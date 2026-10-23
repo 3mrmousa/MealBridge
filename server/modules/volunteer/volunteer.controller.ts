@@ -21,11 +21,11 @@ import type {
 
 export const getAllDeliveries = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { sortBy, sortOrder, status, limit, page } =
-      req.query as GetAllDeliveriesQuery;
+      req.query as unknown as GetAllDeliveriesQuery;
 
-    const result = await getAllDeliveriesService(userId, {
+    const result = await getAllDeliveriesService(volunteerId!, {
       sortBy,
       sortOrder,
       status,
@@ -44,10 +44,10 @@ export const getAllDeliveries = asyncHandler(
 
 export const singleDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    const delivery = await singleDeliveryService(id, userId);
+    const delivery = await singleDeliveryService(id, volunteerId!);
 
     res.status(200).json({
       success: true,
@@ -59,11 +59,11 @@ export const singleDelivery = asyncHandler(
 
 export const getDeliveryRequests = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { sortBy, sortOrder, status, limit, page } =
-      req.query as GetDeliveryRequestsQuery;
+      req.query as unknown as GetDeliveryRequestsQuery;
 
-    const result = await getDeliveryRequestsService(userId, {
+    const result = await getDeliveryRequestsService(volunteerId!, {
       sortBy,
       sortOrder,
       status,
@@ -82,10 +82,10 @@ export const getDeliveryRequests = asyncHandler(
 
 export const acceptDeliveryRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await acceptDeliveryRequestService(id, userId);
+    await acceptDeliveryRequestService(id, volunteerId!);
 
     res.status(200).json({
       success: true,
@@ -96,10 +96,10 @@ export const acceptDeliveryRequest = asyncHandler(
 
 export const rejectDeliveryRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await rejectDeliveryRequestService(id, userId);
+    await rejectDeliveryRequestService(id, volunteerId!);
 
     res.status(200).json({
       success: true,
@@ -110,10 +110,10 @@ export const rejectDeliveryRequest = asyncHandler(
 
 export const completeDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await completeDeliveryService(id, userId);
+    await completeDeliveryService(id, volunteerId!);
 
     res.status(200).json({
       success: true,
@@ -124,10 +124,10 @@ export const completeDelivery = asyncHandler(
 
 export const emergencyCancelDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    await emergencyCancelDeliveryService(id, userId);
+    await emergencyCancelDeliveryService(id, volunteerId!);
 
     res.status(200).json({
       success: true,
@@ -136,14 +136,12 @@ export const emergencyCancelDelivery = asyncHandler(
   },
 );
 
-
-
 export const cancelDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
     const { reason } = req.body as { reason?: string };
-    await emergencyCancelDeliveryService(id, userId, reason);
+    await emergencyCancelDeliveryService(id, volunteerId!, reason);
 
     res.status(200).json({
       success: true,
@@ -154,10 +152,10 @@ export const cancelDelivery = asyncHandler(
 
 export const pickupDelivery = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const volunteerId = req.user!.volunteerProfile!.id;
     const { id } = req.params as SingleIdRequestParams;
 
-    const delivery = await pickupDeliveryService(userId, id);
+    const delivery = await pickupDeliveryService(volunteerId!, id);
 
     res.status(200).json({
       success: true,

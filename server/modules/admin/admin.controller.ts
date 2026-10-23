@@ -14,6 +14,8 @@ import {
   createManagerService,
   updateManagerService,
   deleteManagerService,
+  getAllChatsService,
+  getChatByIdService,
 } from "./admin.service.js";
 import type {
   getSingleUserByIdInput,
@@ -29,6 +31,8 @@ import type {
   updateManagerParams,
   updateManagerBody,
   deleteManagerInput,
+  GetAllChatsQuery,
+  GetSingleChatParams,
 } from "./admin.zod.js";
 
 export const getAllUsers = asyncHandler(async (req: Request, res: Response) => {
@@ -184,3 +188,29 @@ export const deleteManager = asyncHandler(
     });
   },
 );
+
+export const getAllChats = asyncHandler(async (req: Request, res: Response) => {
+  const query = req.query as unknown as GetAllChatsQuery;
+  const result = await getAllChatsService(query);
+
+  res.status(200).json({
+    success: true,
+    message: "Chats fetched successfully.",
+    data: result.chats,
+    pagination: result.pagination,
+  });
+});
+
+export const getSingleChat = asyncHandler(
+  async (req: Request, res: Response) => {
+    const { conversationId } = req.params as GetSingleChatParams;
+    const chat = await getChatByIdService(conversationId);
+
+    res.status(200).json({
+      success: true,
+      message: "Chat fetched successfully.",
+      data: chat,
+    });
+  },
+);
+

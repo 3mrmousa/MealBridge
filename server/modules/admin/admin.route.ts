@@ -11,6 +11,8 @@ import {
   createManager,
   updateManager,
   deleteManager,
+  getAllChats,
+  getSingleChat,
 } from "./admin.controller.js";
 import { validate } from "../../middlewares/validate.middleware.js";
 import {
@@ -22,6 +24,8 @@ import {
   toggleUserUnBlockStatusSchema,
   updateManagerSchema,
   deleteManagerSchema,
+  getAllChatsSchema,
+  getSingleChatSchema,
 } from "./admin.zod.js";
 import { authorizeRoles, protect } from "../../middlewares/auth.middleware.js";
 import { Role } from "@prisma/client";
@@ -98,8 +102,17 @@ adminRouter
   );
 
 adminRouter.get(
+  "/chats",
+  authorizeRoles(Role.ADMIN, Role.MANAGER),
+  validate(getAllChatsSchema),
+  getAllChats,
+);
+
+adminRouter.get(
   "/chats/:conversationId",
   authorizeRoles(Role.ADMIN, Role.MANAGER),
+  validate(getSingleChatSchema),
+  getSingleChat,
 );
 
 export default adminRouter;

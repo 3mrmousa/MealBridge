@@ -6,12 +6,9 @@ export const getMessagesSchema = z.object({
   }),
   query: z.object({
     cursor: z.string().uuid().optional(),
+    limit: z.coerce.number().int().positive().default(30),
   }),
-  body: z.object({
-    limit: z.number().optional(),
-  })
 });
 
 export type GetMessagesParams = z.infer<typeof getMessagesSchema>["params"];
 export type GetMessagesQuery = z.infer<typeof getMessagesSchema>["query"];
-export type GetMessagesBody = z.infer<typeof getMessagesSchema>["body"];

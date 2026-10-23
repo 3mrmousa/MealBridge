@@ -7,11 +7,11 @@ import z from "zod";
 
 export const getMyDonationRequestsSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(DonationRequestStatus).optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -57,10 +57,10 @@ export const cancelDonationRequestSchema = z.object({
 
 export const getAllDonationsSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -74,11 +74,11 @@ export const getDonationByIdSchema = z.object({
 
 export const getClaimsSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(ClaimStatus).optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -107,10 +107,10 @@ export const selfPickupClaimSchema = z.object({
 
 export const getVolunteersSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -130,10 +130,10 @@ export const createDeliveryRequestSchema = z.object({
 
 export const getDeliveryRequestsSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -151,10 +151,10 @@ export const cancelDeliveryRequestSchema = z.object({
 
 export const getDeliveriesSchema = z.object({
   query: z.object({
-    limit: z.coerce.number().optional(),
-    page: z.coerce.number().optional(),
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
     status: z.nativeEnum(DeliveryStatus).optional(),
   }),
 });

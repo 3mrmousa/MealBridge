@@ -8,8 +8,8 @@ import z from "zod";
 
 export const getMyDonationsSchema = z.object({
   query: z.object({
-    page: z.coerce.number().int().optional(),
-    limit: z.coerce.number().int().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(DonationStatus).optional(),
     sortBy: z
       .enum([
@@ -19,8 +19,8 @@ export const getMyDonationsSchema = z.object({
         "availableFrom",
         "availableUntil",
       ])
-      .optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+      .default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -80,13 +80,13 @@ export const getDonationRequestsSchema = z.object({
     id: z.string(),
   }),
   query: z.object({
-    page: z.coerce.number().int().optional(),
-    limit: z.coerce.number().int().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(DonationRequestStatus).optional(),
     sortBy: z
       .enum(["createdAt", "updatedAt", "quantityRequested"])
-      .optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+      .default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
@@ -139,8 +139,8 @@ export const getAllDonationClaimsSchema = z.object({
     id: z.string(),
   }),
   query: z.object({
-    page: z.coerce.number().int().optional(),
-    limit: z.coerce.number().int().optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(ClaimStatus).optional(),
     pickupMethod: z.nativeEnum(PickupMethod).optional(),
     sortBy: z
@@ -151,8 +151,8 @@ export const getAllDonationClaimsSchema = z.object({
         "collectedAt",
         "pickupDeadline",
       ])
-      .optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+      .default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 

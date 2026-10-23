@@ -19,6 +19,8 @@ The primary role of MealBridge is to manage and reduce commercial food waste tha
 - Chat System: Users (Donors, Recipients, Volunteers) can communicate directly through dedicated chats regarding donation and delivery logistics.
 - Notifications & Emails: Automated in-app notifications (via WebSockets) and transactional emails are sent for all key events (new requests, accepted claims, delivery updates, cancellations, verifications, account blocks).
 - Issue Reporting: Any user can submit reports about issues or rule violations directly to Admins and Managers for review.
+- Global Site Settings: Public users can fetch active branding and contact details. Admins and Managers can manage site settings, upload logo/favicon via Cloudinary, and toggle the active configuration (first created setting defaults to active; active settings or the only setting cannot be deleted).
+- Egyptian Phone Number Standardization: All user and contact phone numbers enforce Egyptian mobile format (+20, 20, 0, or 10-digit formats starting with 10, 11, 12, or 15) and are saved in canonical +20XXXXXXXXXX format.
 
 3. Non-Functional Requirements
 
@@ -55,7 +57,7 @@ Admin
 - Can block any user (with reason) and is exclusively authorized to unblock accounts.
 - Can create, view, update, and delete Manager accounts.
 - Can access and read chats between users (read-only) to resolve disputes.
-- Can update global site settings (branding, contact information).
+- Can update global site settings (branding, title, description, logo, favicon, contact email, and Egyptian contact phone; toggle active status; delete non-active settings with Cloudinary asset cleanup).
 - Can view and resolve all submitted user reports.
 
 Manager
@@ -64,6 +66,7 @@ Manager
 - Can block standard users with a logged reason (cannot block other Managers or Admins).
 - Cannot unblock users (Admin-only).
 - Cannot create or manage Manager accounts.
+- Can manage global site settings (create, update, toggle active, and delete non-active settings).
 - Can review and resolve submitted user reports.
 
 Donor

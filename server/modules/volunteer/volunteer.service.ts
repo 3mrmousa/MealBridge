@@ -44,7 +44,7 @@ import {
 } from "../chat/chat.service.js";
 
 export async function getAllDeliveriesService(
-  userId: string,
+  volunteerId: string,
   query: GetAllDeliveriesQuery,
 ) {
   const {
@@ -57,7 +57,7 @@ export async function getAllDeliveriesService(
   const skip = (page - 1) * limit;
 
   const where: Prisma.DeliveryWhereInput = {
-    volunteer: { userId },
+    volunteerId,
     ...(status ? { status } : {}),
   };
 
@@ -95,7 +95,7 @@ export async function getAllDeliveriesService(
   };
 }
 
-export async function singleDeliveryService(id: string, userId: string) {
+export async function singleDeliveryService(id: string, volunteerId: string) {
   const delivery = await prisma.delivery.findUnique({
     where: { id },
     include: {
@@ -121,7 +121,7 @@ export async function singleDeliveryService(id: string, userId: string) {
     throw new AppError("Delivery not found", 404);
   }
 
-  const isForThisUser = delivery.volunteer?.userId === userId;
+  const isForThisUser = delivery.volunteerId === volunteerId;
 
   if (!isForThisUser) {
     throw new AppError("You are not authorized to view this delivery", 403);
@@ -133,7 +133,7 @@ export async function singleDeliveryService(id: string, userId: string) {
 // Delivery Request Operations
 
 export async function getDeliveryRequestsService(
-  userId: string,
+  volunteerId: string,
   query: GetDeliveryRequestsQuery,
 ) {
   const {
@@ -146,7 +146,7 @@ export async function getDeliveryRequestsService(
   const skip = (page - 1) * limit;
 
   const where: Prisma.DeliveryRequestWhereInput = {
-    volunteer: { userId },
+    volunteerId,
     ...(status ? { status } : {}),
   };
 
@@ -185,7 +185,7 @@ export async function getDeliveryRequestsService(
 
 export async function acceptDeliveryRequestService(
   requestId: string,
-  userId: string,
+  volunteerId: string,
 ) {
   const requestResult = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -229,7 +229,7 @@ export async function acceptDeliveryRequestService(
       );
     }
 
-    const isForThisUser = existingRequest.volunteer.userId === userId;
+    const isForThisUser = existingRequest.volunteerId === volunteerId;
 
     if (!isForThisUser) {
       throw new AppError("You are not authorized to accept this request", 403);
@@ -394,7 +394,7 @@ export async function acceptDeliveryRequestService(
 
 export async function rejectDeliveryRequestService(
   requestId: string,
-  userId: string,
+  volunteerId: string,
 ) {
   const requestResult = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
@@ -430,7 +430,7 @@ export async function rejectDeliveryRequestService(
       throw new AppError("Delivery request not found", 404);
     }
 
-    const isForThisUser = existingRequest.volunteer.userId === userId;
+    const isForThisUser = existingRequest.volunteerId === volunteerId;
 
     if (!isForThisUser) {
       throw new AppError("You are not authorized to reject this request", 403);
@@ -498,7 +498,7 @@ export async function rejectDeliveryRequestService(
   return requestResult;
 }
 
-export async function completeDeliveryService(id: string, userId: string) {
+export async function completeDeliveryService(id: string, volunteerId: string) {
   const delivery = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
@@ -515,21 +515,7 @@ export async function completeDeliveryService(id: string, userId: string) {
       throw new AppError("Delivery not found", 404);
     }
 
-    const volunteerProfile = await tx.volunteerProfile.findUnique({
-      where: { userId },
-      select: {
-        id: true,
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+    const isForThisUser = existingDelivery.volunteerId === volunteerId;
 
     if (!isForThisUser) {
       throw new AppError(
@@ -582,8 +568,7 @@ export async function completeDeliveryService(id: string, userId: string) {
       });
     }
 
-    const volunteerUser =
-      existingDelivery.volunteer?.user || volunteerProfile?.user;
+    const volunteerUser = existingDelivery.volunteer?.user;
 
     return {
       ...existingDelivery,
@@ -673,7 +658,7 @@ export async function completeDeliveryService(id: string, userId: string) {
 
 export async function emergencyCancelDeliveryService(
   id: string,
-  userId: string,
+  volunteerId: string,
   reason?: string,
 ) {
   const delivery = await prisma.$transaction(async (tx) => {
@@ -692,7 +677,7 @@ export async function emergencyCancelDeliveryService(
       throw new AppError("Delivery not found", 404);
     }
 
-    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+    const isForThisUser = existingDelivery.volunteerId === volunteerId;
 
     if (!isForThisUser) {
       throw new AppError("You are not authorized to cancel this delivery", 403);
@@ -708,14 +693,20 @@ export async function emergencyCancelDeliveryService(
       );
     }
 
-    const hasCancelledThisWeek = await getWeeklyLimit(userId);
+    const volunteerUserId =
+      existingDelivery.volunteer?.userId ||
+      existingDelivery.volunteer?.user?.id;
+    if (!volunteerUserId) {
+      throw new AppError("Volunteer user ID not found", 404);
+    }
+    const hasCancelledThisWeek = await getWeeklyLimit(volunteerUserId);
     if (hasCancelledThisWeek !== null) {
       throw new AppError(
         "You have already used your 1 emergency cancellation for this week. Please contact support.",
         403,
       );
     }
-    await setWeeklyLimit(userId, 1, 60 * 60 * 24 * 7);
+    await setWeeklyLimit(volunteerUserId, 1, 60 * 60 * 24 * 7);
 
     await tx.delivery.update({
       where: { id },
@@ -833,7 +824,7 @@ export async function emergencyCancelDeliveryService(
   }
 }
 
-export async function pickupDeliveryService(userId: string, id: string) {
+export async function pickupDeliveryService(volunteerId: string, id: string) {
   const existingDelivery = await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
     SELECT id
@@ -850,7 +841,7 @@ export async function pickupDeliveryService(userId: string, id: string) {
       throw new AppError("Delivery not found", 404);
     }
 
-    const isForThisUser = existingDelivery.volunteer?.userId === userId;
+    const isForThisUser = existingDelivery.volunteerId === volunteerId;
 
     if (!isForThisUser) {
       throw new AppError("You are not authorized to update this delivery", 403);

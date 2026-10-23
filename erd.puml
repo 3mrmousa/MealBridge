@@ -307,11 +307,11 @@ entity SiteSetting {
     --
     title : String <<NULLABLE>>
     description : String <<NULLABLE>>
-    logoUrl : String <<NULLABLE>>
-    faviconUrl : String <<NULLABLE>>
+    logo : JSON <<NULLABLE>>
+    favicon : JSON <<NULLABLE>>
     contactEmail : String <<NULLABLE>>
     contactPhone : String <<NULLABLE>>
-    address : String <<NULLABLE>>
+    active : Boolean default(false)
     updatedById : UUID <<FK>>
     updatedAt : DateTime
 }

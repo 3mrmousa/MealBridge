@@ -4,7 +4,6 @@ import {
   getConversationMessages,
 } from "./chat.service.js";
 import type {
-  GetMessagesBody,
   GetMessagesParams,
   GetMessagesQuery,
 } from "./chat.zod.js";
@@ -25,14 +24,13 @@ export const listConversations = asyncHandler(
 export const getMessages = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const params = req.params as GetMessagesParams;
-    const query = req.query as GetMessagesQuery;
-    const body = req.body as GetMessagesBody;
+    const query = req.query as unknown as GetMessagesQuery;
     const userId = req.user?.id;
     const messages = await getConversationMessages(
       params.id,
       userId!,
       query.cursor,
-      body.limit,
+      query.limit,
     );
     res.status(200).json({
       success: true,

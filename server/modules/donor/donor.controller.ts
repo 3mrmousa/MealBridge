@@ -40,10 +40,10 @@ import AppError from "../../utils/errors/AppError.js";
 
 export const getMyDonations = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { page, limit, status, sortBy, sortOrder } =
-      req.query as GetMyDonationsQuery;
-    const result = await getMyDonationsService(userId!, {
+      req.query as unknown as GetMyDonationsQuery;
+    const result = await getMyDonationsService(donorId!, {
       page,
       limit,
       status,
@@ -62,8 +62,8 @@ export const getMyDonations = asyncHandler(
 export const getDonationById = asyncHandler(
   async (req: AuthRequest, res: Response) => {
     const { id: donationId } = req.params as GetDonationByIdParams;
-    const userId = req.user!.id;
-    const donation = await getDonationByIdService(userId!, donationId);
+    const donorId = req.user!.donorProfile!.id;
+    const donation = await getDonationByIdService(donorId!, donationId);
     res.status(200).json({
       success: true,
       message: "Donation fetched successfully",
@@ -74,7 +74,7 @@ export const getDonationById = asyncHandler(
 
 export const createDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const {
       title,
       description,
@@ -97,7 +97,7 @@ export const createDonation = asyncHandler(
     }
 
     await createDonationService(
-      userId!,
+      donorId!,
       {
         title,
         description,
@@ -120,7 +120,7 @@ export const createDonation = asyncHandler(
 
 export const updateDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as UpdateDonationParams;
     const {
       title,
@@ -132,7 +132,7 @@ export const updateDonation = asyncHandler(
       availableFrom,
       availableUntil,
     } = req.body as UpdateDonationBody;
-    await updateDonationService(userId!, donationId, {
+    await updateDonationService(donorId!, donationId, {
       title,
       description,
       foodType,
@@ -151,14 +151,14 @@ export const updateDonation = asyncHandler(
 
 export const addPicsToDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
     const files = req.files as { [fileName: string]: Express.Multer.File[] };
     const donationPictures = files["donationPicture"];
     if (!donationPictures || donationPictures.length === 0) {
       throw new AppError("Please upload at least one donation picture", 400);
     }
-    await addPicsToDonationService(userId!, donationId, donationPictures);
+    await addPicsToDonationService(donorId!, donationId, donationPictures);
     res.status(200).json({
       success: true,
       message: "Donation pictures added successfully",
@@ -168,7 +168,7 @@ export const addPicsToDonation = asyncHandler(
 
 export const removePicFromDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
     const { publicId } = req.body as { publicId: string };
     if (!publicId) {
@@ -177,7 +177,7 @@ export const removePicFromDonation = asyncHandler(
         400,
       );
     }
-    await removePicFromDonationService(userId!, donationId, publicId);
+    await removePicFromDonationService(donorId!, donationId, publicId);
     res.status(200).json({
       success: true,
       message: "Donation picture removed successfully",
@@ -187,9 +187,9 @@ export const removePicFromDonation = asyncHandler(
 
 export const cancelDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
-    await cancelDonationService(userId!, donationId);
+    await cancelDonationService(donorId!, donationId);
     res.status(200).json({
       success: true,
       message: "Donation cancelled successfully",
@@ -199,12 +199,12 @@ export const cancelDonation = asyncHandler(
 
 export const getDonationRequests = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as GetDonationRequestsParams;
     const { limit, page, status, sortBy, sortOrder } =
-      req.query as GetDonationRequestsQuery;
+      req.query as unknown as GetDonationRequestsQuery;
 
-    const result = await getDonationRequestsService(userId!, donationId, {
+    const result = await getDonationRequestsService(donorId!, donationId, {
       limit,
       page,
       status,
@@ -223,12 +223,12 @@ export const getDonationRequests = asyncHandler(
 
 export const getSingleDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId, reqId } =
       req.params as GetSingleDonationRequestParams;
 
     const request = await getSingleDonationRequestService(
-      userId!,
+      donorId!,
       donationId,
       reqId,
     );
@@ -243,10 +243,10 @@ export const getSingleDonationRequest = asyncHandler(
 
 export const acceptDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId, reqId } = req.params as AcceptRequestParams;
 
-    await acceptDonationRequestService(userId!, donationId, reqId);
+    await acceptDonationRequestService(donorId!, donationId, reqId);
 
     res.status(200).json({
       success: true,
@@ -257,10 +257,10 @@ export const acceptDonationRequest = asyncHandler(
 
 export const rejectDonationRequest = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId, reqId } = req.params as RejectRequestParams;
 
-    await rejectDonationRequestService(userId!, donationId, reqId);
+    await rejectDonationRequestService(donorId!, donationId, reqId);
 
     res.status(200).json({
       success: true,
@@ -271,12 +271,12 @@ export const rejectDonationRequest = asyncHandler(
 
 export const getAllDonationClaims = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id } = req.params as GetAllDonationClaimsParams;
     const { page, limit, sortBy, pickupMethod, sortOrder, status } =
-      req.query as GetAllDonationClaimsQuery;
+      req.query as unknown as GetAllDonationClaimsQuery;
 
-    const result = await getAllDonationClaimsService(userId, id, {
+    const result = await getAllDonationClaimsService(donorId!, id, {
       sortBy,
       page,
       limit,
@@ -296,10 +296,10 @@ export const getAllDonationClaims = asyncHandler(
 
 export const getSingleDonationClaim = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id, claimId } = req.params as GetSingleDonationClaimParams;
 
-    const claim = await getSingleDonationClaimService(userId, id, claimId);
+    const claim = await getSingleDonationClaimService(donorId!, id, claimId);
 
     res.status(200).json({
       success: true,
@@ -311,11 +311,11 @@ export const getSingleDonationClaim = asyncHandler(
 
 export const cancelClaim = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { claimId } = req.params as CancelClaimParams;
     const { reason } = req.body as CancelClaimBody;
 
-    await cancelClaimService(userId, claimId, reason);
+    await cancelClaimService(donorId!, claimId, reason);
 
     res.status(200).json({
       success: true,
@@ -326,9 +326,9 @@ export const cancelClaim = asyncHandler(
 
 export const emergencyCancelDonation = asyncHandler(
   async (req: AuthRequest, res: Response) => {
-    const userId = req.user!.id;
+    const donorId = req.user!.donorProfile!.id;
     const { id: donationId } = req.params as OnlyIdParamParams;
-    await emergencyCancelDonationService(userId!, donationId);
+    await emergencyCancelDonationService(donorId!, donationId);
     res.status(200).json({
       success: true,
       message: "Donation cancelled successfully",

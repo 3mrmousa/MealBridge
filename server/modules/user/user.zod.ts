@@ -5,6 +5,7 @@ import {
   VolunteerType,
   TransportType,
 } from "@prisma/client";
+import { egyptianPhoneSchema } from "../../utils/phoneNumber/formatPhoneNumber.js";
 
 // Donor Profile Schema
 export const createDonorProfileSchema = z.object({
@@ -18,7 +19,7 @@ export const createDonorProfileSchema = z.object({
 export const updateDonorProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
-    phone: z.string().min(10).optional(),
+    phone: egyptianPhoneSchema.optional(),
     organizationName: z.string().min(2).optional(),
     organizationType: z.nativeEnum(DonorOrganizationType).optional(),
     otherOrganizationType: z.string().min(2).optional(),
@@ -39,7 +40,7 @@ export const createRecipientProfileSchema = z.object({
 export const updateRecipientProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
-    phone: z.string().min(10).optional(),
+    phone: egyptianPhoneSchema.optional(),
     organizationName: z.string().min(2).optional(),
     organizationType: z.nativeEnum(RecipientOrganizationType).optional(),
     otherOrganizationType: z.string().min(2).optional(),
@@ -59,7 +60,7 @@ export const createVolunteerProfileSchema = z.object({
 export const updateVolunteerProfileSchema = z.object({
   body: z.object({
     name: z.string().min(2).optional(),
-    phone: z.string().min(10).optional(),
+    phone: egyptianPhoneSchema.optional(),
     address: z.string().min(5).optional(),
     type: z.nativeEnum(VolunteerType).optional(),
     transportType: z.nativeEnum(TransportType).optional(),
@@ -94,7 +95,7 @@ export const otpSchema = z.object({
 
 export const changePhoneSchema = z.object({
   body: z.object({
-    phone: z.string().min(10),
+    phone: egyptianPhoneSchema,
   }),
 });
 

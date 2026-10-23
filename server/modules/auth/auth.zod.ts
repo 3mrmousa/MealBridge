@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { Role } from "@prisma/client";
+import { egyptianPhoneSchema } from "../../utils/phoneNumber/formatPhoneNumber.js";
 
 // Register Schemas
 export const registerRequestSchema = z.object({
@@ -9,7 +10,7 @@ export const registerRequestSchema = z.object({
     password: z
       .string()
       .min(8, { message: "Password must be at least 8 characters" }),
-    phone: z.string().min(10, { message: "Phone number is too short" }),
+    phone: egyptianPhoneSchema,
     role: z.enum([Role.DONOR, Role.RECIPIENT, Role.VOLUNTEER], {
       message: "Invalid role selected",
     }),

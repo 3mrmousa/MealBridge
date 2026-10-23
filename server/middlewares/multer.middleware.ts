@@ -31,3 +31,7 @@ export const uploadMultipleFilesForVerificationDocs = upload.fields([
 export const uploadMultipleFilesForDonation = upload.fields([
   { name: "donationPicture", maxCount: 5 },
 ]);
+export const uploadMultiplePicsForSiteSettings = upload.fields([
+  { name: "logo", maxCount: 1 },
+  { name: "favicon", maxCount: 1 },
+]);

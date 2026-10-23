@@ -7,9 +7,18 @@ import {
 } from "../../utils/mail/email.service.js";
 import { hashPassword } from "../../utils/password/passwordFunctions.js";
 import { formatPhoneNumber } from "../../utils/phoneNumber/formatPhoneNumber.js";
-import { Role } from "@prisma/client";
+import { Role, ConversationType, Prisma } from "@prisma/client";
 import { createNotificationService } from "../notification/notification.service.js";
-import { userOnly, userWithProfiles } from "../../database/selectors.js";
+import {
+  userOnly,
+  userWithProfiles,
+  donorWithUser,
+  recipientWithUser,
+  volunteerWithUser,
+  donorOnly,
+  recipientOnly,
+  volunteerOnly,
+} from "../../database/selectors.js";
 
 export const getAllUsersService = async () => {
   const users = await prisma.user.findMany({ select: userOnly });
@@ -330,7 +339,16 @@ export const updateManagerService = async (
 
   if (name) updatedUser.name = name;
   if (email) updatedUser.email = email;
-  if (phone) updatedUser.phone = phone;
+  if (phone) {
+    const formattedPhone = formatPhoneNumber(phone);
+    const userExistByPhone = await prisma.user.findFirst({
+      where: { phone: formattedPhone, NOT: { id } },
+    });
+    if (userExistByPhone) {
+      throw new AppError("Phone number already exists", 400);
+    }
+    updatedUser.phone = formattedPhone;
+  }
   if (password) updatedUser.passwordHash = await hashPassword(password);
 
   await prisma.user.update({
@@ -355,3 +373,205 @@ export const deleteManagerService = async (id: string) => {
     where: { id },
   });
 };
+
+export const getAllChatsService = async (query?: {
+  page?: number;
+  limit?: number;
+  conversationType?: ConversationType;
+  isLocked?: boolean;
+}) => {
+  const { page = 1, limit = 10, conversationType, isLocked } = query || {};
+  const skip = (page - 1) * limit;
+
+  const where: Prisma.ConversationWhereInput = {
+    ...(conversationType ? { conversationType } : {}),
+    ...(isLocked !== undefined ? { isLocked } : {}),
+  };
+
+  const [chats, total] = await Promise.all([
+    prisma.conversation.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { updatedAt: "desc" },
+      include: {
+        donationClaim: {
+          include: {
+            donation: {
+              select: {
+                id: true,
+                title: true,
+                status: true,
+                foodType: true,
+                donor: {
+                  select: {
+                    id: true,
+                    organizationName: true,
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            recipient: {
+              select: {
+                id: true,
+                organizationName: true,
+                user: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                  },
+                },
+              },
+            },
+            delivery: {
+              select: {
+                id: true,
+                status: true,
+                volunteer: {
+                  select: {
+                    id: true,
+                    user: {
+                      select: {
+                        id: true,
+                        name: true,
+                        email: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        participants: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                role: true,
+              },
+            },
+          },
+        },
+        messages: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+        _count: {
+          select: { messages: true },
+        },
+      },
+    }),
+    prisma.conversation.count({ where }),
+  ]);
+
+  return {
+    chats,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    },
+  };
+};
+
+export const getChatByIdService = async (conversationId: string) => {
+  const chat = await prisma.conversation.findUnique({
+    where: { id: conversationId },
+    include: {
+      donationClaim: {
+        include: {
+          donation: {
+            include: {
+              donor: {
+                select: donorWithUser,
+              },
+            },
+          },
+          recipient: {
+            select: recipientWithUser,
+          },
+          donationRequest: true,
+          delivery: {
+            include: {
+              volunteer: {
+                select: volunteerWithUser,
+              },
+            },
+          },
+        },
+      },
+      participants: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              role: true,
+              donorProfile: { select: donorOnly },
+              recipientProfile: { select: recipientOnly },
+              volunteerProfile: { select: volunteerOnly },
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: { createdAt: "asc" },
+        include: {
+          sender: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!chat) {
+    throw new AppError("Conversation not found", 404);
+  }
+
+  const { conversationType, donationClaim } = chat;
+  let parties: Record<string, unknown> = {};
+
+  if (conversationType === ConversationType.DONOR_RECIPIENT) {
+    parties = {
+      donor: donationClaim.donation.donor,
+      recipient: donationClaim.recipient,
+    };
+  } else if (conversationType === ConversationType.RECIPIENT_VOLUNTEER) {
+    parties = {
+      recipient: donationClaim.recipient,
+      volunteer: donationClaim.delivery?.volunteer ?? null,
+    };
+  } else if (conversationType === ConversationType.DONOR_VOLUNTEER) {
+    parties = {
+      donor: donationClaim.donation.donor,
+      volunteer: donationClaim.delivery?.volunteer ?? null,
+    };
+  }
+
+  return {
+    ...chat,
+    parties,
+  };
+};
+

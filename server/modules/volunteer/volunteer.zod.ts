@@ -5,21 +5,21 @@ import z from "zod";
 
 export const getAllDeliveriesSchema = z.object({
   query: z.object({
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(DeliveryStatus).optional(),
-    limit: z.coerce.number().int().positive().optional(),
-    page: z.coerce.number().int().positive().optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 
 export const getDeliveryRequestsSchema = z.object({
   query: z.object({
-    sortBy: z.enum(["createdAt", "updatedAt"]).optional(),
-    sortOrder: z.enum(["asc", "desc"]).optional(),
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().positive().default(10),
     status: z.nativeEnum(DeliveryRequestStatus).optional(),
-    limit: z.coerce.number().int().positive().optional(),
-    page: z.coerce.number().int().positive().optional(),
+    sortBy: z.enum(["createdAt", "updatedAt"]).default("createdAt"),
+    sortOrder: z.enum(["asc", "desc"]).default("desc"),
   }),
 });
 

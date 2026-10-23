@@ -113,7 +113,7 @@ export const createDonationService = async (
   images: Express.Multer.File[],
 ) => {
   const donorProfile = await prisma.donorProfile.findUnique({
-    where: { userId: donorId },
+    where: { id: donorId },
   });
 
   if (!donorProfile) {
@@ -169,8 +169,8 @@ export const updateDonationService = async (
   await prisma.$transaction(async (tx) => {
     await tx.$queryRaw`
       SELECT id
-      FROM "Donation"
-      WHERE id = ${donationId}
+      FROM "donation"
+      WHERE id = ${donationId}::uuid
       FOR UPDATE
     `;
 

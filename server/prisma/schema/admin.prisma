@@ -2,11 +2,11 @@ model SiteSetting {
   id           String   @id @default(uuid()) @map("id") @db.Uuid
   title        String?  @map("title")
   description  String?  @map("description")
-  logoUrl      String?  @map("logo_url")
-  faviconUrl   String?  @map("favicon_url")
+  logo         Json?    @map("logo")
+  favicon      Json?    @map("favicon")
   contactEmail String?  @map("contact_email")
   contactPhone String?  @map("contact_phone")
-  address      String?  @map("address")
+  active       Boolean  @default(false) @map("active")
   updatedById  String   @map("updated_by") @db.Uuid
   updatedAt    DateTime @updatedAt @map("updated_at")
 

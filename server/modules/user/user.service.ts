@@ -95,11 +95,21 @@ export const updateDonorProfileService = async (
     throw new AppError("Please complete your profile setup first", 404);
   }
 
+  const formattedPhone = phone ? formatPhoneNumber(phone) : undefined;
+  if (formattedPhone) {
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: formattedPhone, NOT: { id: userId } },
+    });
+    if (existingPhone) {
+      throw new AppError("Phone number already used by another user", 400);
+    }
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       name,
-      phone,
+      ...(formattedPhone && { phone: formattedPhone }),
       donorProfile: {
         update: {
           address,
@@ -158,11 +168,21 @@ export const updateRecipientProfileService = async (
     throw new AppError("Please complete your profile setup first", 404);
   }
 
+  const formattedPhone = phone ? formatPhoneNumber(phone) : undefined;
+  if (formattedPhone) {
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: formattedPhone, NOT: { id: userId } },
+    });
+    if (existingPhone) {
+      throw new AppError("Phone number already used by another user", 400);
+    }
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       name,
-      phone,
+      ...(formattedPhone && { phone: formattedPhone }),
       recipientProfile: {
         update: {
           address,
@@ -225,11 +245,21 @@ export const updateVolunteerProfileService = async (
     throw new AppError("Please complete your profile setup first", 404);
   }
 
+  const formattedPhone = phone ? formatPhoneNumber(phone) : undefined;
+  if (formattedPhone) {
+    const existingPhone = await prisma.user.findFirst({
+      where: { phone: formattedPhone, NOT: { id: userId } },
+    });
+    if (existingPhone) {
+      throw new AppError("Phone number already used by another user", 400);
+    }
+  }
+
   await prisma.user.update({
     where: { id: userId },
     data: {
       name,
-      phone,
+      ...(formattedPhone && { phone: formattedPhone }),
       volunteerProfile: {
         update: {
           address,

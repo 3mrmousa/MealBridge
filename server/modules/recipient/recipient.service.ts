@@ -124,7 +124,8 @@ export const createDonationRequestService = async (
   message: string,
   deliveryAddress?: string,
 ) => {
-  const { donation, request } = await prisma.$transaction(async (tx) => {
+  const { donation, request, recipientUserId } = await prisma.$transaction(
+    async (tx) => {
     await tx.$queryRaw`
       SELECT id
       FROM "donation"
@@ -133,7 +134,7 @@ export const createDonationRequestService = async (
     `;
 
     const recipient = await tx.recipientProfile.findUnique({
-      where: { userId: recipientId },
+      where: { id: recipientId },
       include: { user: { select: { email: true } } },
     });
 
@@ -159,7 +160,7 @@ export const createDonationRequestService = async (
     }
 
     const existingRequest = await tx.donationRequest.findFirst({
-      where: { recipientId, donationId },
+      where: { recipientId: recipient.id, donationId },
       select: { id: true },
     });
 
@@ -171,7 +172,7 @@ export const createDonationRequestService = async (
 
     const request = await tx.donationRequest.create({
       data: {
-        recipientId,
+        recipientId: recipient.id,
         donationId,
         quantityRequested,
         deliveryAddress: finalDeliveryAddress,
@@ -181,7 +182,7 @@ export const createDonationRequestService = async (
       include: { recipient: { include: { user: { select: { name: true } } } } },
     });
 
-    return { donation, request };
+    return { donation, request, recipientUserId: recipient.userId };
   });
 
   try {
@@ -208,7 +209,7 @@ export const createDonationRequestService = async (
 
   try {
     await createNotificationService(
-      recipientId,
+      recipientUserId,
       `Donation Request you send for ${donation.title}`,
       `Your request for ${donation.title} has been created`,
     );
@@ -677,10 +678,7 @@ export const selfPickupClaimService = async (
     if (!claim) {
       throw new AppError("Claim not found", 404);
     }
-    if (
-      claim.recipientId !== recipientId &&
-      claim.recipient.userId !== recipientId
-    ) {
+    if (claim.recipientId !== recipientId) {
       throw new AppError("Unauthorized", 401);
     }
     if (claim.status !== ClaimStatus.ACTIVE) {

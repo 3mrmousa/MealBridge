@@ -19,6 +19,7 @@ import donorRouter from "./modules/donor/donor.route.js";
 import recipientRouter from "./modules/recipient/recipient.route.js";
 import volunteerRouter from "./modules/volunteer/volunteer.route.js";
 import chatRouter from "./modules/chat/chat.route.js";
+import settingsRouter from "./modules/settings/settings.route.js";
 
 const app = express();
 
@@ -54,6 +55,7 @@ app.use("/api/donors", donorRouter);
 app.use("/api/recipients", recipientRouter);
 app.use("/api/volunteers", volunteerRouter);
 app.use("/api/chats", chatRouter);
+app.use("/api/settings", settingsRouter);
 
 app.use((req: Request, res: Response, next: NextFunction) => {
   next(new AppError(`Route : ${req.originalUrl} not found`, 404));

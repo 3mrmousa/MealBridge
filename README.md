@@ -34,6 +34,9 @@
   - [5. Token Versioning & Session Revocation](#5-token-versioning--session-revocation)
   - [6. Real-Time Chat Channels & Lifecycle Locking](#6-real-time-chat-channels--lifecycle-locking)
   - [7. Self-Pickup & Delivery Confirmation Workflows](#7-self-pickup--delivery-confirmation-workflows)
+  - [8. Egyptian Phone Number Standardization](#8-egyptian-phone-number-standardization)
+  - [9. Global Site Settings Lifecycle & Safeguards](#9-global-site-settings-lifecycle--safeguards)
+  - [10. Admin Chat Inspection & Dispute Moderation](#10-admin-chat-inspection--dispute-moderation)
 - [Database Schema & Enums](#-database-schema--enums)
 - [Standard API Response Format](#-standard-api-response-format)
 - [Complete API Reference](#-complete-api-reference)
@@ -46,6 +49,7 @@
   - [7. Notifications (`/api/notifications`)](#7-notifications-apinotifications--all-authenticated)
   - [8. Reports (`/api/reports`)](#8-reports-apireports--all-authenticated)
   - [9. Real-Time Chat (`/api/chats`)](#9-real-time-chat-apichats--verified-users)
+  - [10. Global Site Settings (`/api/settings`)](#10-global-site-settings-apisettings)
 - [Real-time Events & Email Notifications](#-real-time-events--email-notifications)
   - [Socket.io Architecture & Room System](#socketio-architecture--room-system)
   - [Socket.io Event Reference](#socketio-event-reference)
@@ -255,6 +259,54 @@ MealBridge features a full real-time communication pipeline with automatic provi
   - Releases volunteer availability (`availabilityStatus: true`).
   - Locks all claim chat channels.
   - Sends completion confirmation emails to volunteer, recipient, and donor (`sendCompleteDeliveryVolunteerMail`, `sendCompleteDeliveryRecipientMail`, `sendCompleteDeliveryDonorMail`).
+
+### 8. Egyptian Phone Number Standardization
+- **Validation Regex (`EGYPTIAN_PHONE_REGEX`)**:
+  - Enforces valid Egyptian mobile phone syntax across all authentication schemas, user profile updates, and site contact forms:
+    - Accepts local and international formats: `+20`, `20`, leading `0`, or direct 10-digit number.
+    - Operator prefixes must start with `10` (Vodafone), `11` (Etisalat), `12` (Orange), or `15` (WE).
+    - Ignores internal whitespaces and hyphens.
+- **Canonical Normalization (`formatPhoneNumber`)**:
+  - Automatically transforms all incoming phone formats into the strict canonical format `+20XXXXXXXXXX`.
+  - Applied consistently across all service layers:
+    - User registration & OTP flows (`auth.service.ts`)
+    - Manager account provisioning & updates (`admin.service.ts`)
+    - Donor, Recipient, Volunteer profile & phone updates (`user.service.ts`)
+    - Global site settings contact phone configuration (`settings.service.ts`)
+- **Uniqueness Verification**:
+  - All phone collision checks normalize input via `formatPhoneNumber` before querying the database, ensuring duplicate accounts cannot be created under varying formats (e.g. `01015052567` vs `+201015052567`).
+
+### 9. Global Site Settings Lifecycle & Safeguards
+- **Single Active Setting Pattern**:
+  - Exactly one site setting record is marked `active: true` at any given time, serving public platform metadata, branding, and contact channels.
+- **Auto-Activation on First Record**:
+  - When the initial site setting is created via `createSiteSettingService`, the system checks total setting count; if it is the first record, it defaults to `active: true`. Subsequent records default to `active: false`.
+- **Atomic Activation Toggle (`toggleActiveSiteSettingService`)**:
+  - Exposed via `PATCH /api/settings/admin/:id/active`.
+  - Rejects attempts to toggle a setting that is already active.
+  - Executes inside a Prisma transaction to atomically deactivate the current active configuration (`active: false`) and activate the target record (`active: true`).
+- **Update Immutability of Active Flag (`updateSiteSettingService`)**:
+  - Standard updates modify `title`, `description`, `contactEmail`, `contactPhone`, and handle file replacements for `logo` and `favicon` via Cloudinary.
+  - Active status cannot be mutated through standard updates, preventing accidental branding outages.
+- **Deletion Safeguards & Cloudinary Cleanup (`deleteSiteSettingService`)**:
+  - Deleting the active site setting is strictly blocked (`400 Bad Request`).
+  - Deleting the only remaining site setting in the database is strictly blocked.
+  - Deletion triggers automatic cleanup of stored Cloudinary assets (`logo` and `favicon`) to prevent orphaned cloud media.
+- **Granular Cloudinary Asset Deletion**:
+  - `DELETE /api/settings/admin/:id/logo` removes the logo image from Cloudinary and clears the database column.
+  - `DELETE /api/settings/admin/:id/favicon` removes the favicon image from Cloudinary and clears the database column.
+
+### 10. Admin Chat Inspection & Dispute Moderation
+- **Universal Conversation Access (`GET /api/admin/chats`)**:
+  - Staff (Admins and Managers) can monitor all communication channels across the platform.
+  - Returns all three conversation channels (`DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER`) with pagination, type filtering (`conversationType`), lock status filtering (`isLocked`), latest message preview, and total message counts.
+- **Deep Conversation Audit (`GET /api/admin/chats/:conversationId`)**:
+  - Fetches the entire chronological message transcript (`createdAt: "asc"`) with sender identity details (`id`, `name`, `email`, `role`).
+  - Includes full claim metadata, donation information, and all participant profiles (`donorProfile`, `recipientProfile`, `volunteerProfile`).
+  - Automatically identifies the exact interacting parties via role-tailored mapping (`parties`):
+    - `DONOR_RECIPIENT`: Maps `{ donor, recipient }`
+    - `RECIPIENT_VOLUNTEER`: Maps `{ recipient, volunteer }`
+    - `DONOR_VOLUNTEER`: Maps `{ donor, volunteer }`
 
 ---
 
@@ -504,7 +556,8 @@ All protected endpoints require an authenticated session via HttpOnly `access_to
 | `POST` | `/managers` | ADMIN only | Create a new manager account |
 | `PATCH` | `/managers/:id` | ADMIN only | Update manager credentials/details |
 | `DELETE` | `/managers/:id` | ADMIN only | Delete a manager account |
-| `GET` | `/chats/:conversationId` | ADMIN, MANAGER | Read-only inspection of conversation messages and participants for moderation |
+| `GET` | `/chats` | ADMIN, MANAGER | List all conversations with pagination, type filtering (`conversationType`), lock status (`isLocked`), latest message preview, and total message counts |
+| `GET` | `/chats/:conversationId` | ADMIN, MANAGER | Read-only inspection of conversation messages and participants for moderation; includes complete claim context, participant profiles, role-tailored `parties` mapping (`DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, `DONOR_VOLUNTEER`), and full chronological message log |
 
 ---
 
@@ -536,6 +589,33 @@ Requires authentication (`protect`) and an approved profile (`isProfileVerified`
 | :--- | :--- | :--- | :--- |
 | `GET` | `/conversations` | None | List all active conversations for the authenticated user, including latest message preview and participants |
 | `GET` | `/conversations/:id/messages` | `cursor?: string`, `limit?: number` | Cursor-paginated message history (default limit: 30) for a conversation. Verifies user membership |
+
+---
+
+### 10. Global Site Settings (`/api/settings`)
+
+Provides public access to active site branding/contact channels and restricted configuration management for Admins and Managers.
+
+#### Public Endpoint
+
+| Method | Endpoint | Allowed Roles | Description |
+| :--- | :--- | :---: | :--- |
+| `GET` | `/` | Public (Anyone) | Fetches the currently active site setting (title, description, logo, favicon, contactEmail, contactPhone, updatedAt) |
+
+#### Admin & Manager Endpoints — 🔒 ADMIN, MANAGER
+
+Requires authentication (`protect`) and staff authorization (`authorizeRoles("ADMIN", "MANAGER")`).
+
+| Method | Endpoint | Content-Type | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/admin` | `application/json` | List all site settings in the database |
+| `GET` | `/admin/:id` | `application/json` | Retrieve details of a specific site setting by ID |
+| `POST` | `/admin` | `multipart/form-data` | Create a new site setting with optional `logo` and `favicon` uploads (auto-active if first record) |
+| `PATCH` | `/admin/:id` | `multipart/form-data` | Update setting fields and/or replace `logo`/`favicon` (cannot alter `active` status) |
+| `PATCH` | `/admin/:id/active` | `application/json` | Atomically toggle this setting to active and deactivate the previous active setting |
+| `DELETE` | `/admin/:id` | `application/json` | Delete setting and remove its Cloudinary assets (forbidden if active or sole setting) |
+| `DELETE` | `/admin/:id/logo` | `application/json` | Delete setting logo from Cloudinary and set database column to `null` |
+| `DELETE` | `/admin/:id/favicon` | `application/json` | Delete setting favicon from Cloudinary and set database column to `null` |
 
 ---
 
@@ -640,6 +720,11 @@ MealBridge/
     │   │   ├── report.route.ts
     │   │   ├── report.service.ts
     │   │   └── report.zod.ts
+    │   ├── settings/                  # Global site configuration, branding & Cloudinary assets
+    │   │   ├── settings.controller.ts
+    │   │   ├── settings.route.ts
+    │   │   ├── settings.service.ts
+    │   │   └── settings.zod.ts
     │   ├── user/                      # Multi-role profile CRUD, verification docs, credentials
     │   │   ├── user.controller.ts
     │   │   ├── user.otp.store.ts
@@ -682,10 +767,13 @@ MealBridge/
 ---
 
 ### Key Takeaways for Developers:
-1. **User ID vs. Profile ID Distinction**: `User.id` represents the primary account identity. `DonorProfile.id`, `RecipientProfile.id`, and `VolunteerProfile.id` are separate primary keys referenced by donation, request, claim, and delivery entities. Ensure controllers pass profile IDs (`req.user!.donorProfile!.id`, `req.user!.recipientProfile!.id`) or traverse relations when querying.
+1. **User ID vs. Profile ID Distinction**: `User.id` represents the primary account identity. `DonorProfile.id`, `RecipientProfile.id`, and `VolunteerProfile.id` are separate primary keys referenced by donation, request, claim, and delivery entities. Ensure controllers pass profile IDs (`req.user!.donorProfile!.id`, `req.user!.recipientProfile!.id`, `req.user!.volunteerProfile!.id`) or traverse relations when querying. In contrast, all in-app notifications and real-time chat participants strictly map to `User.id` (`userId`).
 2. **Pessimistic Locking**: All critical quantity deductions and cancellation restorations utilize raw PostgreSQL row locks (`SELECT ... FOR UPDATE`) inside Prisma transactions. Always use lowercase table identifiers (e.g. `"donation"`) with `::uuid` casting.
 3. **Session Invalidation**: Whenever passwords change or accounts are blocked, `tokenVersion` increments to enforce immediate session termination.
 4. **Real-time Lifecycle**: Real-time chat channels auto-provision upon request acceptance and delivery acceptance, and are strictly locked upon claim completion, delivery confirmation, self-pickup, or cancellation.
+5. **Egyptian Phone Standardization**: All phone inputs across registration, manager setup, user profile edits, and site contact info are strictly validated using `EGYPTIAN_PHONE_REGEX` and canonicalized via `formatPhoneNumber` to `+20XXXXXXXXXX`.
+6. **Site Settings Single-Active Invariant**: Only one site configuration is active at any time. Activation is performed transactionally via `toggleActiveSiteSettingService`, preventing race conditions or multiple active configurations. Deleting active or sole settings is prohibited.
+7. **Admin Chat Dispute Moderation**: Admins and Managers have complete read-only visibility into all conversations (`GET /api/admin/chats`) and chronological message histories (`GET /api/admin/chats/:conversationId`), with tailored party mappings for `DONOR_RECIPIENT`, `RECIPIENT_VOLUNTEER`, and `DONOR_VOLUNTEER`.
 
 ---
 
